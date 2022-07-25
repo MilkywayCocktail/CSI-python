@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-07-24
+# Last edit: 2022-07-25
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -119,11 +119,16 @@ class MyCsi(object):
             except DataError as e:
                 print(e)
 
-
-    def aoa_by_music(self):
+    def aoa_by_music(self, theta_list):
         lightspeed = 299792458
         center_freq = 5.68e+09
         dist_antenna = 0.0264
+        twopi = 2 * np.pi
+        nrx = 3
+        nsub = 30
+
+        theta_list = np.array(theta_list.reshape(-1, 1))
+        steering_matrix = np.exp(-1.j * twopi * dist_antenna * np.sin(theta_list))
 
 
 if __name__ == '__main__':
