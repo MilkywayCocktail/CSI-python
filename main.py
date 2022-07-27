@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-07-25
+# Last edit: 2022-07-27
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -11,6 +11,7 @@ from CSIKit.util.filters import hampel
 import numpy as np
 import time
 import os
+import matplotlib.pyplot as plt
 
 
 class MyException(Exception):
@@ -27,7 +28,7 @@ class PathError(MyException):
 
 class DataError(MyException):
     def __str__(self):
-        return "Please run .load_data() to load data"
+        return "No data"
 
 
 class ArgError(MyException):
@@ -36,7 +37,6 @@ class ArgError(MyException):
 
 
 class MyCsi(object):
-
     __credit = 'cao'
 
     def __init__(self, name, path=None):
@@ -63,6 +63,7 @@ class MyCsi(object):
             self.data.amp = csi_amp
             self.data.phase = csi_phase
             self.data.timestamps = csi_data.timestamps
+            self.data.length = no_frames
 
         except PathError as e:
             print(e)
@@ -82,6 +83,8 @@ class MyCsi(object):
             self.amp = None
             self.phase = None
             self.timestamps = None
+            self.length = None
+            self.spectrum = None
 
         def show_shape(self):
             try:
@@ -93,7 +96,7 @@ class MyCsi(object):
                 print(self.name, "data shape: ", *plist, sep='\n')
 
             except DataError as e:
-                print(e)
+                print(e, "Please run .load_data() to load data")
 
         def vis_all_rx(self, metric="amplitude"):
             try:
@@ -114,31 +117,69 @@ class MyCsi(object):
                     BatchGraph.plot_heatmap(csi_matrix_squeezed, self.timestamps)
 
             except ArgError as e:
-                print(e, '\n'+"Please specify \"amplitude\" or \"phase\"")
+                print(e, '\n' + "Please specify \"amplitude\" or \"phase\"")
 
             except DataError as e:
-                print(e)
+                print(e, "Please run .load_data() to load data")
+
+        def vis_spectrum(self):
+            try:
+                if self.spectrum is None:
+                    raise DataError(self.spectrum)
+
+                plt.plot(self.spectrum)
+                plt.title(self.name+" Spectrum")
+                plt.show()
+            except DataError as e:
+                print(e, "Please compute spectrum")
 
     def aoa_by_music(self, theta_list):
         lightspeed = 299792458
-        center_freq = 5.68e+09
-        dist_antenna = 0.0264
-        twopi = 2 * np.pi
+        center_freq = 5.68e+09  # 5.68GHz
+        dist_antenna = lightspeed / center_freq  # 2.64
+        mjtwopi = -1.j * 2 * np.pi
+        torad = np.pi / 180
+        delta_subfreq = 3.125e+05  # 312.5KHz (fixed)
         nrx = 3
-        nsub = 30
+        ntx = 1
 
-        theta_list = np.array(theta_list.reshape(-1, 1))
-        steering_matrix = np.exp(-1.j * twopi * dist_antenna * np.sin(theta_list))
+        # Subcarriers from -58 to 58, step = 4
+        subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
+                                 4 * delta_subfreq)
+        antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
+        spectrum = np.zeros((self.data.amp.shape[0], len(theta_list)))
+
+        print(self.name, "AoA by MUSIC - compute start - ", time.asctime(time.localtime(time.time())))
+        for i in range(self.data.length):
+
+            csi = self.data.amp[i] * np.exp(-1.j * self.data.phase[i] / torad)
+            value, vector = np.linalg.eigh(np.cov(np.squeeze(csi).T))
+
+            descend_order_index = np.argsort(-value)
+            vector = vector[descend_order_index]
+            noise_space = vector[:, ntx:]
+
+            for j, theta in enumerate(theta_list):
+                steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta * torad) *
+                                         antenna_list * center_freq)
+                a_en = np.conjugate(steering_vector.T).dot(noise_space)
+                spectrum[i, j] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
+
+        print(self.name, "compute complete - ", time.asctime(time.localtime(time.time())))
+        self.data.spectrum = spectrum
 
 
 if __name__ == '__main__':
-
     mypath = "data/csi0720Atake6.dat"
+    theta_list = np.arange(-90, 91, 1.)
 
-# CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
+    # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
     today = MyCsi("a6", mypath)
 
     today.load_data()
 
-    today.data.show_shape()
+    today.aoa_by_music(theta_list)
+
+    today.data.vis_spectrum()
+
