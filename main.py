@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-07-28
+# Last edit: 2022-07-29
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -12,6 +12,10 @@ import numpy as np
 import time
 import os
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+import seaborn as sns
+
+now = time.asctime(time.localtime(time.time()))
 
 
 class MyException(Exception):
@@ -51,13 +55,13 @@ class MyCsi(object):
             if self.path is None or not os.path.exists(self.path):
                 raise PathError(self.path)
 
-            print(self.name, "load start...", time.asctime(time.localtime(time.time())))
+            print(self.name, "raw load start...", time.asctime(time.localtime(time.time())))
             csi_reader = get_reader(self.path)
             csi_data = csi_reader.read_file(self.path, scaled=True)
             csi_amp, no_frames, no_subcarriers = csitools.get_CSI(csi_data, metric="amplitude")
             csi_phase, no_frames, no_subcarriers = csitools.get_CSI(csi_data, metric="phase")
 
-            print(self.name, "load complete -", time.asctime(time.localtime(time.time())))
+            print(self.name, "raw load complete -", time.asctime(time.localtime(time.time())))
             self.data.amp = csi_amp
             self.data.phase = csi_phase
             self.data.timestamps = csi_data.timestamps
@@ -71,14 +75,14 @@ class MyCsi(object):
             if self.path is None or not os.path.exists(self.path):
                 raise PathError(self.path)
 
-            print(self.name, "load start...", time.asctime(time.localtime(time.time())))
+            print(self.name, "csi load start...", time.asctime(time.localtime(time.time())))
             csi_data = np.load(self.path)
             self.data.amp = csi_data['csi_amp']
             self.data.phase = csi_data['csi_phase']
             self.data.length = len(csi_data['csi_timestamps'])
             self.data.timestamps = csi_data['csi_timestamps']
 
-            print(self.name, "load complete -", time.asctime(time.localtime(time.time())))
+            print(self.name, "csi load complete -", time.asctime(time.localtime(time.time())))
 
         except PathError as e:
             print(e)
@@ -88,10 +92,10 @@ class MyCsi(object):
             if path is None or not os.path.exists(path):
                 raise PathError(path)
 
-            print(self.name, "load start...", time.asctime(time.localtime(time.time())))
+            print(self.name, "spectrum load start...", time.asctime(time.localtime(time.time())))
             csi_spectrum = np.load(path)
             self.data.spectrum = csi_spectrum['csi_spectrum']
-            print(self.name, "load complete -", time.asctime(time.localtime(time.time())))
+            print(self.name, "spectrum load complete -", time.asctime(time.localtime(time.time())))
 
         except PathError as e:
             print(e)
@@ -156,11 +160,8 @@ class MyCsi(object):
                     raise DataError(self.spectrum)
 
                 print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
-                fig, ax = plt.subplots()
-                ax.set_yticks(theta_list)
-                ax.set_yticklabels(theta_list)
-                im = fig.imshow(self.spectrum, cmap='hot')
-                plt.colorbar(im)
+
+                ax = sns.heatmap(self.spectrum, linewidth=0.5)
                 plt.title(self.name+" Spectrum")
                 print(self.name, "plot complete -", time.asctime(time.localtime(time.time())))
                 plt.show()
@@ -168,7 +169,7 @@ class MyCsi(object):
             except DataError as e:
                 print(e, "Please compute spectrum")
 
-    def save_data(self, save_name=None):
+    def save_csi(self, save_name=None):
         save_path = os.getcwd().replace('\\', '/') + "/npsave"
 
         if not os.path.exists(save_path):
@@ -178,12 +179,12 @@ class MyCsi(object):
             save_name = self.name
 
         # Keys: amp, phase, timestamps
-        print(self.name, "save start...", time.asctime(time.localtime(time.time())))
+        print(self.name, "csi save start...", now)
         np.savez(save_path + "/" + save_name + "-csis.npz",
                  csi_amp=self.data.amp,
                  csi_phase=self.data.phase,
                  csi_timestamps=self.data.timestamps)
-        print(self.name, "save complete -", time.asctime(time.localtime(time.time())))
+        print(self.name, "csi save complete -", time.asctime(time.localtime(time.time())))
 
     def save_spectrum(self, save_name=None):
         save_path = os.getcwd().replace('\\', '/') + "/npsave"
@@ -195,14 +196,14 @@ class MyCsi(object):
             save_name = self.name
 
         # Keys: spectrum, info
-        print(self.name, "save start...", time.asctime(time.localtime(time.time())))
+        print(self.name, "spectrum save start...", time.asctime(time.localtime(time.time())))
         np.savez(save_path + "/" + save_name + "-spectrum.npz",
                  csi_spectrum=self.data.spectrum)
-        print(self.name, "save complete -", time.asctime(time.localtime(time.time())))
+        print(self.name, "spectrum save complete -", time.asctime(time.localtime(time.time())))
 
     def aoa_by_music(self, theta_list):
         lightspeed = 299792458
-        center_freq = 5.68e+09  # 5.68GHz
+        center_freq = 5.67e+09  # 5.67GHz
         dist_antenna = lightspeed / center_freq  # 2.64
         mjtwopi = -1.j * 2 * np.pi
         torad = np.pi / 180
@@ -214,7 +215,7 @@ class MyCsi(object):
         subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
                                  4 * delta_subfreq)
         antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
-        spectrum = np.zeros((self.data.amp.shape[0], len(theta_list)))
+        spectrum = np.zeros((len(theta_list), self.data.amp.shape[0]))
 
         print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
@@ -240,7 +241,7 @@ class MyCsi(object):
                 steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta * torad) *
                                          antenna_list * center_freq)
                 a_en = np.conjugate(steering_vector.T).dot(noise_space)
-                spectrum[i, j] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
+                spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
         print(self.name, "compute complete -", time.asctime(time.localtime(time.time())))
         self.data.spectrum = spectrum
@@ -251,18 +252,37 @@ if __name__ == '__main__':
     npzpath = "npsave/0720A6-csis.npz"
     pmpath = "npsave/0720A6-spectrum.npz"
 
-    theta_list = np.arange(-90, 91, 1.)
+    theta_list = np.arange(-180, 180, 1.)
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
-    today = MyCsi("a6", npzpath)
+    name = "0720A6"
+
+    today = MyCsi(name, npzpath)
+
+#    today.load_data()
 
     today.load_npz()
 
-#    today.save_data("0720A6")
+#    today.save_csi(name)
 
     today.aoa_by_music(theta_list)
 
+    today.save_spectrum("0720A6_360")
+
 #    today.load_spectrum(pmpath)
 
-    today.data.vis_spectrum(theta_list)
+    print(today.data.spectrum.shape)
+
+    spectrum = np.array(today.data.spectrum)
+    spectrum[spectrum>2] = 2
+
+    ax = sns.heatmap(spectrum)
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(60))
+    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-240, -180, -120, -60, 0, 60, 120, 180]))
+    ax.yaxis.set_minor_locator(ticker.MultipleLocator(20))
+    ax.set_xlabel("#timestamp")
+    ax.set_ylabel("Angel / $deg$")
+    ax.collections[0].colorbar.set_label('Power / $dB$')
+    plt.title(name + " AoA Spectrum")
+    plt.show()
