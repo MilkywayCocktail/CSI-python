@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-08-01
+# Last edit: 2022-08-03
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -216,7 +216,7 @@ class MyCsi(object):
                  csi_spectrum=self.data.spectrum)
         print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
 
-    def aoa_by_music(self, theta_list):
+    def aoa_by_music(self, theta_list, smooth=True):
         lightspeed = 299792458
         center_freq = 5.67e+09  # 5.67GHz
         dist_antenna = lightspeed / center_freq  # 2.64
@@ -264,6 +264,15 @@ class MyCsi(object):
             vector = vector[descend_order_index]
             noise_space = vector[:, ntx:]
 
+            if smooth is True:
+                smoothed_csi = self.smooth_csi(csi)
+
+                for j, theta in enumerate(theta_list):
+                    steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta * torad) *
+                                             antenna_list * center_freq)
+                    a_en = np.conjugate(steering_vector.T).dot(noise_space)
+                    spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
+
             for j, theta in enumerate(theta_list):
                 steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta * torad) *
                                          antenna_list * center_freq)
@@ -273,10 +282,30 @@ class MyCsi(object):
         print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
         self.data.spectrum = spectrum
 
+    def smooth_csi(self, input_csi):
+
+        # A must-use function in Spotfi MUSIC
+        # Expands 3*30 CSI matrix into 30*32
+        output = np.zeros((30, 32))
+        temp = np.zeros((3, 15, 16))
+
+        for i in range(3):
+            temp[i, 0, :] = input_csi[i, 0:16]
+
+            for j in range(1, 15):
+                temp[i, j, :] = input_csi[i, j:j + 16]
+
+        output[0:15, 0:16] = temp[0]
+        output[15:30, 0:16] = temp[1]
+        output[0:15, 16:32] = temp[1]
+        output[15:30, 16:32] = temp[2]
+
+        return output
+
 
 if __name__ == '__main__':
 
-    name = "0720Btake9"
+    name = "0803A1"
 
     mypath = "data/csi" + name + ".dat"
     npzpath = "npsave/" + name + "-csis.npz"
