@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-08-03
+# Last edit: 2022-08-12
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -64,7 +64,7 @@ class MyCsi(object):
                 self.data.phase = csi_phase
                 self.data.timestamps = csi_data.timestamps
                 self.data.length = no_frames
-                print(self.name, "raw load complete -", time.asctime(time.localtime(time.time())))
+                print(self.name, "raw load complete", time.asctime(time.localtime(time.time())))
 
             elif self.path[-3:] == "npz":
                 print(self.name, "npz load start...", time.asctime(time.localtime(time.time())))
@@ -216,7 +216,7 @@ class MyCsi(object):
                  csi_spectrum=self.data.spectrum)
         print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
 
-    def aoa_by_music(self, theta_list, smooth=True):
+    def aoa_by_music(self, theta_list, smooth=False):
         lightspeed = 299792458
         center_freq = 5.67e+09  # 5.67GHz
         dist_antenna = lightspeed / center_freq  # 2.64
@@ -305,13 +305,13 @@ class MyCsi(object):
 
 if __name__ == '__main__':
 
-    name = "0803A1"
+    name = "0810C1"
 
     mypath = "data/csi" + name + ".dat"
     npzpath = "npsave/" + name + "-csis.npz"
-    pmpath = "npsave/" + name + "-spectrum.npz"
+    pmpath = "npsave/" + name + "_180-spectrum.npz"
 
-    theta_list = np.arange(-180, 180, 1.)
+    theta_list = np.arange(-90, 91, 1.)
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
@@ -323,7 +323,7 @@ if __name__ == '__main__':
 
     today.aoa_by_music(theta_list)
 
-    today.save_spectrum(name + "_360")
+    today.save_spectrum(name + "_180")
 
 #    today.load_spectrum(pmpath)
 
