@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-08-12
+# Last edit: 2022-09-02
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -153,6 +153,7 @@ class MyCsi(object):
                 print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
 
                 spectrum = np.array(today.data.spectrum)
+                print(spectrum.shape)
                 spectrum[spectrum > threshold] = threshold
 
                 ax = sns.heatmap(spectrum)
@@ -176,7 +177,7 @@ class MyCsi(object):
                 plt.show()
 
             except DataError as e:
-                print(e, "Please compute spectrum")
+                print(e, "\nPlease compute spectrum")
 
     def save_csi(self, save_name=None):
         try:
@@ -216,7 +217,7 @@ class MyCsi(object):
                  csi_spectrum=self.data.spectrum)
         print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
 
-    def aoa_by_music(self, theta_list, smooth=False):
+    def aoa_by_music(self, input_theta_list, smooth=False):
         lightspeed = 299792458
         center_freq = 5.67e+09  # 5.67GHz
         dist_antenna = lightspeed / center_freq  # 2.64
@@ -230,14 +231,17 @@ class MyCsi(object):
         subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
                                  4 * delta_subfreq)
         antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
-        spectrum = np.zeros((len(theta_list), self.data.amp.shape[0]))
+
+        spectrum = np.zeros((len(input_theta_list), 1000))
 
         print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
+        if smooth is True:
+            print("Apply Smoothing via SpotFi...")
 
         temp_amp = 0
         temp_phase = 0
 
-        for i in range(self.data.length):
+        for i in range(1000):
 
             invalid_flag = np.where(self.data.amp[i] == float('-inf'))
 
@@ -257,6 +261,10 @@ class MyCsi(object):
                 temp_amp = self.data.amp[j]
                 temp_phase = self.data.phase[j]
 
+            if smooth is True:
+                temp_amp = self.smooth_csi(np.squeeze(temp_amp))
+                temp_phase = self.smooth_csi(np.squeeze(temp_phase))
+
             csi = np.squeeze(temp_amp) * np.exp(1.j * np.squeeze(temp_phase))
 
             value, vector = np.linalg.eigh(np.cov(csi.T))
@@ -264,48 +272,49 @@ class MyCsi(object):
             vector = vector[descend_order_index]
             noise_space = vector[:, ntx:]
 
-            if smooth is True:
-                smoothed_csi = self.smooth_csi(csi)
+            #print(value[descend_order_index])
 
-                for j, theta in enumerate(theta_list):
+            for j, theta in enumerate(input_theta_list):
+                if smooth is True:
+                    steering_vector = np.exp([mjtwopi * dist_antenna * np.sin(theta * torad) *
+                                             no_antenna * sub_freq for no_antenna in antenna_list[:2]
+                                             for sub_freq in subfreq_list[:15]])
+                else:
                     steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta * torad) *
                                              antenna_list * center_freq)
-                    a_en = np.conjugate(steering_vector.T).dot(noise_space)
-                    spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
-            for j, theta in enumerate(theta_list):
-                steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta * torad) *
-                                         antenna_list * center_freq)
                 a_en = np.conjugate(steering_vector.T).dot(noise_space)
                 spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
         print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
         self.data.spectrum = spectrum
+        print(spectrum.shape)
 
-    def smooth_csi(self, input_csi):
+    def sanitize_phase(self):
+        pass
 
-        # A must-use function in Spotfi MUSIC
-        # Expands 3*30 CSI matrix into 30*32
-        output = np.zeros((30, 32))
-        temp = np.zeros((3, 15, 16))
+    def smooth_csi(self, input_csi, rx=2, sub=15):
+        """
+        :param input_csi:  [packet, sub, rx]
+        :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
+        :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
+        :return: smoothed csi
+        You have to run for amplitude and phase each
+        """
+        nrx = input_csi.shape[1]
+        nsub = input_csi.shape[0]
 
-        for i in range(3):
-            temp[i, 0, :] = input_csi[i, 0:16]
+        input_csi = input_csi.reshape((nrx, nsub))
 
-            for j in range(1, 15):
-                temp[i, j, :] = input_csi[i, j:j + 16]
+        output = [input_csi[i:i + rx, j:j + sub].reshape(-1)
+                  for i in range(nrx - rx + 1)
+                  for j in range(nsub - sub + 1)]
 
-        output[0:15, 0:16] = temp[0]
-        output[15:30, 0:16] = temp[1]
-        output[0:15, 16:32] = temp[1]
-        output[15:30, 16:32] = temp[2]
-
-        return output
-
+        return np.array(output)
 
 if __name__ == '__main__':
 
-    name = "0810C1"
+    name = "0813C15"
 
     mypath = "data/csi" + name + ".dat"
     npzpath = "npsave/" + name + "-csis.npz"
@@ -315,18 +324,22 @@ if __name__ == '__main__':
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
-    today = MyCsi(name, mypath)
+    today = MyCsi(name, npzpath)
 
     today.load_data()
 
-    today.save_csi(name)
+#    today.data.show_shape()
 
-    today.aoa_by_music(theta_list)
+#    today.save_csi(name)
 
-    today.save_spectrum(name + "_180")
+    today.aoa_by_music(theta_list, smooth=True)
+
+#    today.save_spectrum(name + "_180")
 
 #    today.load_spectrum(pmpath)
 
-    print(today.data.spectrum.shape)
+#    print(today.data.spectrum.shape)
 
     today.data.vis_spectrum(2)
+
+
