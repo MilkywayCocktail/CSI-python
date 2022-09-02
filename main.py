@@ -153,7 +153,6 @@ class MyCsi(object):
                 print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
 
                 spectrum = np.array(today.data.spectrum)
-                print(spectrum.shape)
                 spectrum[spectrum > threshold] = threshold
 
                 ax = sns.heatmap(spectrum)
@@ -314,7 +313,7 @@ class MyCsi(object):
 
 if __name__ == '__main__':
 
-    name = "0813C15"
+    name = "0812C01"
 
     mypath = "data/csi" + name + ".dat"
     npzpath = "npsave/" + name + "-csis.npz"
@@ -340,6 +339,6 @@ if __name__ == '__main__':
 
 #    print(today.data.spectrum.shape)
 
-    today.data.vis_spectrum(2)
+    today.data.vis_spectrum(0.05)
 
 
