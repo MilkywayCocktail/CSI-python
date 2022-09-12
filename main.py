@@ -152,7 +152,7 @@ class MyCsi(object):
 
                 print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
 
-                spectrum = np.array(today.data.spectrum)
+                spectrum = np.array(self.data.spectrum)
                 spectrum[spectrum > threshold] = threshold
 
                 ax = sns.heatmap(spectrum)
@@ -304,7 +304,7 @@ class MyCsi(object):
         nrx = input_csi.shape[1]
         nsub = input_csi.shape[0]
 
-        input_csi = input_csi.reshape((nrx, nsub))
+        input_csi = input_csi.swapaxes(0, 1)
 
         output = [input_csi[i:i + rx, j:j + sub].reshape(-1)
                   for i in range(nrx - rx + 1)
