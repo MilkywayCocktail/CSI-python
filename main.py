@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-02
+# Last edit: 2022-09-12
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -39,10 +39,10 @@ class ArgError(MyException):
 class MyCsi(object):
     __credit = 'cao'
 
-    def __init__(self, name, path=None):
-        self.name = str(name)
+    def __init__(self, input_name, path=None):
+        self.name = str(input_name)
         self.path = path
-        self.data = self._Data(name)
+        self.data = self._Data(input_name)
 
     def set_path(self, path):
         self.path = path
@@ -219,7 +219,7 @@ class MyCsi(object):
     def aoa_by_music(self, input_theta_list, smooth=False):
         lightspeed = 299792458
         center_freq = 5.67e+09  # 5.67GHz
-        dist_antenna = lightspeed / center_freq  # 2.64
+        dist_antenna = lightspeed / center_freq / 2.  # 2.64
         mjtwopi = -1.j * 2 * np.pi
         torad = np.pi / 180
         delta_subfreq = 3.125e+05  # 312.5KHz (fixed)
@@ -231,7 +231,7 @@ class MyCsi(object):
                                  4 * delta_subfreq)
         antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
 
-        spectrum = np.zeros((len(input_theta_list), 1000))
+        spectrum = np.zeros((len(input_theta_list), self.data.length))
 
         print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
         if smooth is True:
@@ -240,7 +240,7 @@ class MyCsi(object):
         temp_amp = 0
         temp_phase = 0
 
-        for i in range(1000):
+        for i in range(self.data.length):
 
             invalid_flag = np.where(self.data.amp[i] == float('-inf'))
 
@@ -266,9 +266,9 @@ class MyCsi(object):
 
             csi = np.squeeze(temp_amp) * np.exp(1.j * np.squeeze(temp_phase))
 
-            value, vector = np.linalg.eigh(np.cov(csi.T))
+            value, vector = np.linalg.eigh(csi.T.dot(np.conjugate(csi)))
             descend_order_index = np.argsort(-value)
-            vector = vector[descend_order_index]
+            vector = vector[:, descend_order_index]
             noise_space = vector[:, ntx:]
 
             #print(value[descend_order_index])
@@ -276,11 +276,12 @@ class MyCsi(object):
             for j, theta in enumerate(input_theta_list):
                 if smooth is True:
                     steering_vector = np.exp([mjtwopi * dist_antenna * np.sin(theta * torad) *
-                                             no_antenna * sub_freq for no_antenna in antenna_list[:2]
+                                             no_antenna * sub_freq / lightspeed
+                                             for no_antenna in antenna_list[:2]
                                              for sub_freq in subfreq_list[:15]])
                 else:
                     steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta * torad) *
-                                             antenna_list * center_freq)
+                                             antenna_list * center_freq / lightspeed)
 
                 a_en = np.conjugate(steering_vector.T).dot(noise_space)
                 spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
@@ -319,19 +320,19 @@ if __name__ == '__main__':
     npzpath = "npsave/" + name + "-csis.npz"
     pmpath = "npsave/" + name + "_180-spectrum.npz"
 
-    theta_list = np.arange(-90, 91, 1.)
+#    theta_list = np.arange(-90, 91, 1.)
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
-    today = MyCsi(name, npzpath)
+#    today = MyCsi(name, npzpath)
 
-    today.load_data()
+#    today.load_data()
 
 #    today.data.show_shape()
 
 #    today.save_csi(name)
 
-    today.aoa_by_music(theta_list, smooth=True)
+#    today.aoa_by_music(theta_list, smooth=True)
 
 #    today.save_spectrum(name + "_180")
 
@@ -339,6 +340,6 @@ if __name__ == '__main__':
 
 #    print(today.data.spectrum.shape)
 
-    today.data.vis_spectrum(0.05)
+#    today.data.vis_spectrum(0.05)
 
 
