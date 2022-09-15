@@ -1,11 +1,3 @@
-from CSIKit.reader import get_reader
-from CSIKit.util import csitools
-from CSIKit.tools.batch_graph import BatchGraph
-
-from CSIKit.filters.passband import lowpass
-from CSIKit.filters.statistical import running_mean
-from CSIKit.util.filters import hampel
-
 import numpy as np
 import time
 import os
@@ -58,7 +50,7 @@ plt.show()
 '''
 # Processing
 
-name = "0812C02"
+name = "0812C01"
 
 mypath = "data/csi" + name + ".dat"
 npzpath = "npsave/" + name + "-csis.npz"
@@ -95,10 +87,7 @@ standard.load_data()
 #today.data.vis_all_rx("phase")
 #standard.data.vis_all_rx("phase")
 
-relative_phase = standard.data.phase - standard.data.phase[:, :, 0].repeat(3, axis=2).reshape((239422,30,3,1))
-offset = np.angle(np.mean(np.exp(-1.j * relative_phase), axis=0))
-today.data.phase = today.data.phase + offset
-
+today.calibrate_aoa(standard)
 today.aoa_by_music(theta_list)
 today.data.vis_spectrum(0)
 
