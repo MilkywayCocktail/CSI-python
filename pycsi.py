@@ -149,7 +149,7 @@ class MyCsi(object):
             except DataError as e:
                 print(e, "Please run .load_data() or .load_npz()")
 
-        def vis_spectrum(self, threshold=10):
+        def vis_spectrum(self, threshold=0):
             try:
                 if self.spectrum is None:
                     raise DataError(self.spectrum)
