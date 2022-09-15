@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-12
+# Last edit: 2022-09-13
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -48,6 +48,15 @@ class MyCsi(object):
         self.path = path
         print(self.name, "path set")
 
+    def show_path(self):
+        try:
+            if self.path is None:
+                raise PathError(self.path)
+            print(self.name, "path: ", self.path)
+
+        except PathError as e:
+            print(e)
+
     def load_data(self):
         try:
             if self.path is None or not os.path.exists(self.path):
@@ -91,18 +100,9 @@ class MyCsi(object):
         except PathError as e:
             print(e)
 
-    def show_path(self):
-        try:
-            if self.path is None:
-                raise PathError(self.path)
-            print(self.name, "path: ", self.path)
-
-        except PathError as e:
-            print(e)
-
     class _Data:
-        def __init__(self, name):
-            self.name = name
+        def __init__(self, input_name):
+            self.name = input_name
             self.amp = None
             self.phase = None
             self.timestamps = None
@@ -135,9 +135,13 @@ class MyCsi(object):
                 if csi_matrix is None:
                     raise DataError(self.amp)
 
+                print(self.name, metric, "plotting...", time.asctime(time.localtime(time.time())))
+
                 for rx in range(csi_matrix.shape[2]):
                     csi_matrix_squeezed = np.squeeze(csi_matrix[:, :, rx, 0])
                     BatchGraph.plot_heatmap(csi_matrix_squeezed, self.timestamps)
+
+                print(self.name, metric, "plot complete", time.asctime(time.localtime(time.time())))
 
             except ArgError as e:
                 print(e, '\n' + "Please specify \"amplitude\" or \"phase\"")
@@ -152,8 +156,10 @@ class MyCsi(object):
 
                 print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
 
-                spectrum = np.array(self.data.spectrum)
-                spectrum[spectrum > threshold] = threshold
+                spectrum = np.array(self.spectrum)
+
+                if threshold != 0:
+                    spectrum[spectrum > threshold] = threshold
 
                 ax = sns.heatmap(spectrum)
 
@@ -170,7 +176,7 @@ class MyCsi(object):
                 ax.set_xlabel("#timestamp")
                 ax.set_ylabel("Angel / $deg$")
                 ax.collections[0].colorbar.set_label('Power / $dB$')
-                plt.title(name + " AoA Spectrum")
+                plt.title(self.name + " AoA Spectrum")
 
                 print(self.name, "plot complete", time.asctime(time.localtime(time.time())))
                 plt.show()
@@ -312,34 +318,41 @@ class MyCsi(object):
 
         return np.array(output)
 
+    def calibrate_aoa(self, input_mycsi):
+        standard_phase = input_mycsi.data.phase
+        relative_phase = standard_phase - standard_phase[:, :, 0].repeat(3, axis=2).reshape(np.shape(standard_phase))
+        offset = np.angle(np.mean(np.exp(-1.j * relative_phase), axis=0))
+        today.data.phase = today.data.phase + offset
+
+
 if __name__ == '__main__':
 
     name = "0812C01"
 
     mypath = "data/csi" + name + ".dat"
     npzpath = "npsave/" + name + "-csis.npz"
-    pmpath = "npsave/" + name + "_180-spectrum.npz"
+    pmpath = "npsave/" + name + "-spectrum.npz"
 
-#    theta_list = np.arange(-90, 91, 1.)
+    theta_list = np.arange(-90, 91, 1.)
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
-#    today = MyCsi(name, npzpath)
+    today = MyCsi(name, npzpath)
 
-#    today.load_data()
+    today.load_data()
 
 #    today.data.show_shape()
 
 #    today.save_csi(name)
 
-#    today.aoa_by_music(theta_list, smooth=True)
+    today.aoa_by_music(theta_list, smooth=False)
 
-#    today.save_spectrum(name + "_180")
+#    today.save_spectrum(name)
 
 #    today.load_spectrum(pmpath)
 
 #    print(today.data.spectrum.shape)
 
-#    today.data.vis_spectrum(0.05)
+    today.data.vis_spectrum(2)
 
 
