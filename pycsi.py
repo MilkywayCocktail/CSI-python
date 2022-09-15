@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-13
+# Last edit: 2022-09-15
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -232,6 +232,25 @@ class MyCsi(object):
         nrx = 3
         ntx = 1
 
+        def smooth_csi(input_csi, rx=2, sub=15):
+            """
+            :param input_csi:  [packet, sub, rx]
+            :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
+            :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
+            :return: smoothed csi
+            You have to run for amplitude and phase each
+            """
+            nrx = input_csi.shape[1]
+            nsub = input_csi.shape[0]
+
+            input_csi = input_csi.swapaxes(0, 1)
+
+            output = [input_csi[i:i + rx, j:j + sub].reshape(-1)
+                      for i in range(nrx - rx + 1)
+                      for j in range(nsub - sub + 1)]
+
+            return np.array(output)
+
         # Subcarriers from -58 to 58, step = 4
         subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
                                  4 * delta_subfreq)
@@ -267,8 +286,8 @@ class MyCsi(object):
                 temp_phase = self.data.phase[j]
 
             if smooth is True:
-                temp_amp = self.smooth_csi(np.squeeze(temp_amp))
-                temp_phase = self.smooth_csi(np.squeeze(temp_phase))
+                temp_amp = smooth_csi(np.squeeze(temp_amp))
+                temp_phase = smooth_csi(np.squeeze(temp_phase))
 
             csi = np.squeeze(temp_amp) * np.exp(1.j * np.squeeze(temp_phase))
 
@@ -299,30 +318,15 @@ class MyCsi(object):
     def sanitize_phase(self):
         pass
 
-    def smooth_csi(self, input_csi, rx=2, sub=15):
-        """
-        :param input_csi:  [packet, sub, rx]
-        :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
-        :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
-        :return: smoothed csi
-        You have to run for amplitude and phase each
-        """
-        nrx = input_csi.shape[1]
-        nsub = input_csi.shape[0]
-
-        input_csi = input_csi.swapaxes(0, 1)
-
-        output = [input_csi[i:i + rx, j:j + sub].reshape(-1)
-                  for i in range(nrx - rx + 1)
-                  for j in range(nsub - sub + 1)]
-
-        return np.array(output)
-
     def calibrate_aoa(self, input_mycsi):
+        """
+        :param input_mycsi: CSI recorded at 0-deg
+        :return: calibrated phase regarding 0-deg
+        """
         standard_phase = input_mycsi.data.phase
         relative_phase = standard_phase - standard_phase[:, :, 0].repeat(3, axis=2).reshape(np.shape(standard_phase))
         offset = np.angle(np.mean(np.exp(-1.j * relative_phase), axis=0))
-        today.data.phase = today.data.phase + offset
+        self.data.phase = self.data.phase - offset
 
 
 if __name__ == '__main__':
