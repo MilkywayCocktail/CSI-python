@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-15
+# Last edit: 2022-09-16
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -28,7 +28,7 @@ class PathError(MyException):
 
 class DataError(MyException):
     def __str__(self):
-        return "No data"
+        return "No data of" + str(self.catch)
 
 
 class ArgError(MyException):
@@ -113,7 +113,9 @@ class MyCsi(object):
             try:
                 if self.amp is None:
                     raise DataError(self.amp)
-
+                if self.phase is None:
+                    raise DataError(self.phase)
+                
                 items = ["no_frames=", "no_subcarriers=", "no_rx_ant=", "no_tx_ant="]
                 plist = [a + str(b) for a, b in zip(items, self.amp.shape)]
                 print(self.name, "data shape: ", *plist, sep='\n')
@@ -222,7 +224,12 @@ class MyCsi(object):
                  csi_spectrum=self.data.spectrum)
         print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
 
-    def aoa_by_music(self, input_theta_list, smooth=False):
+    def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
+        """
+        :param input_theta_list: list of angels, default = -90~90
+        :param smooth: whether apply SpotFi smoothing or not, default = False
+        :return: AoA spectrum by MUSIC stored in self.data.spectrum
+        """
         lightspeed = 299792458
         center_freq = 5.67e+09  # 5.67GHz
         dist_antenna = lightspeed / center_freq / 2.  # 2.64
@@ -250,83 +257,104 @@ class MyCsi(object):
                       for j in range(nsub - sub + 1)]
 
             return np.array(output)
-
-        # Subcarriers from -58 to 58, step = 4
-        subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
-                                 4 * delta_subfreq)
-        antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
-
-        spectrum = np.zeros((len(input_theta_list), self.data.length))
-
-        print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
-        if smooth is True:
-            print("Apply Smoothing via SpotFi...")
-
-        temp_amp = 0
-        temp_phase = 0
-
-        for i in range(self.data.length):
-
-            invalid_flag = np.where(self.data.amp[i] == float('-inf'))
-
-            if len(invalid_flag[0]) == 0:
-                temp_amp = self.data.amp[i]
-                temp_phase = self.data.phase[i]
-
-            if len(invalid_flag[0]) != 0 and i == 0:
-
-                j = i
-                temp_flag = invalid_flag
-
-                while len(temp_flag[0] != 0) and j < self.data.length:
-                    j += 1
-                    temp_flag = np.where(self.data.amp[j] == float('-inf'))
-
-                temp_amp = self.data.amp[j]
-                temp_phase = self.data.phase[j]
-
-            if smooth is True:
-                temp_amp = smooth_csi(np.squeeze(temp_amp))
-                temp_phase = smooth_csi(np.squeeze(temp_phase))
-
-            csi = np.squeeze(temp_amp) * np.exp(1.j * np.squeeze(temp_phase))
-
-            value, vector = np.linalg.eigh(csi.T.dot(np.conjugate(csi)))
-            descend_order_index = np.argsort(-value)
-            vector = vector[:, descend_order_index]
-            noise_space = vector[:, ntx:]
-
-            #print(value[descend_order_index])
-
-            for j, theta in enumerate(input_theta_list):
+        
+        try:
+            if self.data.amp is None:
+                raise DataError(self.data.amp)
+            if self.data.phase is None:
+                raise DataError(self.data.phase)
+            else:
+                # Subcarriers from -58 to 58, step = 4
+                subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
+                                         4 * delta_subfreq)
+                antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
+            
+                spectrum = np.zeros((len(input_theta_list), self.data.length))
+            
+                print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
                 if smooth is True:
-                    steering_vector = np.exp([mjtwopi * dist_antenna * np.sin(theta * torad) *
-                                             no_antenna * sub_freq / lightspeed
-                                             for no_antenna in antenna_list[:2]
-                                             for sub_freq in subfreq_list[:15]])
-                else:
-                    steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta * torad) *
-                                             antenna_list * center_freq / lightspeed)
-
-                a_en = np.conjugate(steering_vector.T).dot(noise_space)
-                spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
-
-        print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
-        self.data.spectrum = spectrum
-        print(spectrum.shape)
+                    print("Apply Smoothing via SpotFi...")
+            
+                # Replace -inf values with neighboring packets before computing
+            
+                temp_amp = 0
+                temp_phase = 0
+            
+                for i in range(self.data.length):
+            
+                    invalid_flag = np.where(self.data.amp[i] == float('-inf'))
+            
+                    if len(invalid_flag[0]) == 0:
+                        temp_amp = self.data.amp[i]
+                        temp_phase = self.data.phase[i]
+            
+                    if len(invalid_flag[0]) != 0 and i == 0:
+            
+                        j = i
+                        temp_flag = invalid_flag
+            
+                        while len(temp_flag[0] != 0) and j < self.data.length:
+                            j += 1
+                            temp_flag = np.where(self.data.amp[j] == float('-inf'))
+            
+                        temp_amp = self.data.amp[j]
+                        temp_phase = self.data.phase[j]
+            
+                    if smooth is True:
+                        temp_amp = smooth_csi(np.squeeze(temp_amp))
+                        temp_phase = smooth_csi(np.squeeze(temp_phase))
+            
+                    csi = np.squeeze(temp_amp) * np.exp(1.j * np.squeeze(temp_phase))
+            
+                    value, vector = np.linalg.eigh(csi.T.dot(np.conjugate(csi)))
+                    descend_order_index = np.argsort(-value)
+                    vector = vector[:, descend_order_index]
+                    noise_space = vector[:, ntx:]
+            
+                    #print(value[descend_order_index])
+            
+                    for j, theta in enumerate(input_theta_list):
+                        if smooth is True:
+                            steering_vector = np.exp([mjtwopi * dist_antenna * np.sin(theta * torad) *
+                                                     no_antenna * sub_freq / lightspeed
+                                                     for no_antenna in antenna_list[:2]
+                                                     for sub_freq in subfreq_list[:15]])
+                        else:
+                            steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta * torad) *
+                                                     antenna_list * center_freq / lightspeed)
+            
+                        a_en = np.conjugate(steering_vector.T).dot(noise_space)
+                        spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
+            
+                print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
+                self.data.spectrum = spectrum
+                print(spectrum.shape)
+        except DataError as e:
+            print(e, "\nPlease load csi")
 
     def sanitize_phase(self):
         pass
 
-    def calibrate_aoa(self, input_mycsi):
+    def calibrate_phase(self, input_mycsi):
         """
         :param input_mycsi: CSI recorded at 0-deg
         :return: calibrated phase regarding 0-deg
         """
-        standard_phase = input_mycsi.data.phase
-        relative_phase = standard_phase - standard_phase[:, :, 0].repeat(3, axis=2).reshape(np.shape(standard_phase))
-        offset = np.angle(np.mean(np.exp(-1.j * relative_phase), axis=0))
-        self.data.phase = self.data.phase - offset
+        try:
+            if self.data.phase is None:
+                raise DataError(self.data.phase)
+            if input_mycsi.data.phase is None:
+                raise DataError(input_mycsi.data.phase)
+            else:
+                print("Apply phase calibration against" + input_mycsi.name, time.asctime(time.localtime(time.time())))
+                standard_phase = input_mycsi.data.phase
+                relative_phase = standard_phase - standard_phase[:, :, 0].repeat(3, axis=2).reshape(
+                    np.shape(standard_phase))
+                offset = np.mean(relative_phase, axis=0)
+                self.data.phase -= offset
+
+        except DataError as e:
+            print(e, "\nPlease load csi")
 
 
 if __name__ == '__main__':
@@ -336,8 +364,6 @@ if __name__ == '__main__':
     mypath = "data/csi" + name + ".dat"
     npzpath = "npsave/" + name + "-csis.npz"
     pmpath = "npsave/" + name + "-spectrum.npz"
-
-    theta_list = np.arange(-90, 91, 1.)
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
@@ -349,7 +375,7 @@ if __name__ == '__main__':
 
 #    today.save_csi(name)
 
-    today.aoa_by_music(theta_list, smooth=False)
+    today.aoa_by_music(smooth=False)
 
 #    today.save_spectrum(name)
 
