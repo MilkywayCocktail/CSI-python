@@ -19,9 +19,9 @@ import pycsi
 
 a = np.array([11,12,13,14,21,22,23,24,31,32,33,34])
 
-print(a.reshape((3,4)))
-print(a.reshape((4,3)))
-print(a.reshape((3,4)).swapaxes(0,1))
+#print(a.reshape((3,4)))
+#print(a.reshape((4,3)))
+#print(a.reshape((3,4)).swapaxes(0,1))
 
 
 # Simulation
@@ -56,38 +56,49 @@ mypath = "data/csi" + name + ".dat"
 npzpath = "npsave/" + name + "-csis.npz"
 pmpath = "npsave/" + name + "-spectrum.npz"
 
-theta_list = np.arange(-90, 91, 1.)
 
 # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
 today = pycsi.MyCsi(name, npzpath)
 
-standard = pycsi.MyCsi("0812C01", "npsave/0812C02-csis.npz")
+#standard = pycsi.MyCsi("0812C01", "npsave/0812C01-csis.npz")
 
 today.load_data()
 
-standard.load_data()
+#standard.load_data()
 
-#    today.data.show_shape()
+#plt.plot(np.unwrap(np.squeeze(standard.data.phase[:,0,0,0])))
+#plt.show()
 
-#    today.save_csi(name)
 
-#today.aoa_by_music(theta_list, smooth=False)
+plt.subplot(2, 1, 1)
+plt.title("Removing antenna phase offset - overall mean")
+plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,0,0])), label='antenna0')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,1,0])), label='antenna1')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,2,0])), label='antenna2')
+plt.legend()
 
-#    today.save_spectrum(name)
-
-#    today.load_spectrum(pmpath)
-
-#    print(today.data.spectrum.shape)
-
-#today.data.vis_spectrum(2)
 
 # Calibration
 
 #today.data.vis_all_rx("phase")
 #standard.data.vis_all_rx("phase")
 
-today.calibrate_aoa(standard)
-today.aoa_by_music(theta_list)
-today.data.vis_spectrum(0)
+today.remove_phase_offset()
+
+
+#standard.remove_phase_offset()
+
+#today.calibrate_phase(standard)
+#today.aoa_by_music(theta_list)
+
+#today.data.vis_spectrum(0)
+
+plt.subplot(2, 1, 2)
+plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,0,0])), label='antenna0')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,1,0])), label='antenna1')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,2,0])), label='antenna2')
+plt.legend()
+
+plt.show()
 
