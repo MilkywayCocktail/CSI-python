@@ -335,11 +335,12 @@ class MyCsi(object):
     def sanitize_phase(self):
         pass
 
-    def remove_phase_offset(self):
+    def remove_phase_offset(self, mode='overall'):
         """
         Removes phase offset among Rx antennas. Antenna 0 as default standard.
         Using running mean.
 
+        :param mode: 'overall' or 'running'
         :return: calibrated phase
         """
         try:
@@ -349,11 +350,13 @@ class MyCsi(object):
                 print("Apply phase offset removing among antennas", time.asctime(time.localtime(time.time())))
                 subtraction = np.expand_dims(self.data.phase[:, :, 0, :], axis=2).repeat(3, axis=2)
                 relative_phase = self.data.phase - subtraction
-                offset = np.array([[np.convolve(np.squeeze(relative_phase[:, sub, antenna, :]),
+                if mode == 'running':
+                    offset = np.array([[np.convolve(np.squeeze(relative_phase[:, sub, antenna, :]),
                                                 np.ones(101) / 101, mode='same')
-                                  for sub in range(30)]
-                                  for antenna in range(3)]).swapaxes(0, 2).reshape(relative_phase.shape)
-                # offset = np.mean(relative_phase, axis=0)
+                                      for sub in range(30)]
+                                      for antenna in range(3)]).swapaxes(0, 2).reshape(relative_phase.shape)
+                elif mode == 'overall':
+                    offset = np.mean(relative_phase, axis=0)
                 self.data.phase -= offset
         except DataError as e:
             print(e, "\nPlease load csi")
@@ -382,10 +385,10 @@ class MyCsi(object):
 
 
 if __name__ == '__main__':
-    name = "0812C01"
+    name = "0919A05"
 
     mypath = "data/csi" + name + ".dat"
-    npzpath = "npsave/" + name + "-csis.npz"
+    npzpath = "D:/Doctor/pycsi/npsave/csi" + name + "-csis.npz"
     pmpath = "npsave/" + name + "-spectrum.npz"
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
@@ -406,4 +409,5 @@ if __name__ == '__main__':
 
     #    print(today.data.spectrum.shape)
 
-    today.data.vis_spectrum(2)
+    today.data.vis_spectrum(0)
+
