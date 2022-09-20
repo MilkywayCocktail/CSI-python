@@ -28,7 +28,7 @@ class PathError(MyException):
 
 class DataError(MyException):
     def __str__(self):
-        return "No data of" + str(self.catch)
+        return "No data of " + str(self.catch)
 
 
 class ArgError(MyException):
@@ -84,8 +84,13 @@ class MyCsi(object):
                 self.data.timestamps = csi_data['csi_timestamps']
                 print(self.name, "npz load complete", time.asctime(time.localtime(time.time())))
 
+            else:
+                raise DataError(self.path)
+
         except PathError as e:
             print(e)
+        except DataError as e:
+            print(e, "\nFile not supported. Please input .dat or .npz")
 
     def load_spectrum(self, path):
         try:
@@ -112,16 +117,16 @@ class MyCsi(object):
         def show_shape(self):
             try:
                 if self.amp is None:
-                    raise DataError(self.amp)
+                    raise DataError("amplitude")
                 if self.phase is None:
-                    raise DataError(self.phase)
+                    raise DataError("phase")
 
                 items = ["no_frames=", "no_subcarriers=", "no_rx_ant=", "no_tx_ant="]
                 plist = [a + str(b) for a, b in zip(items, self.amp.shape)]
                 print(self.name, "data shape: ", *plist, sep='\n')
 
             except DataError as e:
-                print(e, "Please run .load_data() or .load_npz()")
+                print(e, "\nPlease run .load_data() or .load_npz()")
 
         def vis_all_rx(self, metric="amplitude"):
             try:
@@ -132,10 +137,10 @@ class MyCsi(object):
                     csi_matrix = self.phase
 
                 else:
-                    raise ArgError(metric)
+                    raise ArgError("metric")
 
                 if csi_matrix is None:
-                    raise DataError(self.amp)
+                    raise DataError("amplitude")
 
                 print(self.name, metric, "plotting...", time.asctime(time.localtime(time.time())))
 
@@ -146,15 +151,25 @@ class MyCsi(object):
                 print(self.name, metric, "plot complete", time.asctime(time.localtime(time.time())))
 
             except ArgError as e:
-                print(e, '\n' + "Please specify \"amplitude\" or \"phase\"")
+                print(e, "\nPlease specify metric=\"amplitude\" or \"phase\"")
 
             except DataError as e:
-                print(e, "Please run .load_data() or .load_npz()")
+                print(e, "\nPlease run .load_data() or .load_npz()")
 
-        def vis_spectrum(self, threshold=0):
+        def vis_spectrum(self, threshold=0, autosave=False, notion=None):
+            """
+            Plots spectrum. You can select whether save or not.
+            
+            :param threshold: set threshold of spectrum. Default is 0 (none).
+            :param autosave: 'True' or 'False'
+            :param notion: save additional information in filename if autosave
+            :return: spectrum plot
+            """
             try:
                 if self.spectrum is None:
-                    raise DataError(self.spectrum)
+                    raise DataError("spectrum")
+                if autosave is not True and autosave is not False:
+                    raise ArgError("autosave")
 
                 print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
 
@@ -181,15 +196,21 @@ class MyCsi(object):
                 plt.title(self.name + " AoA Spectrum")
 
                 print(self.name, "plot complete", time.asctime(time.localtime(time.time())))
-                plt.show()
+
+                if autosave is False:
+                    plt.show()
+                elif autosave is True:
+                    plt.savefig('visualization/' + self.name[:4] + '/' + self.name[4:] + notion + '.png')
 
             except DataError as e:
                 print(e, "\nPlease compute spectrum")
+            except ArgError as e:
+                print(e, "\nPlease specify autosave=\"True\" or \"False\"")
 
     def save_csi(self, save_name=None):
         try:
             if self.data.amp is None:
-                raise DataError(self.data.amp)
+                raise DataError("amplitude")
 
             save_path = os.getcwd().replace('\\', '/') + "/npsave"
 
@@ -207,7 +228,7 @@ class MyCsi(object):
                      csi_timestamps=self.data.timestamps)
             print(self.name, "csi save complete", time.asctime(time.localtime(time.time())))
         except DataError as e:
-            print(e, "to save")
+            print(e, "\nPlease load data")
 
     def save_spectrum(self, save_name=None):
         save_path = os.getcwd().replace('\\', '/') + "/npsave"
@@ -226,6 +247,8 @@ class MyCsi(object):
 
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
+        Computes AoA spectrum by MUSIC.
+        
         :param input_theta_list: list of angels, default = -90~90
         :param smooth: whether apply SpotFi smoothing or not, default = False
         :return: AoA spectrum by MUSIC stored in self.data.spectrum
@@ -241,6 +264,8 @@ class MyCsi(object):
 
         def smooth_csi(input_csi, rx=2, sub=15):
             """
+            Applies SpotFi smoothing technique.
+            
             :param input_csi:  [packet, sub, rx]
             :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
             :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
@@ -260,9 +285,9 @@ class MyCsi(object):
 
         try:
             if self.data.amp is None:
-                raise DataError(self.data.amp)
+                raise DataError("amplitude")
             if self.data.phase is None:
-                raise DataError(self.data.phase)
+                raise DataError("phase")
             else:
                 # Subcarriers from -58 to 58, step = 4
                 subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
@@ -330,7 +355,7 @@ class MyCsi(object):
                 self.data.spectrum = spectrum
                 print(spectrum.shape)
         except DataError as e:
-            print(e, "\nPlease load csi")
+            print(e, "\nPlease load data")
 
     def sanitize_phase(self):
         pass
@@ -345,21 +370,26 @@ class MyCsi(object):
         """
         try:
             if self.data.phase is None:
-                raise DataError(self.data.phase)
+                raise DataError("phase")
+            if mode != 'running' and mode != 'overall':
+                raise ArgError("mode")
+
             else:
                 print("Apply phase offset removing among antennas", time.asctime(time.localtime(time.time())))
                 subtraction = np.expand_dims(self.data.phase[:, :, 0, :], axis=2).repeat(3, axis=2)
                 relative_phase = self.data.phase - subtraction
                 if mode == 'running':
                     offset = np.array([[np.convolve(np.squeeze(relative_phase[:, sub, antenna, :]),
-                                                np.ones(101) / 101, mode='same')
+                                                    np.ones(101) / 101, mode='same')
                                       for sub in range(30)]
                                       for antenna in range(3)]).swapaxes(0, 2).reshape(relative_phase.shape)
                 elif mode == 'overall':
                     offset = np.mean(relative_phase, axis=0)
                 self.data.phase -= offset
         except DataError as e:
-            print(e, "\nPlease load csi")
+            print(e, "\nPlease load data")
+        except ArgError as e:
+            print(e, "\nPlease specify mode=\"running\" or \"overall\"")
 
     def calibrate_phase(self, input_mycsi):
         """
@@ -381,12 +411,10 @@ class MyCsi(object):
                 self.data.phase -= offset
 
         except DataError as e:
-            print(e, "\nPlease load csi")
+            print(e, "\nPlease load data")
 
 
 if __name__ == '__main__':
-
-    import os
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
