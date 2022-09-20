@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-19
+# Last edit: 2022-09-20
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -385,23 +385,27 @@ class MyCsi(object):
 
 
 if __name__ == '__main__':
-    name = "0919A05"
 
-    mypath = "data/csi" + name + ".dat"
-    npzpath = "D:/Doctor/pycsi/npsave/csi" + name + "-csis.npz"
-    pmpath = "npsave/" + name + "-spectrum.npz"
+    import os
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
-    today = MyCsi(name, npzpath)
-
-    today.load_data()
+    filepath = "data/0919/"
+    filenames = os.listdir(filepath)
+    for file in filenames:
+        name = file[:-4]
+        mypath = filepath + file
+        # npzpath = "npsave/csi" + name + "-csis.npz"
+        # pmpath = "npsave/" + name + "-spectrum.npz"
+        today = MyCsi(name, mypath)
+        today.load_data()
+        today.save_csi(name)
 
     #    today.data.show_shape()
 
     #    today.save_csi(name)
 
-    today.aoa_by_music(smooth=False)
+    # today.aoa_by_music(smooth=False)
 
     #    today.save_spectrum(name)
 
@@ -409,5 +413,5 @@ if __name__ == '__main__':
 
     #    print(today.data.spectrum.shape)
 
-    today.data.vis_spectrum(0)
+    # today.data.vis_spectrum(0)
 
