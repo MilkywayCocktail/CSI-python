@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-20
+# Last edit: 2022-09-21
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -18,22 +18,22 @@ import seaborn as sns
 
 class MyException(Exception):
     def __init__(self, catch):
-        self.catch = catch
+        self.catch = str(catch)
 
 
 class PathError(MyException):
     def __str__(self):
-        return "error with " + str(self.catch) + "\nPlease check the path"
+        return "error with " + self.catch + "\nPlease check the path"
 
 
 class DataError(MyException):
     def __str__(self):
-        return "No data of " + str(self.catch)
+        return "No data of " + self.catch
 
 
 class ArgError(MyException):
     def __str__(self):
-        return "error with " + str(self.catch) + "\n Please check the argument"
+        return "error with " + self.catch + "\n Please check the argument"
 
 
 class MyCsi(object):
@@ -43,12 +43,24 @@ class MyCsi(object):
         self.name = str(input_name)
         self.path = path
         self.data = self._Data(input_name)
+        self.commonfunc = self._CommonFunctions
 
     def set_path(self, path):
+        """
+        Sets the source path from where csi data is loaded.
+
+        :param path:
+        :return:
+        """
         self.path = path
         print(self.name, "path set")
 
     def show_path(self):
+        """
+        Shows the source path from where csi data is loaded.
+
+        :return: path
+        """
         try:
             if self.path is None:
                 raise PathError(self.path)
@@ -58,6 +70,12 @@ class MyCsi(object):
             print(e)
 
     def load_data(self):
+        """
+        Loads csi data into current MyCsi instance.
+        Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).
+
+        :return: csi data
+        """
         try:
             if self.path is None or not os.path.exists(self.path):
                 raise PathError(self.path)
@@ -93,6 +111,12 @@ class MyCsi(object):
             print(e, "\nFile not supported. Please input .dat or .npz")
 
     def load_spectrum(self, path):
+        """
+        Loads .npz spectrum into current MyCsi instance.
+
+        :param path: the path of spectrum, usually in npsave folder
+        :return: spectrum
+        """
         try:
             if path is None or not os.path.exists(path):
                 raise PathError(path)
@@ -104,6 +128,64 @@ class MyCsi(object):
 
         except PathError as e:
             print(e)
+
+    def save_csi(self, save_name=None):
+        """
+        Saves csi data as npz. Strongly recommended for speeding up loading.
+
+        :param save_name: filename, defalut = self.name
+        :return: save_name + '-csis.npz'
+        """
+        try:
+            if self.data.amp is None:
+                raise DataError("amplitude")
+
+            save_path = os.getcwd().replace('\\', '/') + "/npsave"
+
+            if not os.path.exists(save_path):
+                os.mkdir(save_path)
+
+            if save_name is None:
+                save_name = self.name
+
+            # Keys: amp, phase, timestamps
+            print(self.name, "csi save start...", time.asctime(time.localtime(time.time())))
+            np.savez(save_path + "/" + save_name + "-csis.npz",
+                     csi_amp=self.data.amp,
+                     csi_phase=self.data.phase,
+                     csi_timestamps=self.data.timestamps)
+            print(self.name, "csi save complete", time.asctime(time.localtime(time.time())))
+        except DataError as e:
+            print(e, "\nPlease load data")
+
+    def save_spectrum(self, save_name=None):
+        """
+        Saves spectrum as npz.
+
+        :param save_name: filename, default = self.name
+        :return: save_name + '-spectrum.npz'
+        """
+        try:
+            if self.data.spectrum is None:
+                raise DataError("spectrum")
+
+            else:
+                save_path = os.getcwd().replace('\\', '/') + "/npsave"
+
+                if not os.path.exists(save_path):
+                    os.mkdir(save_path)
+
+                if save_name is None:
+                    save_name = self.name
+
+                # Keys: spectrum, info
+                print(self.name, "spectrum save start...", time.asctime(time.localtime(time.time())))
+                np.savez(save_path + "/" + save_name + "-spectrum.npz",
+                         csi_spectrum=self.data.spectrum)
+                print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
+
+        except DataError as e:
+            print(e, "\nPlease compute spectrum")
 
     class _Data:
         def __init__(self, input_name):
@@ -129,6 +211,12 @@ class MyCsi(object):
                 print(e, "\nPlease run .load_data() or .load_npz()")
 
         def vis_all_rx(self, metric="amplitude"):
+            """
+            Plots csi amplitude OR phase for all antennas.
+
+            :param metric: 'amplitude' or 'phase'
+            :return: value-time plot
+            """
             try:
                 if metric == "amplitude":
                     csi_matrix = self.amp
@@ -156,13 +244,13 @@ class MyCsi(object):
             except DataError as e:
                 print(e, "\nPlease run .load_data() or .load_npz()")
 
-        def vis_spectrum(self, threshold=0, autosave=False, notion=None):
+        def vis_spectrum(self, threshold=0, autosave=False, notion=''):
             """
-            Plots spectrum. You can select whether save or not.
-            
+            Plots spectrum. You can select whether save the image or not.
+
             :param threshold: set threshold of spectrum. Default is 0 (none).
             :param autosave: 'True' or 'False'
-            :param notion: save additional information in filename if autosave
+            :param notion: string, save additional information in filename if autosave
             :return: spectrum plot
             """
             try:
@@ -200,55 +288,42 @@ class MyCsi(object):
                 if autosave is False:
                     plt.show()
                 elif autosave is True:
-                    plt.savefig('visualization/' + self.name[:4] + '/' + self.name[4:] + notion + '.png')
+                    savename = 'visualization/' + self.name[:4] + '/' + self.name[4:] + '_AoA' + str(notion) + '.png'
+                    plt.savefig(savename)
+                    print(self.name, "saved as", savename, time.asctime(time.localtime(time.time())))
+                    plt.close()
 
             except DataError as e:
                 print(e, "\nPlease compute spectrum")
             except ArgError as e:
                 print(e, "\nPlease specify autosave=\"True\" or \"False\"")
 
-    def save_csi(self, save_name=None):
-        try:
-            if self.data.amp is None:
-                raise DataError("amplitude")
+    class _CommonFunctions:
+        def smooth_csi(self, input_csi, rx=2, sub=15):
+            """
+            Static method.\n
+            Applies SpotFi smoothing technique. You have to run for amplitude and phase each.
 
-            save_path = os.getcwd().replace('\\', '/') + "/npsave"
+            :param input_csi:  [packet, sub, rx]
+            :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
+            :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
+            :return: smoothed csi
+            """
+            nrx = input_csi.shape[1]
+            nsub = input_csi.shape[0]
 
-            if not os.path.exists(save_path):
-                os.mkdir(save_path)
+            input_csi = input_csi.swapaxes(0, 1)
 
-            if save_name is None:
-                save_name = self.name
+            output = [input_csi[i:i + rx, j:j + sub].reshape(-1)
+                      for i in range(nrx - rx + 1)
+                      for j in range(nsub - sub + 1)]
 
-            # Keys: amp, phase, timestamps
-            print(self.name, "csi save start...", time.asctime(time.localtime(time.time())))
-            np.savez(save_path + "/" + save_name + "-csis.npz",
-                     csi_amp=self.data.amp,
-                     csi_phase=self.data.phase,
-                     csi_timestamps=self.data.timestamps)
-            print(self.name, "csi save complete", time.asctime(time.localtime(time.time())))
-        except DataError as e:
-            print(e, "\nPlease load data")
-
-    def save_spectrum(self, save_name=None):
-        save_path = os.getcwd().replace('\\', '/') + "/npsave"
-
-        if not os.path.exists(save_path):
-            os.mkdir(save_path)
-
-        if save_name is None:
-            save_name = self.name
-
-        # Keys: spectrum, info
-        print(self.name, "spectrum save start...", time.asctime(time.localtime(time.time())))
-        np.savez(save_path + "/" + save_name + "-spectrum.npz",
-                 csi_spectrum=self.data.spectrum)
-        print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
+            return np.array(output)
 
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
         Computes AoA spectrum by MUSIC.
-        
+
         :param input_theta_list: list of angels, default = -90~90
         :param smooth: whether apply SpotFi smoothing or not, default = False
         :return: AoA spectrum by MUSIC stored in self.data.spectrum
@@ -262,32 +337,12 @@ class MyCsi(object):
         nrx = 3
         ntx = 1
 
-        def smooth_csi(input_csi, rx=2, sub=15):
-            """
-            Applies SpotFi smoothing technique.
-            
-            :param input_csi:  [packet, sub, rx]
-            :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
-            :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
-            :return: smoothed csi
-            You have to run for amplitude and phase each
-            """
-            nrx = input_csi.shape[1]
-            nsub = input_csi.shape[0]
-
-            input_csi = input_csi.swapaxes(0, 1)
-
-            output = [input_csi[i:i + rx, j:j + sub].reshape(-1)
-                      for i in range(nrx - rx + 1)
-                      for j in range(nsub - sub + 1)]
-
-            return np.array(output)
-
         try:
             if self.data.amp is None:
                 raise DataError("amplitude")
             if self.data.phase is None:
                 raise DataError("phase")
+
             else:
                 # Subcarriers from -58 to 58, step = 4
                 subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
@@ -326,8 +381,8 @@ class MyCsi(object):
                         temp_phase = self.data.phase[j]
 
                     if smooth is True:
-                        temp_amp = smooth_csi(np.squeeze(temp_amp))
-                        temp_phase = smooth_csi(np.squeeze(temp_phase))
+                        temp_amp = self.commonfunc.smooth_csi(np.squeeze(temp_amp))
+                        temp_phase = self.commonfunc.smooth_csi(np.squeeze(temp_phase))
 
                     csi = np.squeeze(temp_amp) * np.exp(1.j * np.squeeze(temp_phase))
 
@@ -354,38 +409,44 @@ class MyCsi(object):
                 print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
                 self.data.spectrum = spectrum
                 print(spectrum.shape)
+
         except DataError as e:
             print(e, "\nPlease load data")
 
     def sanitize_phase(self):
         pass
 
-    def remove_phase_offset(self, mode='overall'):
+    def extract_dynamic(self, mode='overall'):
         """
-        Removes phase offset among Rx antennas. Antenna 0 as default standard.
-        Using running mean.
+        Removes the static component from csi.\n
+        Strongly recommended when Tx is placed beside Rx.
 
-        :param mode: 'overall' or 'running'
-        :return: calibrated phase
+        :param mode: 'overall' or 'running' (in terms of averaging)
+        :return: phase and amplitude of dynamic component of csi
         """
         try:
-            if self.data.phase is None:
-                raise DataError("phase")
+            if self.data.amp is None or self.data.phase is None:
+                raise DataError("csi")
             if mode != 'running' and mode != 'overall':
                 raise ArgError("mode")
 
             else:
-                print("Apply phase offset removing among antennas", time.asctime(time.localtime(time.time())))
-                subtraction = np.expand_dims(self.data.phase[:, :, 0, :], axis=2).repeat(3, axis=2)
-                relative_phase = self.data.phase - subtraction
-                if mode == 'running':
-                    offset = np.array([[np.convolve(np.squeeze(relative_phase[:, sub, antenna, :]),
-                                                    np.ones(101) / 101, mode='same')
-                                      for sub in range(30)]
-                                      for antenna in range(3)]).swapaxes(0, 2).reshape(relative_phase.shape)
-                elif mode == 'overall':
-                    offset = np.mean(relative_phase, axis=0)
-                self.data.phase -= offset
+                complex_csi = self.data.amp * np.exp(1.j * self.data.phase)
+                conjugate_csi = complex_csi[:, :, 0, :, None].repeat(3, axis=2)
+                hc = complex_csi * conjugate_csi
+
+                if mode == 'overall':
+                    average_hc = np.mean(hc, axis=0).reshape((1, 30, 3, 1))
+                elif mode == 'running':
+                    average_hc = np.array([[np.convolve(np.squeeze(hc[:, sub, antenna, :]),
+                                            np.ones(101) / 101, mode='same')
+                                            for sub in range(30)]
+                                          for antenna in range(3)]).swapaxes(0, 2).reshape((1, 30, 3, 1))
+
+                dynamic_csi = hc - average_hc.repeat(self.data.length, axis=0)
+                self.data.amp = np.abs(dynamic_csi)
+                self.data.phase = np.angle(dynamic_csi)
+
         except DataError as e:
             print(e, "\nPlease load data")
         except ArgError as e:
@@ -393,21 +454,26 @@ class MyCsi(object):
 
     def calibrate_phase(self, input_mycsi):
         """
-        Calibrates phase offset between other degrees against 0 degree.
+        Calibrates phase offset between other degrees against 0 degree.\n
+        Initial Phase Offset is removed.
 
         :param input_mycsi: CSI recorded at 0 degree
         :return: calibrated phase, unwrapped
         """
         try:
             if self.data.phase is None:
-                raise DataError(self.data.phase)
+                raise DataError("phase")
             if input_mycsi.data.phase is None:
-                raise DataError(input_mycsi.data.phase)
+                raise DataError("reference phase")
             else:
-                print("Apply phase calibration against " + input_mycsi.name, time.asctime(time.localtime(time.time())))
-                standard_phase = input_mycsi.data.phase
-                offset = np.mean(standard_phase, axis=0)
+                print("Apply phase calibration according to " +
+                      input_mycsi.name, time.asctime(time.localtime(time.time())))
+                subtrahend = np.expand_dims(self.data.phase[:, :, 0, :], axis=2).repeat(3, axis=2)
+                relative_phase = self.data.phase - subtrahend
+                offset = np.mean(relative_phase, axis=(0, 1)).reshape((1, 1, 3, 1))
                 print(offset)
+                offset = offset.repeat(30, axis=1).repeat(self.data.length, axis=0)
+
                 self.data.phase -= offset
 
         except DataError as e:
@@ -421,7 +487,7 @@ if __name__ == '__main__':
     filepath = "data/0919/"
     filenames = os.listdir(filepath)
     for file in filenames:
-        name = file[:-4]
+        name = file[3:-4]
         mypath = filepath + file
         # npzpath = "npsave/csi" + name + "-csis.npz"
         # pmpath = "npsave/" + name + "-spectrum.npz"
