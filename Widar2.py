@@ -1,8 +1,3 @@
-   -*- coding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import numpy as np
 from scipy import signal, interpolate
 import matplotlib.pyplot as plt
@@ -24,7 +19,7 @@ class config(object):
     delta_f = 2 * 312.5 * (10. ** 3)  # FI
     # delta_t = 1. / sample_rate  # TI
     dist_antenna = 0.025  # AS
-    center_freq = 5.320 * (10 ** 9)
+    center_freq = 5.670 * (10 ** 9)
     taulist = np.arange(-100., 400., 1.) * (10. ** -9)  # TR
     thetalist = np.deg2rad(np.arange(-0., 180., 1.))  # AR
     dopplerlist = np.arange(-5., 5., 0.01)  # DR
@@ -409,16 +404,16 @@ def plot_estimated_parameter(estimated_parameter):
     fig, axs = plt.subplots(2, 2, figsize=(24, 15))
     axs = axs.flatten()
 
-    axs[0].scatter(range(estimated_parameter.shape[2]) * estimated_parameter.shape[1],
+    axs[0].scatter(range(np.shape(estimated_parameter)[2]) * np.shape(estimated_parameter)[1],
                    estimated_parameter[0].real.reshape(-1), c=np.log(np.abs(estimated_parameter[3]).reshape(-1)),
                    linewidths=0)
-    axs[1].scatter(range(estimated_parameter.shape[2]) * estimated_parameter.shape[1],
+    axs[1].scatter(range(np.shape(estimated_parameter)[2]) * np.shape(estimated_parameter)[1],
                    np.rad2deg(estimated_parameter[1].real).reshape(-1),
                    c=np.log(np.abs(estimated_parameter[3]).reshape(-1)), linewidths=0)
-    axs[2].scatter(range(estimated_parameter.shape[2]) * estimated_parameter.shape[1],
+    axs[2].scatter(range(np.shape(estimated_parameter)[2]) * np.shape(estimated_parameter)[1],
                    estimated_parameter[2].real.reshape(-1), c=np.log(np.abs(estimated_parameter[3]).reshape(-1)),
                    linewidths=0)
-    axs[3].scatter(range(estimated_parameter.shape[2]) * estimated_parameter.shape[1],
+    axs[3].scatter(range(np.shape(estimated_parameter)[2]) * np.shape(estimated_parameter)[1],
                    np.abs(estimated_parameter[3]).reshape(-1), c=np.log(np.abs(estimated_parameter[3]).reshape(-1)),
                    linewidths=0)
 
@@ -556,17 +551,35 @@ def _test(csilist, timestamp):
     fig.axes[3].plot(np.abs(estimated_path[3].T))
     plt.show()
 
+def clocktime2second(timelist, clock_freq=1. * 10 ** 6, clock_maxval=2. ** 32):
+    timelist = np.array(timelist)
+    clockdiff = timelist[1:] - timelist[:-1]
+    # minus_indices = np.arange(len(clockdiff))[clockdiff < 0] + 1
+    minus_indices = np.arange(len(clockdiff))[clockdiff < -clock_maxval / 2] + 1
+    for i in minus_indices:
+        timelist[i:] = timelist[i:] + clock_maxval
+
+    return (timelist - timelist[0]).astype(float) / clock_freq
 
 if __name__ == "__main__":
+
     from scipy import io
-    from loader import csi_loader
+    import pycsi
 
-    dev_conf = io.loadmat("/mnt/poplin/2018/ohara/csi/Widar2.0Project/data/classroom/device_config.mat")
-    data = io.loadmat("/mnt/poplin/2018/ohara/csi/Widar2.0Project/data/classroom/T01.mat")
-    _test(data["csi_data"].reshape(-1, 3, 30),
-          csi_loader.clocktime2second(data["time_stamp"].reshape(-1)))
+    name = "0812C01"
 
+    mypath = "data/csi" + name + ".dat"
+    npzpath = "npsave/" + name + "-csis.npz"
 
+    today = pycsi.MyCsi(name, npzpath)
+    today.load_data()
+
+    csi_data = np.squeeze(today.data.amp) * np.squeeze(today.data.phase)
+    print(csi_data.swapaxes(1,2).shape)
+    time_diff = today.data.timestamps[1:] - today.data.timestamps[:-1]
+
+    _test(csi_data.swapaxes(1,2),
+          clocktime2second(today.data.timestamps.reshape(-1)))
 
     # estimated_parameter = widar_main(data["csi_data"].reshape(-1, 3, 30),
     #                                  csi_loader.clocktime2second(data["time_stamp"].reshape(-1)))
