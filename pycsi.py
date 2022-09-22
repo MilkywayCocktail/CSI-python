@@ -47,7 +47,7 @@ class MyCsi(object):
         self.path = path
         self.data = self._Data(input_name)
         self.commonfunc = self._CommonFunctions
-        
+
         self.lightspeed = 299792458
         self.center_freq = 5.67e+09  # 5.67GHz
         self.dist_antenna = self.lightspeed / self.center_freq / 2.  # half-wavelength (2.64)
@@ -109,7 +109,7 @@ class MyCsi(object):
         try:
             if input_path is None or not os.path.exists(input_path):
                 raise PathError(input_path)
-            
+
             if input_path[-3:] != "npz":
                 raise DataError(input_path)
 
@@ -141,7 +141,7 @@ class MyCsi(object):
 
             if save_name is None:
                 save_name = self.name
-                
+
             # Keys: amp, phase, timestamps
             print(self.name, "csi save start...", time.asctime(time.localtime(time.time())))
             np.savez(save_path + "/" + save_name + "-csis.npz",
@@ -217,7 +217,7 @@ class MyCsi(object):
                 print("Apply invalid value removal " + time.asctime(time.localtime(time.time())))
                 print("Found", len(np.where(self.amp)[0]), "-inf values")
 
-                if len(np.where(self.amp)[0]) != 0:
+                if len(np.where(self.amp == float('-inf'))[0]) != 0:
 
                     for i in range(self.length):
                         invalid_flag = np.where(self.amp[i] == float('-inf'))
@@ -322,7 +322,7 @@ class MyCsi(object):
 
                     if not os.path.exists(save_path):
                         os.mkdir(save_path)
-                    
+
                     savename = save_path + self.name[4:] + '_AoA' + str(notion) + '.png'
                     plt.savefig(savename)
                     print(self.name, "saved as", savename, time.asctime(time.localtime(time.time())))
@@ -406,6 +406,10 @@ class MyCsi(object):
                 if smooth is True:
                     temp_amp = self.commonfunc.smooth_csi(np.squeeze(temp_amp))
                     temp_phase = self.commonfunc.smooth_csi(np.squeeze(temp_phase))
+
+                else:
+                    temp_amp = self.data.amp[i]
+                    temp_phase = self.data.phase[i]
 
                 csi = np.squeeze(temp_amp) * np.exp(1.j * np.squeeze(temp_phase))
 
@@ -501,7 +505,7 @@ class MyCsi(object):
                 raise DataError("reference phase: " + str(input_mycsi.data.phase))
 
             print("Apply phase calibration according to " + input_mycsi.name, time.asctime(time.localtime(time.time())))
-            
+
             subtrahend = np.expand_dims(self.data.phase[:, :, 0, :], axis=2).repeat(3, axis=2)
             relative_phase = self.data.phase - subtrahend
             offset = np.mean(relative_phase, axis=(0, 1)).reshape((1, 1, nrx, 1))
