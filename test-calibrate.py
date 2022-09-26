@@ -40,10 +40,10 @@ plt.show()
 '''
 # Processing
 
-name0 = "0919B00f"
+name0 = "0919A00f"
 npzpath0 = "npsave/" + name0[:4] + '/csi' + name0 + "-csis.npz"
 
-name1 = "0919B11"
+name1 = "0919A03"
 npzpath1 = "npsave/" + name1[:4] + '/csi' + name1 + "-csis.npz"
 
 # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
@@ -76,11 +76,11 @@ plt.legend()
 #standard.data.vis_all_rx("phase")
 
 today.data.remove_inf_values()
-#standard.data.remove_inf_values()
-#today.calibrate_phase(standard)
-#today.extract_dynamic()
-print(today.data.length)
-print(np.where(today.data.amp==float('-inf'))[0])
+standard.data.remove_inf_values()
+today.calibrate_phase(standard)
+
+#print(today.data.length)
+#print(np.where(today.data.amp==float('-inf'))[0])
 
 plt.subplot(2, 1, 2)
 plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,0,0])), label='antenna0')
@@ -90,5 +90,5 @@ plt.legend()
 
 plt.show()
 
-#today.aoa_by_music()
-#today.data.vis_spectrum()
+today.aoa_by_music()
+today.data.vis_spectrum()
