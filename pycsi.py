@@ -611,14 +611,14 @@ class MyCsi(object):
 
             for i in range(new_length):
 
-                index = np.searchsorted(self.data.timestamps)
+                index = np.searchsorted(self.data.timestamps, i * new_interval)
 
                 if index > 0 and (index == self.data.length or
                         abs(self.data.timestamps[index] - i * new_interval) > abs(self.data.timestamps[index - 1] - i * new_interval)):
                     index -= 1
-                
+
                 resample_indicies.append(index)
-                
+
             self.data.amp = self.data.amp[resample_indicies]
             self.data.phase = self.data.phase[resample_indicies]
 
