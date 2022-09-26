@@ -456,6 +456,7 @@ class MyCsi(object):
         nsub = self.nsub
         num_samples = 100
         delta_t = 0.2208e-3
+        pick_antenna = 0
 
         try:
             if self.data.amp is None:
@@ -463,11 +464,6 @@ class MyCsi(object):
 
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase))
-
-            # Subcarriers from -58 to 58, step = 4
-            subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
-                                     4 * delta_subfreq)
-            antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
 
             spectrum = np.zeros((len(input_velocity_list), self.data.length))
 
@@ -477,16 +473,12 @@ class MyCsi(object):
 
             self.data.remove_inf_values()
 
-            temp_amp = 0
-            temp_phase = 0
-
             for i in range(self.data.length - num_samples):
 
-                csi = [np.squeeze(self.data.amp[i + i_sub, :, 0]) *
-                       np.exp(1.j * np.squeeze(self.data.phase[i + i_sub, :, 0]))
-                       for i_sub in range(num_samples)]
+                csi = np.array([np.squeeze(self.data.amp[i + i_sub, :, pick_antenna]) *
+                                np.exp(1.j * np.squeeze(self.data.phase[i + i_sub, :, 0]))
+                                for i_sub in range(num_samples)])
 
-                csi = np.array(csi)
                 value, vector = np.linalg.eigh(csi.dot(np.conjugate(csi.T)))
                 descend_order_index = np.argsort(-value)
                 vector = vector[:, descend_order_index]
@@ -594,6 +586,46 @@ class MyCsi(object):
         except DataError as e:
             print(e, "\nPlease load data")
 
+    def resample_packets(self, sampling_rate=100):
+        """
+        Resample from raw CSI to reach a specified sampling rate.\n
+        Strongly recommended when uniform interval is required.
+
+        :param sampling_rate: sampling rate in Hz after resampling. Should not be larger than 5000.
+        Default is 100Hz
+        :return: Resampled csi data
+        """
+
+        try:
+            if self.data.amp is None or self.data.phase is None:
+                raise DataError("csi data")
+
+            if sampling_rate > 5000 or not isinstance(sampling_rate, int):
+                raise ArgError("sampling_rate: " + str(sampling_rate))
+
+            print("Resampling at " + str(sampling_rate) + "Hz", time.asctime(time.localtime(time.time())))
+
+            new_interval = 1. / sampling_rate
+            new_length = np.floor(self.data.length * sampling_rate) + 1
+            resample_indicies = []
+
+            for i in range(new_length):
+
+                index = np.searchsorted(self.data.timestamps)
+
+                if index > 0 and (index == self.data.length or
+                        abs(self.data.timestamps[index] - i * new_interval) > abs(self.data.timestamps[index - 1] - i * new_interval)):
+                    index -= 1
+                
+                resample_indicies.append(index)
+                
+            self.data.amp = self.data.amp[resample_indicies]
+            self.data.phase = self.data.phase[resample_indicies]
+
+        except DataError as e:
+            print(e, "\nPlease load data")
+        except ArgError as e:
+            print(e, "\nPlease specify an integer less than 5000")
 
 if __name__ == '__main__':
 
