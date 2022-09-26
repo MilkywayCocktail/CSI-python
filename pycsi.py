@@ -444,8 +444,7 @@ class MyCsi(object):
         """
         Computes Doppler spectrum by MUSIC. Under construction.
 
-        :param input_velocity_list: list of velocities, default = -5~5
-        :param smooth: whether apply SpotFi smoothing or not, default = False
+        :param: input_velocity_list: list of velocities, default = -5~5
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
         lightspeed = self.lightspeed
