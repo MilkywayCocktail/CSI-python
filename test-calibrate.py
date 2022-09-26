@@ -43,7 +43,7 @@ plt.show()
 name0 = "0919A00f"
 npzpath0 = "npsave/" + name0[:4] + '/csi' + name0 + "-csis.npz"
 
-name1 = "0919A03"
+name1 = "0919A11"
 npzpath1 = "npsave/" + name1[:4] + '/csi' + name1 + "-csis.npz"
 
 # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
@@ -61,13 +61,21 @@ standard.load_data()
 #plt.plot(np.unwrap(np.squeeze(standard.data.phase[:,0,0,0])))
 #plt.show()
 
+packet1 = np.random.randint(today.data.length)
 
-plt.subplot(2, 1, 1)
-plt.title("Calibration")
-plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,0,0])), label='antenna0')
-plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,1,0])), label='antenna1')
-plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,2,0])), label='antenna2')
+packet2 = np.random.randint(today.data.length)
+
+plt.title("Before calibration")
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet1, :, 0, 0])), label='packet1 antenna0', color='b')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet1, :, 1, 0])), label='packet1 antenna1', color='y')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet1, :, 2, 0])), label='packet1 antenna2', color='r')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet2, :, 0, 0])), label='packet2 antenna0', linestyle='--', color='b')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet2, :, 1, 0])), label='packet2 antenna1', linestyle='--', color='y')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet2, :, 2, 0])), label='packet2 antenna2', linestyle='--', color='r')
 plt.legend()
+plt.xlabel('Subcarrier Index')
+plt.ylabel('Unwrapped CSI Phase')
+plt.show()
 
 
 # Calibration
@@ -77,18 +85,26 @@ plt.legend()
 
 today.data.remove_inf_values()
 standard.data.remove_inf_values()
+
 today.calibrate_phase(standard)
+
+plt.title("After calibration")
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet1, :, 0, 0])), label='packet1 antenna0', color='b')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet1, :, 1, 0])), label='packet1 antenna1', color='y')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet1, :, 2, 0])), label='packet1 antenna2', color='r')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet2, :, 0, 0])), label='packet2 antenna0', linestyle='--', color='b')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet2, :, 1, 0])), label='packet2 antenna1', linestyle='--', color='y')
+plt.plot(np.unwrap(np.squeeze(today.data.phase[packet2, :, 2, 0])), label='packet2 antenna2', linestyle='--', color='r')
+plt.legend()
+plt.xlabel('Subcarrier Index')
+plt.ylabel('Unwrapped CSI Phase')
+plt.show()
+
 
 #print(today.data.length)
 #print(np.where(today.data.amp==float('-inf'))[0])
 
-plt.subplot(2, 1, 2)
-plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,0,0])), label='antenna0')
-plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,1,0])), label='antenna1')
-plt.plot(np.unwrap(np.squeeze(today.data.phase[:,20,2,0])), label='antenna2')
-plt.legend()
 
-plt.show()
 
-today.aoa_by_music()
-today.data.vis_spectrum()
+#today.aoa_by_music()
+#today.data.vis_spectrum()
