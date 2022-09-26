@@ -574,12 +574,22 @@ class MyCsi(object):
 
             print("Apply phase calibration according to " + input_mycsi.name, time.asctime(time.localtime(time.time())))
 
-            subtrahend = np.expand_dims(input_mycsi.data.phase[:, :, 0, :], axis=2).repeat(3, axis=2)
-            relative_phase = input_mycsi.data.phase - subtrahend
-            offset = np.mean(relative_phase, axis=(0, 1)).reshape((1, 1, nrx, 1))
+            reference_csi = np.squeeze(input_mycsi.data.amp) * np.exp(1.j * np.squeeze(input_mycsi.data.phase))
+            current_csi = np.squeeze(self.data.amp) * np.exp(1.j * np.squeeze(self.data.phase))
+
+            subtrahend = np.expand_dims(reference_csi[:, :, 0], axis=2).repeat(3, axis=2)
+
+            relative = reference_csi * np.conjugate(subtrahend)
+            offset = np.mean(relative, axis=(0, 1)).reshape((1, 1, nrx))
 
             offset = offset.repeat(nsub, axis=1).repeat(self.data.length, axis=0)
-            self.data.phase -= offset
+
+            calibrated_csi = current_csi * np.conjugate(offset)
+            calibrated_csi = np.expand_dims(calibrated_csi, axis=3)
+            print(calibrated_csi.shape)
+
+            self.data.amp = np.abs(calibrated_csi)
+            self.data.phase = np.angle(calibrated_csi)
 
         except DataError as e:
             print(e, "\nPlease load data")
