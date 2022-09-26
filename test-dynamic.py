@@ -19,14 +19,10 @@ standard = pycsi.MyCsi(name1, npzpath1)
 standard.load_data()
 standard.data.remove_inf_values()
 
-
-
 today.calibrate_phase(standard)
-#today.extract_dynamic()
-#today.doppler_by_music()
-#today.data.vis_spectrum(0, autosave=False)
-
-
+today.extract_dynamic()
+today.doppler_by_music()
+today.data.vis_spectrum(0, autosave=False)
 
 #plt.plot(timediff * 1000)
 #plt.title("timestamp intervals of " + name)
