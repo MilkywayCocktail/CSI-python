@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-22
+# Last edit: 2022-09-26
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -215,7 +215,7 @@ class MyCsi(object):
                     raise DataError("amplitude: " + str(self.amp))
 
                 print("Apply invalid value removal " + time.asctime(time.localtime(time.time())))
-                print("Found", len(np.where(self.amp)[0]), "-inf values")
+                print("Found", len(np.where(self.amp == float('-inf'))[0]), "-inf values")
 
                 if len(np.where(self.amp == float('-inf'))[0]) != 0:
 
@@ -404,8 +404,8 @@ class MyCsi(object):
             for i in range(self.data.length):
 
                 if smooth is True:
-                    temp_amp = self.commonfunc.smooth_csi(np.squeeze(temp_amp))
-                    temp_phase = self.commonfunc.smooth_csi(np.squeeze(temp_phase))
+                    temp_amp = self.commonfunc.smooth_csi(np.squeeze(self.data.amp[i]))
+                    temp_phase = self.commonfunc.smooth_csi(np.squeeze(self.data.phase[i]))
 
                 else:
                     temp_amp = self.data.amp[i]
@@ -435,6 +435,75 @@ class MyCsi(object):
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
             print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
+            self.data.spectrum = spectrum
+
+        except DataError as e:
+            print(e, "\nPlease load data")
+
+    def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.01, 0.01)):
+        """
+        Computes Doppler spectrum by MUSIC. Under construction.
+
+        :param input_velocity_list: list of velocities, default = -5~5
+        :param smooth: whether apply SpotFi smoothing or not, default = False
+        :return: Doppler spectrum by MUSIC stored in self.data.spectrum
+        """
+        lightspeed = self.lightspeed
+        center_freq = self.center_freq
+        mjtwopi = self.mjtwopi
+        delta_subfreq = self.delta_subfreq
+        nrx = self.nrx
+        ntx = self.ntx
+        nsub = self.nsub
+        num_samples = 100
+        delta_t = 0.2208e-3
+
+        try:
+            if self.data.amp is None:
+                raise DataError("amplitude: " + str(self.data.amp))
+
+            if self.data.phase is None:
+                raise DataError("phase: " + str(self.data.phase))
+
+            # Subcarriers from -58 to 58, step = 4
+            subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
+                                     4 * delta_subfreq)
+            antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
+
+            spectrum = np.zeros((len(input_velocity_list), self.data.length))
+
+            print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
+
+            # Replace -inf values with neighboring packets before computing
+
+            self.data.remove_inf_values()
+
+            temp_amp = 0
+            temp_phase = 0
+
+            for i in range(self.data.length - num_samples):
+
+                csi = [np.squeeze(self.data.amp[i + i_sub, :, 0]) *
+                       np.exp(1.j * np.squeeze(self.data.phase[i + i_sub, :, 0]))
+                       for i_sub in range(num_samples)]
+
+                csi = np.array(csi)
+                value, vector = np.linalg.eigh(csi.dot(np.conjugate(csi.T)))
+                descend_order_index = np.argsort(-value)
+                vector = vector[:, descend_order_index]
+                noise_space = vector[:, ntx:]
+
+                # print(value[descend_order_index])
+
+                for j, velocity in enumerate(input_velocity_list):
+
+                    steering_vector = np.exp([mjtwopi * center_freq * delta_t / lightspeed *
+                                              m for m in range(num_samples)])
+
+                    a_en = np.conjugate(steering_vector.T).dot(noise_space)
+                    spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
+
+            print(self.name, "Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
             self.data.spectrum = spectrum
 
         except DataError as e:
@@ -506,9 +575,10 @@ class MyCsi(object):
 
             print("Apply phase calibration according to " + input_mycsi.name, time.asctime(time.localtime(time.time())))
 
-            subtrahend = np.expand_dims(self.data.phase[:, :, 0, :], axis=2).repeat(3, axis=2)
-            relative_phase = self.data.phase - subtrahend
+            subtrahend = np.expand_dims(input_mycsi.data.phase[:, :, 0, :], axis=2).repeat(3, axis=2)
+            relative_phase = input_mycsi.data.phase - subtrahend
             offset = np.mean(relative_phase, axis=(0, 1)).reshape((1, 1, nrx, 1))
+
             offset = offset.repeat(nsub, axis=1).repeat(self.data.length, axis=0)
             self.data.phase -= offset
 
