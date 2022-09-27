@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-26
+# Last edit: 2022-09-27
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -35,6 +35,24 @@ class ArgError(MyException):
     def __str__(self):
         return "error with argument: " + self.catch
 
+
+class CommonFunctions(object):
+
+    def replace_labels(self, input_timestamps, input_length, total_ticks=11):
+        """
+        Static method.\n
+        Generates a list of timestamps to plot as x-axis labels.
+
+        :param input_timestamps: ordinarily input self.data.timestamps
+        :param input_length: ordinarily input self.data.length
+        :param total_ticks: how many labels you need (including start and end)
+        :return: a list of timestamps
+        """
+
+        indicies = [i * input_length // (total_ticks - 1) for i in range(total_ticks - 1)]
+        indicies.append(input_length - 1)
+
+        return [float('%.6f' % x) for x in input_timestamps[indicies]]
 
 class MyCsi(object):
     """
@@ -137,7 +155,7 @@ class MyCsi(object):
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
 
-            save_path = os.getcwd().replace('\\', '/') + "/npsave"
+            save_path = os.getcwd().replace('\\', '/') + "/npsave" + self.name[:4]
 
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
@@ -167,7 +185,7 @@ class MyCsi(object):
             if self.data.spectrum is None:
                 raise DataError("spectrum: " + str(self.data.spectrum))
 
-            save_path = os.getcwd().replace('\\', '/') + "/npsave"
+            save_path = os.getcwd().replace('\\', '/') + "/npsave" + self.name[:4]
 
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
@@ -193,7 +211,7 @@ class MyCsi(object):
             self.length = None
             self.spectrum = None
             self.algorithm = None
-            self.commonfunc = MyCsi._CommonFunctions
+            self.commonfunc = CommonFunctions
 
         def show_shape(self):
             try:
@@ -643,7 +661,7 @@ class MyCsi(object):
         Resample from raw CSI to reach a specified sampling rate.\n
         Strongly recommended when uniform interval is required.
 
-        :param sampling_rate: sampling rate in Hz after resampling. Should not be larger than 5000.
+        :param sampling_rate: sampling rate in Hz after resampling. Must be less than 5000.
         Default is 100
         :return: Resampled csi data
         """
