@@ -37,12 +37,15 @@ class ArgError(MyException):
 
 
 class MyCsi(object):
+    """
+    Main functionalities of csi processing.
+    """
     __credit = 'cao'
 
     # Neither getter nor setter is defined in MyCsi class.
     # Please get and set manually when you need to.
 
-    def __init__(self, input_name, path=None):
+    def __init__(self, input_name='', path=None):
         self.name = str(input_name)
         self.path = path
         self.data = self._Data(input_name)
@@ -189,6 +192,8 @@ class MyCsi(object):
             self.timestamps = None
             self.length = None
             self.spectrum = None
+            self.algorithm = None
+            self.commonfunc = MyCsi._CommonFunctions
 
         def show_shape(self):
             try:
@@ -275,42 +280,57 @@ class MyCsi(object):
             except DataError as e:
                 print(e, "\nPlease load data")
 
-        def vis_spectrum(self, threshold=0, autosave=False, notion=''):
+        def vis_spectrum(self, threshold=0, num_ticks=11, autosave=False, notion=''):
             """
             Plots spectrum. You can select whether save the image or not.
 
-            :param threshold: set threshold of spectrum. Default is 0 (none).
-            :param autosave: 'True' or 'False'
+            :param threshold: set threshold of spectrum, must be larger than 0. Default is 0 (none)
+            :param num_ticks: set number of ticks to be plotted in the figure, must be larger than 2. Default is 11
+            :param autosave: True or False. Default is False
             :param notion: string, save additional information in filename if autosave
             :return: spectrum plot
             """
+
             try:
                 if self.spectrum is None:
                     raise DataError("spectrum: " + str(self.spectrum))
+
+                if not isinstance(threshold, int) and not isinstance(threshold, float) or threshold < 0:
+                    raise ArgError("threshold: " + str(threshold) + "\nPlease specify a number larger than 0")
+
+                if not isinstance(num_ticks, int) or num_ticks<3:
+                    raise ArgError("num_ticks: " + str(num_ticks) + "\nPlease specify an integer larger than 3")
 
                 print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
 
                 spectrum = np.array(self.spectrum)
 
-                if threshold != 0:
+                if threshold > 0:
                     spectrum[spectrum > threshold] = threshold
 
                 ax = sns.heatmap(spectrum)
+                labels = self.commonfunc.replace_labels(self, input_timestamps=self.timestamps,
+                                                        input_length=self.length)
 
-                if self.spectrum.shape[0] == 360:
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(60))
-                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-240, -180, -120, -60, 0, 60, 120, 180]))
-                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(20))
-
-                elif self.spectrum.shape[0] == 181:
+                if self.algorithm == 'aoa':
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
+                    ax.xticks(range(0, self.length, self.length // 10), labels)
+                    ax.set_xlabel("Time / $s$")
+                    ax.set_ylabel("Angel / $deg$")
+                    plt.title(self.name + " AoA Spectrum" + str(notion))
 
-                ax.set_xlabel("#timestamp")
-                ax.set_ylabel("Angel / $deg$")
+                elif self.algorithm == 'doppler':
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
+                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.5))
+                    ax.xticks(range(0, self.length, self.length // 10), labels)
+                    ax.set_xlabel("Time / $s$")
+                    ax.set_ylabel("Velocity / $m/s$")
+                    plt.title(self.name + " Doppler Spectrum" + str(notion))
+
                 ax.collections[0].colorbar.set_label('Power / $dB$')
-                plt.title(self.name + " AoA Spectrum" + str(notion))
 
                 print(self.name, "plot complete", time.asctime(time.localtime(time.time())))
 
@@ -329,14 +349,18 @@ class MyCsi(object):
                     plt.close()
 
                 else:
-                    raise ArgError("autosave")
+                    raise ArgError("autosave\nPlease specify autosave=\"True\" or \"False\"")
 
             except DataError as e:
                 print(e, "\nPlease compute spectrum")
             except ArgError as e:
-                print(e, "\nPlease specify autosave=\"True\" or \"False\"")
+                print(e)
 
     class _CommonFunctions:
+        """
+        Collection of static methods that may be used in other methods.
+        """
+
         def smooth_csi(self, input_csi, rx=2, sub=15):
             """
             Static method.\n
@@ -357,6 +381,37 @@ class MyCsi(object):
                       for j in range(nsub - sub + 1)]
 
             return np.array(output)
+
+        def reconstruct_csi(self, input_amp, input_phase):
+            """
+            Static method.\n
+            Reconstructs csi data as complex numbers. Singular dimensions are squeezed.
+
+            :param input_amp: csi amplitude
+            :param input_phase: csi phase
+            :return: reconstructed csi
+            """
+
+            reconstruct_csi = np.squeeze(input_amp) * np.exp(1.j * np.squeeze(input_phase))
+
+            return reconstruct_csi
+
+        def replace_labels(self, input_timestamps, input_length, total_ticks=11):
+            """
+            Static method.\n
+            Generates a list of timestamps to plot as x-axis labels.
+
+            :param input_timestamps: ordinarily input self.data.timestamps
+            :param input_length: ordinarily input self.data.length
+            :param total_ticks: how many labels you need (including start and end)
+            :return: a list of timestamps
+            """
+
+            indicies = [i * input_length // (total_ticks - 1) for i in range(total_ticks - 1)]
+            indicies.append(input_length - 1)
+
+            return [float('%.6f' % x) for x in input_timestamps[indicies]]
+
 
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
@@ -398,9 +453,6 @@ class MyCsi(object):
 
             self.data.remove_inf_values()
 
-            temp_amp = 0
-            temp_phase = 0
-
             for i in range(self.data.length):
 
                 if smooth is True:
@@ -436,6 +488,7 @@ class MyCsi(object):
 
             print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
             self.data.spectrum = spectrum
+            self.data.algorithm = 'aoa'
 
         except DataError as e:
             print(e, "\nPlease load data")
@@ -444,13 +497,12 @@ class MyCsi(object):
         """
         Computes Doppler spectrum by MUSIC. Under construction.
 
-        :param: input_velocity_list: list of velocities, default = -5~5
+        :param: input_velocity_list: list of velocities. Default = -5~5
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
         lightspeed = self.lightspeed
         center_freq = self.center_freq
         mjtwopi = self.mjtwopi
-        delta_subfreq = self.delta_subfreq
         nrx = self.nrx
         ntx = self.ntx
         nsub = self.nsub
@@ -496,6 +548,7 @@ class MyCsi(object):
 
             print(self.name, "Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
             self.data.spectrum = spectrum
+            self.data.algorithm = 'doppler'
 
         except DataError as e:
             print(e, "\nPlease load data")
@@ -503,23 +556,65 @@ class MyCsi(object):
     def sanitize_phase(self):
         pass
 
+    def calibrate_phase(self, input_mycsi):
+        """
+        Calibrates phase offset between other degrees against 0 degree.\n
+        Initial Phase Offset is removed.
+
+        :param input_mycsi: CSI recorded at 0 degree
+        :return: calibrated phase, unwrapped
+        """
+        nrx = self.nrx
+        nsub = self.nsub
+        recon = self.commonfunc.reconstruct_csi()
+
+        try:
+            if self.data.phase is None:
+                raise DataError("phase: " + str(self.data.phase))
+
+            if not isinstance(input_mycsi, MyCsi):
+                raise DataError("reference csi: " + str(input_mycsi) + "\nPlease input MyCsi instance.")
+
+            if input_mycsi.data.phase is None:
+                raise DataError("reference phase: " + str(input_mycsi.data.phase))
+
+            print("Apply phase calibration according to " + input_mycsi.name, time.asctime(time.localtime(time.time())))
+
+            reference_csi = recon(input_mycsi.data.amp, input_mycsi.data.phase)
+            current_csi = recon(self.data.amp, self.data.phase)
+
+            subtrahend = np.expand_dims(reference_csi[:, :, 0], axis=2).repeat(3, axis=2)
+
+            offset = np.mean(reference_csi * np.conjugate(subtrahend), axis=(0, 1)).reshape((1, 1, nrx))
+            offset = offset.repeat(nsub, axis=1).repeat(self.data.length, axis=0)
+
+            calibrated_csi = np.expand_dims(current_csi * np.conjugate(offset), axis=3)
+            print(calibrated_csi.shape)
+
+            self.data.amp = np.abs(calibrated_csi)
+            self.data.phase = np.angle(calibrated_csi)
+
+        except DataError as e:
+            print(e, "\nPlease load data")
+
     def extract_dynamic(self, mode='overall'):
         """
         Removes the static component from csi.\n
         Strongly recommended when Tx is placed beside Rx.
 
-        :param mode: 'overall' or 'running' (in terms of averaging)
+        :param mode: 'overall' or 'running' (in terms of averaging). Default is 'overall'
         :return: phase and amplitude of dynamic component of csi
         """
         nrx = self.nrx
         ntx = self.ntx
         nsub = self.nsub
+        recon = self.commonfunc.reconstruct_csi()
 
         try:
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
 
-            complex_csi = self.data.amp * np.exp(1.j * self.data.phase)
+            complex_csi = recon(self.data.amp, self.data.phase)
             conjugate_csi = complex_csi[:, :, 0, :, None].repeat(3, axis=2)
             hc = complex_csi * conjugate_csi
 
@@ -543,56 +638,13 @@ class MyCsi(object):
         except ArgError as e:
             print(e, "\nPlease specify mode=\"running\" or \"overall\"")
 
-    def calibrate_phase(self, input_mycsi):
-        """
-        Calibrates phase offset between other degrees against 0 degree.\n
-        Initial Phase Offset is removed.
-
-        :param input_mycsi: CSI recorded at 0 degree
-        :return: calibrated phase, unwrapped
-        """
-        nrx = self.nrx
-        nsub = self.nsub
-
-        try:
-            if self.data.phase is None:
-                raise DataError("phase: " + str(self.data.phase))
-
-            if not isinstance(input_mycsi, MyCsi):
-                raise DataError("reference csi: " + str(input_mycsi) + "\nPlease input MyCsi instance.")
-
-            if input_mycsi.data.phase is None:
-                raise DataError("reference phase: " + str(input_mycsi.data.phase))
-
-            print("Apply phase calibration according to " + input_mycsi.name, time.asctime(time.localtime(time.time())))
-
-            reference_csi = np.squeeze(input_mycsi.data.amp) * np.exp(1.j * np.squeeze(input_mycsi.data.phase))
-            current_csi = np.squeeze(self.data.amp) * np.exp(1.j * np.squeeze(self.data.phase))
-
-            subtrahend = np.expand_dims(reference_csi[:, :, 0], axis=2).repeat(3, axis=2)
-
-            relative = reference_csi * np.conjugate(subtrahend)
-            offset = np.mean(relative, axis=(0, 1)).reshape((1, 1, nrx))
-
-            offset = offset.repeat(nsub, axis=1).repeat(self.data.length, axis=0)
-
-            calibrated_csi = current_csi * np.conjugate(offset)
-            calibrated_csi = np.expand_dims(calibrated_csi, axis=3)
-            print(calibrated_csi.shape)
-
-            self.data.amp = np.abs(calibrated_csi)
-            self.data.phase = np.angle(calibrated_csi)
-
-        except DataError as e:
-            print(e, "\nPlease load data")
-
     def resample_packets(self, sampling_rate=100):
         """
         Resample from raw CSI to reach a specified sampling rate.\n
         Strongly recommended when uniform interval is required.
 
         :param sampling_rate: sampling rate in Hz after resampling. Should not be larger than 5000.
-        Default is 100Hz
+        Default is 100
         :return: Resampled csi data
         """
 
@@ -606,26 +658,31 @@ class MyCsi(object):
             print("Resampling at " + str(sampling_rate) + "Hz", time.asctime(time.localtime(time.time())))
 
             new_interval = 1. / sampling_rate
-            new_length = np.floor(self.data.length * sampling_rate) + 1
+            new_length = int(self.data.timestamps[-1] * sampling_rate) + 1  # Flooring
             resample_indicies = []
 
             for i in range(new_length):
 
                 index = np.searchsorted(self.data.timestamps, i * new_interval)
 
-                if index > 0 and (index == self.data.length or
-                        abs(self.data.timestamps[index] - i * new_interval) > abs(self.data.timestamps[index - 1] - i * new_interval)):
+                if index > 0 and (
+                        index == self.data.length or
+                        abs(self.data.timestamps[index] - i * new_interval) >
+                        abs(self.data.timestamps[index - 1] - i * new_interval)):
                     index -= 1
 
                 resample_indicies.append(index)
 
             self.data.amp = self.data.amp[resample_indicies]
             self.data.phase = self.data.phase[resample_indicies]
+            self.data.timestamps = self.data.timestamps[resample_indicies]
+            self.data.length = new_length
 
         except DataError as e:
             print(e, "\nPlease load data")
         except ArgError as e:
             print(e, "\nPlease specify an integer less than 5000")
+
 
 if __name__ == '__main__':
 
