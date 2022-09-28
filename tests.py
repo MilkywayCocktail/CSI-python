@@ -259,9 +259,10 @@ if __name__ == '__main__':
             2: 'test_resampling',
             3: 'test_doppler',
             4: 'test_aoa',
-            5: 'test_phasediff'}
+            5: 'test_phasediff',
+            6: 'test_simulation'}
 
     n0 = "0919A00f"
-    n1 = "0919A15"
+    n1 = "0919A12"
 
-    order(1, n0, n1)
+    order(3, n0, n1)
