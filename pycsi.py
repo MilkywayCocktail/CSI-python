@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-27
+# Last edit: 2022-09-26
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -137,6 +137,7 @@ class MyCsi(object):
             print(self.name, "spectrum load start...", time.asctime(time.localtime(time.time())))
             csi_spectrum = np.load(input_path)
             self.data.spectrum = csi_spectrum['csi_spectrum']
+            self.data.algorithm = csi_spectrum['csi_algorithm']
             print(self.name, "spectrum load complete", time.asctime(time.localtime(time.time())))
 
         except PathError as e:
@@ -196,7 +197,8 @@ class MyCsi(object):
             # Keys: spectrum, info
             print(self.name, "spectrum save start...", time.asctime(time.localtime(time.time())))
             np.savez(save_path + "/" + save_name + "-spectrum.npz",
-                     csi_spectrum=self.data.spectrum)
+                     csi_spectrum=self.data.spectrum,
+                     csi_algorithm=self.data.algorithm)
             print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
@@ -237,8 +239,8 @@ class MyCsi(object):
                 if self.amp is None:
                     raise DataError("amplitude: " + str(self.amp))
 
-                print("Apply invalid value removal " + time.asctime(time.localtime(time.time())))
-                print("Found", len(np.where(self.amp == float('-inf'))[0]), "-inf values")
+                print("  Apply invalid value removal..." + time.asctime(time.localtime(time.time())))
+                print("  Found", len(np.where(self.amp == float('-inf'))[0]), "-inf values")
 
                 if len(np.where(self.amp == float('-inf'))[0]) != 0:
 
@@ -265,7 +267,7 @@ class MyCsi(object):
             except DataError as e:
                 print(e, "\nPlease load data")
 
-        def vis_all_rx(self, metric="amplitude"):
+        def view_all_rx(self, metric="amplitude"):
             """
             Plots csi amplitude OR phase for all antennas.
 
@@ -298,7 +300,7 @@ class MyCsi(object):
             except DataError as e:
                 print(e, "\nPlease load data")
 
-        def vis_spectrum(self, threshold=0, num_ticks=11, autosave=False, notion=''):
+        def view_spectrum(self, threshold=0, num_ticks=11, autosave=False, notion=''):
             """
             Plots spectrum. You can select whether save the image or not.
 
@@ -316,7 +318,7 @@ class MyCsi(object):
                 if not isinstance(threshold, int) and not isinstance(threshold, float) or threshold < 0:
                     raise ArgError("threshold: " + str(threshold) + "\nPlease specify a number larger than 0")
 
-                if not isinstance(num_ticks, int) or num_ticks<3:
+                if not isinstance(num_ticks, int) or num_ticks < 3:
                     raise ArgError("num_ticks: " + str(num_ticks) + "\nPlease specify an integer larger than 3")
 
                 print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
@@ -334,16 +336,18 @@ class MyCsi(object):
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    ax.xticks(range(0, self.length, self.length // 10), labels)
+                    plt.xticks(range(0, self.length, self.length // 10), labels)
+                    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
                     ax.set_ylabel("Angel / $deg$")
                     plt.title(self.name + " AoA Spectrum" + str(notion))
 
                 elif self.algorithm == 'doppler':
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(100))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
-                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(0.5))
-                    ax.xticks(range(0, self.length, self.length // 10), labels)
+                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
+                    plt.xticks(range(0, self.length, self.length // 10), labels)
+                    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
                     ax.set_ylabel("Velocity / $m/s$")
                     plt.title(self.name + " Doppler Spectrum" + str(notion))
@@ -430,7 +434,6 @@ class MyCsi(object):
 
             return [float('%.6f' % x) for x in input_timestamps[indicies]]
 
-
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
         Computes AoA spectrum by MUSIC.
@@ -465,7 +468,7 @@ class MyCsi(object):
             print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
             if smooth is True:
-                print("Apply Smoothing via SpotFi...")
+                print("  Apply Smoothing via SpotFi...")
 
             # Replace -inf values with neighboring packets before computing
 
@@ -521,12 +524,10 @@ class MyCsi(object):
         lightspeed = self.lightspeed
         center_freq = self.center_freq
         mjtwopi = self.mjtwopi
-        nrx = self.nrx
         ntx = self.ntx
-        nsub = self.nsub
         num_samples = 100
-        delta_t = 0.2208e-3
-        pick_antenna = 0
+        delta_t = 1.e-3
+        pick_antenna = 0  # Multi-rx data is not needed here
 
         try:
             if self.data.amp is None:
@@ -545,8 +546,8 @@ class MyCsi(object):
 
             for i in range(self.data.length - num_samples):
 
-                csi = np.array([np.squeeze(self.data.amp[i + i_sub, :, pick_antenna]) *
-                                np.exp(1.j * np.squeeze(self.data.phase[i + i_sub, :, 0]))
+                csi = np.array([self.commonfunc.reconstruct_csi(self, self.data.amp[i + i_sub, :, pick_antenna],
+                                                                self.data.phase[i + i_sub, :, 0])
                                 for i_sub in range(num_samples)])
 
                 value, vector = np.linalg.eigh(csi.dot(np.conjugate(csi.T)))
@@ -558,8 +559,8 @@ class MyCsi(object):
 
                 for j, velocity in enumerate(input_velocity_list):
 
-                    steering_vector = np.exp([mjtwopi * center_freq * delta_t / lightspeed *
-                                              m for m in range(num_samples)])
+                    steering_vector = np.exp([mjtwopi * center_freq * velocity * delta_t *
+                                              list(range(num_samples)) / lightspeed])
 
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
@@ -584,7 +585,6 @@ class MyCsi(object):
         """
         nrx = self.nrx
         nsub = self.nsub
-        recon = self.commonfunc.reconstruct_csi()
 
         try:
             if self.data.phase is None:
@@ -596,10 +596,11 @@ class MyCsi(object):
             if input_mycsi.data.phase is None:
                 raise DataError("reference phase: " + str(input_mycsi.data.phase))
 
-            print("Apply phase calibration according to " + input_mycsi.name, time.asctime(time.localtime(time.time())))
+            print("  Apply phase calibration according to " + input_mycsi.name + "...",
+                  time.asctime(time.localtime(time.time())))
 
-            reference_csi = recon(input_mycsi.data.amp, input_mycsi.data.phase)
-            current_csi = recon(self.data.amp, self.data.phase)
+            reference_csi = self.commonfunc.reconstruct_csi(self, input_mycsi.data.amp, input_mycsi.data.phase)
+            current_csi = self.commonfunc.reconstruct_csi(self, self.data.amp, self.data.phase)
 
             subtrahend = np.expand_dims(reference_csi[:, :, 0], axis=2).repeat(3, axis=2)
 
@@ -607,7 +608,6 @@ class MyCsi(object):
             offset = offset.repeat(nsub, axis=1).repeat(self.data.length, axis=0)
 
             calibrated_csi = np.expand_dims(current_csi * np.conjugate(offset), axis=3)
-            print(calibrated_csi.shape)
 
             self.data.amp = np.abs(calibrated_csi)
             self.data.phase = np.angle(calibrated_csi)
@@ -626,15 +626,16 @@ class MyCsi(object):
         nrx = self.nrx
         ntx = self.ntx
         nsub = self.nsub
-        recon = self.commonfunc.reconstruct_csi()
 
         try:
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
 
-            complex_csi = recon(self.data.amp, self.data.phase)
-            conjugate_csi = complex_csi[:, :, 0, :, None].repeat(3, axis=2)
-            hc = complex_csi * conjugate_csi
+            print("  Apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
+
+            complex_csi = self.commonfunc.reconstruct_csi(self, self.data.amp, self.data.phase)
+            conjugate_csi = complex_csi[:, :, 0, None].repeat(3, axis=2)
+            hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
 
             if mode == 'overall':
                 average_hc = np.mean(hc, axis=0).reshape((1, nsub, nrx, ntx))
@@ -673,7 +674,7 @@ class MyCsi(object):
             if sampling_rate > 5000 or not isinstance(sampling_rate, int):
                 raise ArgError("sampling_rate: " + str(sampling_rate))
 
-            print("Resampling at " + str(sampling_rate) + "Hz", time.asctime(time.localtime(time.time())))
+            print("  Resampling at " + str(sampling_rate) + "Hz...", time.asctime(time.localtime(time.time())))
 
             new_interval = 1. / sampling_rate
             new_length = int(self.data.timestamps[-1] * sampling_rate) + 1  # Flooring
