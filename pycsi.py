@@ -195,7 +195,7 @@ class MyCsi(object):
             self.length = None
             self.spectrum = None
             self.algorithm = None
-            self.commonfunc = CommonFunctions
+            self.commonfunc = MyCsi._CommonFunctions
 
         def show_shape(self):
             try:
@@ -292,6 +292,7 @@ class MyCsi(object):
             :param notion: string, save additional information in filename if autosave
             :return: spectrum plot
             """
+            replace = self.commonfunc.replace_labels
 
             try:
                 if self.spectrum is None:
@@ -311,8 +312,7 @@ class MyCsi(object):
                     spectrum[spectrum > threshold] = threshold
 
                 ax = sns.heatmap(spectrum)
-                labels = self.commonfunc.replace_labels(self, input_timestamps=self.timestamps,
-                                                        input_length=self.length)
+                labels = replace(self, input_timestamps=self.timestamps, input_length=self.length)
 
                 if self.algorithm == 'aoa':
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
