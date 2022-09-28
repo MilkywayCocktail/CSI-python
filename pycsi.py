@@ -106,7 +106,7 @@ class MyCsi(object):
         """
         Loads .npz spectrum into current MyCsi instance.
 
-        :param input_path: the path of spectrum, usually in npsave folder
+        :param input_path: the path of spectrum, usually in 'npsave' folder
         :return: spectrum
         """
         try:
@@ -312,7 +312,7 @@ class MyCsi(object):
                     spectrum[spectrum > threshold] = threshold
 
                 ax = sns.heatmap(spectrum)
-                labels = replace(self, input_timestamps=self.timestamps, input_length=self.length)
+                labels = replace(input_timestamps=self.timestamps, input_length=self.length)
 
                 if self.algorithm == 'aoa':
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
@@ -365,7 +365,8 @@ class MyCsi(object):
         Collection of static methods that may be used in other methods.
         """
 
-        def smooth_csi(self, input_csi, rx=2, sub=15):
+        @staticmethod
+        def smooth_csi(input_csi, rx=2, sub=15):
             """
             Static method.\n
             Applies SpotFi smoothing technique. You have to run for amplitude and phase each.
@@ -386,7 +387,8 @@ class MyCsi(object):
 
             return np.array(output)
 
-        def reconstruct_csi(self, input_amp, input_phase):
+        @staticmethod
+        def reconstruct_csi(input_amp, input_phase):
             """
             Static method.\n
             Reconstructs csi data as complex numbers. Singular dimensions are squeezed.
@@ -399,7 +401,8 @@ class MyCsi(object):
 
             return reconstruct_csi
 
-        def replace_labels(self, input_timestamps, input_length, total_ticks=11):
+        @staticmethod
+        def replace_labels(input_timestamps, input_length, total_ticks=11):
             """
             Static method.\n
             Generates a list of timestamps to plot as x-axis labels.
@@ -460,14 +463,14 @@ class MyCsi(object):
             for i in range(self.data.length):
 
                 if smooth is True:
-                    temp_amp = smooth(self, np.squeeze(self.data.amp[i]))
-                    temp_phase = smooth(self, np.squeeze(self.data.phase[i]))
+                    temp_amp = smooth(np.squeeze(self.data.amp[i]))
+                    temp_phase = smooth(np.squeeze(self.data.phase[i]))
 
                 else:
                     temp_amp = self.data.amp[i]
                     temp_phase = self.data.phase[i]
 
-                csi = recon(self, temp_amp, temp_phase)
+                csi = recon(temp_amp, temp_phase)
 
                 value, vector = np.linalg.eigh(csi.T.dot(np.conjugate(csi)))
                 descend_order_index = np.argsort(-value)
@@ -533,7 +536,7 @@ class MyCsi(object):
 
             for i in range(self.data.length - num_samples):
 
-                csi = np.array([recon(self, self.data.amp[i + i_sub, :, pick_antenna],
+                csi = np.array([recon(self.data.amp[i + i_sub, :, pick_antenna],
                                       self.data.phase[i + i_sub, :, 0])
                                 for i_sub in range(num_samples)])
 
@@ -547,7 +550,7 @@ class MyCsi(object):
                 for j, velocity in enumerate(input_velocity_list):
 
                     steering_vector = np.exp(mjtwopi * center_freq * delay_list * delta_t *
-                                              velocity / lightspeed)
+                                             velocity / lightspeed)
 
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
@@ -587,8 +590,8 @@ class MyCsi(object):
             print("  Apply phase calibration according to " + input_mycsi.name + "...",
                   time.asctime(time.localtime(time.time())))
 
-            reference_csi = recon(self, input_mycsi.data.amp, input_mycsi.data.phase)
-            current_csi = recon(self, self.data.amp, self.data.phase)
+            reference_csi = recon(input_mycsi.data.amp, input_mycsi.data.phase)
+            current_csi = recon(self.data.amp, self.data.phase)
 
             subtrahend = np.expand_dims(reference_csi[:, :, 0], axis=2).repeat(3, axis=2)
 
@@ -622,7 +625,7 @@ class MyCsi(object):
 
             print("  Apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
 
-            complex_csi = recon(self, self.data.amp, self.data.phase)
+            complex_csi = recon(self.data.amp, self.data.phase)
             conjugate_csi = complex_csi[:, :, 0, None].repeat(3, axis=2)
             hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
 
