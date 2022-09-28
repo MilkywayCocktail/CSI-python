@@ -36,24 +36,6 @@ class ArgError(MyException):
         return "error with argument: " + self.catch
 
 
-class CommonFunctions(object):
-
-    def replace_labels(self, input_timestamps, input_length, total_ticks=11):
-        """
-        Static method.\n
-        Generates a list of timestamps to plot as x-axis labels.
-
-        :param input_timestamps: ordinarily input self.data.timestamps
-        :param input_length: ordinarily input self.data.length
-        :param total_ticks: how many labels you need (including start and end)
-        :return: a list of timestamps
-        """
-
-        indicies = [i * input_length // (total_ticks - 1) for i in range(total_ticks - 1)]
-        indicies.append(input_length - 1)
-
-        return [float('%.6f' % x) for x in input_timestamps[indicies]]
-
 class MyCsi(object):
     """
     Main functionalities of csi processing.
@@ -343,9 +325,9 @@ class MyCsi(object):
                     plt.title(self.name + " AoA Spectrum" + str(notion))
 
                 elif self.algorithm == 'doppler':
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(100))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
-                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
+                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
                     plt.xticks(range(0, self.length, self.length // 10), labels)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
@@ -408,7 +390,6 @@ class MyCsi(object):
             """
             Static method.\n
             Reconstructs csi data as complex numbers. Singular dimensions are squeezed.
-
             :param input_amp: csi amplitude
             :param input_phase: csi phase
             :return: reconstructed csi
@@ -429,10 +410,10 @@ class MyCsi(object):
             :return: a list of timestamps
             """
 
-            indicies = [i * input_length // (total_ticks - 1) for i in range(total_ticks - 1)]
-            indicies.append(input_length - 1)
+            indices = [i * input_length // (total_ticks - 1) for i in range(total_ticks - 1)]
+            indices.append(input_length - 1)
 
-            return [float('%.6f' % x) for x in input_timestamps[indicies]]
+            return [float('%.6f' % x) for x in input_timestamps[indices]]
 
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
@@ -450,6 +431,8 @@ class MyCsi(object):
         delta_subfreq = self.delta_subfreq
         nrx = self.nrx
         ntx = self.ntx
+        recon = self.commonfunc.reconstruct_csi
+        smooth = self.commonfunc.smooth_csi
 
         try:
             if self.data.amp is None:
@@ -463,8 +446,6 @@ class MyCsi(object):
                                      4 * delta_subfreq)
             antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
 
-            spectrum = np.zeros((len(input_theta_list), self.data.length))
-
             print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
             if smooth is True:
@@ -474,17 +455,19 @@ class MyCsi(object):
 
             self.data.remove_inf_values()
 
+            spectrum = np.zeros((len(input_theta_list), self.data.length))
+
             for i in range(self.data.length):
 
                 if smooth is True:
-                    temp_amp = self.commonfunc.smooth_csi(np.squeeze(self.data.amp[i]))
-                    temp_phase = self.commonfunc.smooth_csi(np.squeeze(self.data.phase[i]))
+                    temp_amp = smooth(self, np.squeeze(self.data.amp[i]))
+                    temp_phase = smooth(self, np.squeeze(self.data.phase[i]))
 
                 else:
                     temp_amp = self.data.amp[i]
                     temp_phase = self.data.phase[i]
 
-                csi = np.squeeze(temp_amp) * np.exp(1.j * np.squeeze(temp_phase))
+                csi = recon(self, temp_amp, temp_phase)
 
                 value, vector = np.linalg.eigh(csi.T.dot(np.conjugate(csi)))
                 descend_order_index = np.argsort(-value)
@@ -514,7 +497,7 @@ class MyCsi(object):
         except DataError as e:
             print(e, "\nPlease load data")
 
-    def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.01, 0.01)):
+    def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05)):
         """
         Computes Doppler spectrum by MUSIC. Under construction.
 
@@ -528,6 +511,7 @@ class MyCsi(object):
         num_samples = 100
         delta_t = 1.e-3
         pick_antenna = 0  # Multi-rx data is not needed here
+        recon = self.commonfunc.reconstruct_csi
 
         try:
             if self.data.amp is None:
@@ -536,7 +520,8 @@ class MyCsi(object):
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase))
 
-            spectrum = np.zeros((len(input_velocity_list), self.data.length))
+            # Delay list is determined by num_samples
+            delay_list = np.arange(0, num_samples, 1.).reshape(-1, 1)
 
             print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
@@ -544,10 +529,12 @@ class MyCsi(object):
 
             self.data.remove_inf_values()
 
+            spectrum = np.zeros((len(input_velocity_list), self.data.length))
+
             for i in range(self.data.length - num_samples):
 
-                csi = np.array([self.commonfunc.reconstruct_csi(self, self.data.amp[i + i_sub, :, pick_antenna],
-                                                                self.data.phase[i + i_sub, :, 0])
+                csi = np.array([recon(self, self.data.amp[i + i_sub, :, pick_antenna],
+                                      self.data.phase[i + i_sub, :, 0])
                                 for i_sub in range(num_samples)])
 
                 value, vector = np.linalg.eigh(csi.dot(np.conjugate(csi.T)))
@@ -559,8 +546,8 @@ class MyCsi(object):
 
                 for j, velocity in enumerate(input_velocity_list):
 
-                    steering_vector = np.exp([mjtwopi * center_freq * velocity * delta_t *
-                                              list(range(num_samples)) / lightspeed])
+                    steering_vector = np.exp(mjtwopi * center_freq * delay_list * delta_t *
+                                              velocity / lightspeed)
 
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
@@ -585,6 +572,7 @@ class MyCsi(object):
         """
         nrx = self.nrx
         nsub = self.nsub
+        recon = self.commonfunc.reconstruct_csi
 
         try:
             if self.data.phase is None:
@@ -599,8 +587,8 @@ class MyCsi(object):
             print("  Apply phase calibration according to " + input_mycsi.name + "...",
                   time.asctime(time.localtime(time.time())))
 
-            reference_csi = self.commonfunc.reconstruct_csi(self, input_mycsi.data.amp, input_mycsi.data.phase)
-            current_csi = self.commonfunc.reconstruct_csi(self, self.data.amp, self.data.phase)
+            reference_csi = recon(self, input_mycsi.data.amp, input_mycsi.data.phase)
+            current_csi = recon(self, self.data.amp, self.data.phase)
 
             subtrahend = np.expand_dims(reference_csi[:, :, 0], axis=2).repeat(3, axis=2)
 
@@ -626,6 +614,7 @@ class MyCsi(object):
         nrx = self.nrx
         ntx = self.ntx
         nsub = self.nsub
+        recon = self.commonfunc.smooth_csi
 
         try:
             if self.data.amp is None or self.data.phase is None:
@@ -633,7 +622,7 @@ class MyCsi(object):
 
             print("  Apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
 
-            complex_csi = self.commonfunc.reconstruct_csi(self, self.data.amp, self.data.phase)
+            complex_csi = recon(self, self.data.amp, self.data.phase)
             conjugate_csi = complex_csi[:, :, 0, None].repeat(3, axis=2)
             hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
 
