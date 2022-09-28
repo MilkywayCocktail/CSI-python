@@ -115,11 +115,11 @@ def test_doppler():
     name1 = "0919A15"
     npzpath1 = "npsave/" + name1[:4] + '/csi' + name1 + "-csis.npz"
 
-    csi = pycsi.MyCsi(name0, npzpath0)
+    csi = pycsi.MyCsi(name1, npzpath1)
     csi.load_data()
     csi.data.remove_inf_values()
 
-    standard = pycsi.MyCsi(name1, npzpath1)
+    standard = pycsi.MyCsi(name0, npzpath0)
     standard.load_data()
     standard.data.remove_inf_values()
 
@@ -128,7 +128,7 @@ def test_doppler():
     csi.resample_packets()
 
     csi.doppler_by_music()
-    csi.data.vis_spectrum(0, autosave=False)
+    csi.data.view_spectrum()
 
 
 def test_phase():
