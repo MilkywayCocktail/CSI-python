@@ -6,4 +6,6 @@ pycsi.py: main functionality codes
 
 test-xxx.py: test codes for testing defferent parts of pycsi
 
+tests.py: collection of all tests (WIP)
+
 WIdar2.py: raw version
