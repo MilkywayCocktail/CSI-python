@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
 import pycsi
+from functools import wraps
 
 
 class MyTest(pycsi.MyCsi):
@@ -12,6 +13,26 @@ class MyTest(pycsi.MyCsi):
     Inherits full functionalities of MyCsi.\n
     Extra methods added for testing.
     """
+
+
+def batch_tool(folder_path, func, *args, **kwargs):
+    """
+    Specify a path that contains csi data files (.npz). The specified function will walk through all files.
+
+    :param folder_path: folder path that contains csi data files (.npz)
+    :param func: a test function from the menu.
+    :return: iterative function that enables batch processing
+    """
+    print("- Enabling batch processing -")
+
+    filenames = os.listdir(folder_path)
+
+    for file in filenames:
+        name = file[:-9]
+        func(name1=name, *args, **kwargs)
+
+    print("- Batch processing complete -")
+    return
 
 
 def test_calibration(name0, name1):
@@ -23,8 +44,8 @@ def test_calibration(name0, name1):
     :return:
     """
 
-    npzpath0 = "npsave/" + name0[:4] + '/csi' + name0 + "-csis.npz"
-    npzpath1 = "npsave/" + name1[:4] + '/csi' + name1 + "-csis.npz"
+    npzpath0 = "npsave/" + name0[:4] + '/' + name0 + "-csis.npz"
+    npzpath1 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
 
@@ -79,7 +100,7 @@ def test_resampling(name1, sampling_rate=100):
     :return:
     """
 
-    npzpath0 = "npsave/" + name1[:4] + '/csi' + name1 + "-csis.npz"
+    npzpath0 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
 
     csi = pycsi.MyCsi(name1, npzpath0)
     csi.load_data()
@@ -90,10 +111,10 @@ def test_resampling(name1, sampling_rate=100):
     ax[0].plot(np.squeeze(csi.data.amp[:, 0, 0, 0]), label='sub0 antenna0')
     ax[0].set_xlabel('Timestamp/s', loc='right')
     plt.sca(ax[0])
-    labels = [i * csi.data.length // 10 for i in range(10)]
-    labels.append(csi.data.length - 1)
-    l = [float('%.6f' % x) for x in csi.data.timestamps[labels]]
-    plt.xticks(range(0, csi.data.length, csi.data.length//10), l)
+    labels1 = [i * csi.data.length // 10 for i in range(10)]
+    labels1.append(csi.data.length - 1)
+    l1 = [float('%.6f' % x) for x in csi.data.timestamps[labels1]]
+    plt.xticks(labels1, l1)
     ax[0].set_ylabel('Amplitude')
     ax[0].legend()
 
@@ -104,10 +125,12 @@ def test_resampling(name1, sampling_rate=100):
     ax[1].plot(np.squeeze(csi.data.amp[:, 0, 0, 0]), label='sub0 antenna0')
     ax[1].set_xlabel('Timestamp/s', loc='right')
     plt.sca(ax[1])
-    labels = [i * csi.data.length // 10 for i in range(10)]
-    labels.append(csi.data.length - 1)
-    l = [float('%.6f' % x) for x in csi.data.timestamps[labels]]
-    plt.xticks(range(0, csi.data.length, csi.data.length//10), l)
+    labels2 = [i * csi.data.length // 10 for i in range(10)]
+    labels2.append(csi.data.length - 1)
+    print(labels2)
+    l2 = [float('%.6f' % x) for x in csi.data.timestamps[labels2]]
+    print(l2)
+    plt.xticks(labels2, l2)
     ax[1].set_ylabel('Amplitude')
     ax[1].legend()
     plt.suptitle('Resampling of ' + name1[4:] + ' @ 100Hz')
@@ -123,8 +146,8 @@ def test_doppler(name0, name1):
     :return:
     """
 
-    npzpath0 = "npsave/" + name0[:4] + '/csi' + name0 + "-csis.npz"
-    npzpath1 = "npsave/" + name1[:4] + '/csi' + name1 + "-csis.npz"
+    npzpath0 = "npsave/" + name0[:4] + '/' + name0 + "-csis.npz"
+    npzpath1 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
 
     csi = pycsi.MyCsi(name1, npzpath1)
     csi.load_data()
@@ -151,8 +174,8 @@ def test_aoa(name0, name1):
     :return:
     """
 
-    npzpath0 = "npsave/" + name0[:4] + '/csi' + name0 + "-csis.npz"
-    npzpath1 = "npsave/" + name1[:4] + '/csi' + name1 + "-csis.npz"
+    npzpath0 = "npsave/" + name0[:4] + '/' + name0 + "-csis.npz"
+    npzpath1 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
 
     csi = pycsi.MyCsi(name1, npzpath1)
     csi.load_data()
@@ -178,7 +201,7 @@ def test_phasediff(name0):
     :return:
     """
 
-    npzpath0 = "npsave/" + name0[:4] + '/csi' + name0 + "-csis.npz"
+    npzpath0 = "npsave/" + name0[:4] + '/' + name0 + "-csis.npz"
 
     csi = pycsi.MyCsi(name0, npzpath0)
     csi.load_data()
@@ -263,6 +286,11 @@ if __name__ == '__main__':
             6: 'test_simulation'}
 
     n0 = "0919A00f"
-    n1 = "0919A12"
+    n1 = "0919A00b"
 
-    order(3, n0, n1)
+    path = 'npsave/0919/'
+
+    #batch_tool(path, order, 2, n0)
+
+    order(2, n0, n1)
+
