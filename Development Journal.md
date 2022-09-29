@@ -8,6 +8,7 @@ pycsi.py
 - Added parameter: reference_antenna into calibrate_phase() and extract_dynamic()
 - Added parameter: pick_antenna into doppler_by_music()
 - Modification: all functions, changed naming rule for npz data
+- Bugfix: view_spwctrum(), labeling related bug
 
 tests.py
 - Added function: batch_tool()
