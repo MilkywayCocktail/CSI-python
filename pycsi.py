@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-28
+# Last edit: 2022-09-29
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -565,12 +565,14 @@ class MyCsi(object):
     def sanitize_phase(self):
         pass
 
-    def calibrate_phase(self, input_mycsi):
+    def calibrate_phase(self, input_mycsi, reference_antenna=0):
         """
         Calibrates phase offset between other degrees against 0 degree.\n
         Initial Phase Offset is removed.
 
         :param input_mycsi: CSI recorded at 0 degree
+        :param reference_antenna: select one antenna with which to calculate phase difference between antennas. 
+        Default is 0
         :return: calibrated phase, unwrapped
         """
         nrx = self.nrx
@@ -586,6 +588,9 @@ class MyCsi(object):
 
             if input_mycsi.data.phase is None:
                 raise DataError("reference phase: " + str(input_mycsi.data.phase))
+            
+            if reference_antenna not in (0, 1, 2):
+                raise ArgError("reference_antenna: " + str(reference_antenna))
 
             print("  Apply phase calibration according to " + input_mycsi.name + "...",
                   time.asctime(time.localtime(time.time())))
@@ -593,7 +598,7 @@ class MyCsi(object):
             reference_csi = recon(input_mycsi.data.amp, input_mycsi.data.phase)
             current_csi = recon(self.data.amp, self.data.phase)
 
-            subtrahend = np.expand_dims(reference_csi[:, :, 0], axis=2).repeat(3, axis=2)
+            subtrahend = np.expand_dims(reference_csi[:, :, reference_antenna], axis=2).repeat(3, axis=2)
 
             offset = np.mean(reference_csi * np.conjugate(subtrahend), axis=(0, 1)).reshape((1, 1, nrx))
             offset = offset.repeat(nsub, axis=1).repeat(self.data.length, axis=0)
@@ -605,13 +610,16 @@ class MyCsi(object):
 
         except DataError as e:
             print(e, "\nPlease load data")
+        except ArgError as e:
+            print(e, "\nPlease specify an integer from 0~2")
 
-    def extract_dynamic(self, mode='overall'):
+    def extract_dynamic(self, mode='overall', reference_antenna=0):
         """
         Removes the static component from csi.\n
         Strongly recommended when Tx is placed beside Rx.
 
         :param mode: 'overall' or 'running' (in terms of averaging). Default is 'overall'
+        :param reference_antenna: select one antenna with which to remove random phase offsets. Default is 0
         :return: phase and amplitude of dynamic component of csi
         """
         nrx = self.nrx
@@ -622,11 +630,14 @@ class MyCsi(object):
         try:
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
+            
+            if reference_antenna not in (0, 1, 2):
+                raise ArgError("reference_antenna: " + str(reference_antenna) + "\nPlease specify an integer from 0~2")
 
             print("  Apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
 
             complex_csi = recon(self.data.amp, self.data.phase)
-            conjugate_csi = complex_csi[:, :, 0, None].repeat(3, axis=2)
+            conjugate_csi = complex_csi[:, :, reference_antenna, None].repeat(3, axis=2)
             hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
 
             if mode == 'overall':
@@ -638,7 +649,7 @@ class MyCsi(object):
                                         for sub in range(30)]
                                       for antenna in range(3)]).swapaxes(0, 2).reshape((1, nsub, nrx, ntx))
             else:
-                raise ArgError("mode: " + str(mode))
+                raise ArgError("mode: " + str(mode) + "\nPlease specify mode=\"running\" or \"overall\"")
 
             dynamic_csi = hc - average_hc.repeat(self.data.length, axis=0)
             self.data.amp = np.abs(dynamic_csi)
@@ -647,7 +658,7 @@ class MyCsi(object):
         except DataError as e:
             print(e, "\nPlease load data")
         except ArgError as e:
-            print(e, "\nPlease specify mode=\"running\" or \"overall\"")
+            print(e)
 
     def resample_packets(self, sampling_rate=100):
         """
