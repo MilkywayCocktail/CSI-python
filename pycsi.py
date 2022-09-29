@@ -14,6 +14,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
+from functools import wraps
 
 
 class MyException(Exception):
@@ -34,7 +35,6 @@ class DataError(MyException):
 class ArgError(MyException):
     def __str__(self):
         return "error with argument: " + self.catch
-
 
 class MyCsi(object):
     """
@@ -330,7 +330,7 @@ class MyCsi(object):
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    plt.xticks(range(0, self.length, self.length // (num_ticks - 1)), labels)
+                    plt.xticks(label0, labels)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
                     ax.set_ylabel("Velocity / $m/s$")
@@ -349,7 +349,7 @@ class MyCsi(object):
                     if not os.path.exists(save_path):
                         os.mkdir(save_path)
 
-                    savename = save_path + self.name[4:] + '_AoA' + str(notion) + '.png'
+                    savename = save_path + self.name[4:] + '_' + self.algorithm + str(notion) + '.png'
                     plt.savefig(savename)
                     print(self.name, "saved as", savename, time.asctime(time.localtime(time.time())))
                     plt.close()
@@ -454,7 +454,7 @@ class MyCsi(object):
             print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
             if smooth is True:
-                print("  Apply Smoothing via SpotFi...")
+                print(self.name, "apply Smoothing via SpotFi...")
 
             # Replace -inf values with neighboring packets before computing
 
@@ -594,7 +594,7 @@ class MyCsi(object):
             if reference_antenna not in (0, 1, 2):
                 raise ArgError("reference_antenna: " + str(reference_antenna))
 
-            print("  Apply phase calibration according to " + input_mycsi.name + "...",
+            print(self.name, "apply phase calibration according to " + input_mycsi.name + "...",
                   time.asctime(time.localtime(time.time())))
 
             reference_csi = recon(input_mycsi.data.amp, input_mycsi.data.phase)
@@ -636,7 +636,7 @@ class MyCsi(object):
             if reference_antenna not in (0, 1, 2):
                 raise ArgError("reference_antenna: " + str(reference_antenna) + "\nPlease specify an integer from 0~2")
 
-            print("  Apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
+            print(self.name, "apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
 
             complex_csi = recon(self.data.amp, self.data.phase)
             conjugate_csi = complex_csi[:, :, reference_antenna, None].repeat(3, axis=2)
@@ -679,7 +679,7 @@ class MyCsi(object):
             if sampling_rate > 5000 or not isinstance(sampling_rate, int):
                 raise ArgError("sampling_rate: " + str(sampling_rate))
 
-            print("  Resampling at " + str(sampling_rate) + "Hz...", time.asctime(time.localtime(time.time())))
+            print(self.name, "resampling at " + str(sampling_rate) + "Hz...", time.asctime(time.localtime(time.time())))
 
             new_interval = 1. / sampling_rate
             new_length = int(self.data.timestamps[-1] * sampling_rate) + 1  # Flooring
