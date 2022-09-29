@@ -171,14 +171,18 @@ def test_doppler(name0, name1):
     csi = pycsi.MyCsi(name1, npzpath1)
     csi.load_data()
     csi.data.remove_inf_values()
+    print(csi.data.length)
 
     standard = pycsi.MyCsi(name0, npzpath0)
     standard.load_data()
     standard.data.remove_inf_values()
 
     csi.calibrate_phase(standard)
+    print(csi.data.length)
     csi.extract_dynamic()
+    print(csi.data.length)
     csi.resample_packets()
+    print(csi.data.length)
 
     csi.doppler_by_music()
     csi.data.view_spectrum(autosave=True, notion='_an0')
@@ -212,17 +216,17 @@ def test_aoa(name0, name1):
     csi.data.view_spectrum()
 
 
-def test_phasediff(name0):
+def test_phasediff(name1):
     """
     Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from a random packet.
 
-    :param name0: subject csi
+    :param name1: subject csi
     :return:
     """
 
-    npzpath0 = "npsave/" + name0[:4] + '/' + name0 + "-csis.npz"
+    npzpath0 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
 
-    csi = pycsi.MyCsi(name0, npzpath0)
+    csi = pycsi.MyCsi(name1, npzpath0)
     csi.load_data()
     csi.data.remove_inf_values()
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
@@ -231,7 +235,7 @@ def test_phasediff(name0):
     plt.plot(np.angle(diff_csilist[13000, :, :, 0]))
     plt.xlabel('subcarrier')
     plt.ylabel('difference of phase')
-    plt.title(name0 + 'phasediff')
+    plt.title(name1 + 'phasediff')
     plt.show()
 
 
@@ -273,6 +277,14 @@ def test_simulation():
     plt.show()
 
 
+def test_times(name1):
+    npzpath1 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
+
+    csi = pycsi.MyCsi(name1, npzpath1)
+    csi.load_data()
+    plt.plot(csi.data.timestamps)
+    plt.show()
+
 def order(index, name0, name1):
 
     if index == 1:
@@ -293,6 +305,9 @@ def order(index, name0, name1):
     elif index == 6:
         print('test_simulation')
         test_simulation()
+    elif index == 7:
+        print('test_times')
+        test_times(name1)
 
 
 if __name__ == '__main__':
@@ -302,14 +317,15 @@ if __name__ == '__main__':
             3: 'test_doppler',
             4: 'test_aoa',
             5: 'test_phasediff',
-            6: 'test_simulation'}
+            6: 'test_simulation',
+            7: 'test_times'}
 
     n0 = "0919A00f"
-    n1 = "0919A15"
+    n1 = "0919A11"
 
     path = 'npsave/0919/'
 
-    batch_tool(path, order, 3, n0)
+    # batch_tool(path, order, 3, n0)
 
-    # order(2, n0, n1)
+    order(7, n0, n1)
 
