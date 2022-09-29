@@ -1,5 +1,7 @@
 # Draft by CAO
 # Last edit: 2022-09-29
+import types
+
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -35,6 +37,7 @@ class DataError(MyException):
 class ArgError(MyException):
     def __str__(self):
         return "error with argument: " + self.catch
+
 
 class MyCsi(object):
     """
@@ -109,6 +112,8 @@ class MyCsi(object):
         :param input_path: the path of spectrum, usually in 'npsave' folder
         :return: spectrum
         """
+        print(self.name, "spectrum load start...", time.asctime(time.localtime(time.time())))
+        
         try:
             if input_path is None or not os.path.exists(input_path):
                 raise PathError(input_path)
@@ -116,7 +121,6 @@ class MyCsi(object):
             if input_path[-3:] != "npz":
                 raise DataError(input_path)
 
-            print(self.name, "spectrum load start...", time.asctime(time.localtime(time.time())))
             csi_spectrum = np.load(input_path)
             self.data.spectrum = csi_spectrum['csi_spectrum']
             self.data.algorithm = csi_spectrum['csi_algorithm']
@@ -134,6 +138,8 @@ class MyCsi(object):
         :param save_name: filename, defalut = self.name
         :return: save_name + '-csis.npz'
         """
+        print(self.name, "csi save start...", time.asctime(time.localtime(time.time())))
+        
         try:
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
@@ -147,7 +153,6 @@ class MyCsi(object):
                 save_name = self.name
 
             # Keys: amp, phase, timestamps
-            print(self.name, "csi save start...", time.asctime(time.localtime(time.time())))
             np.savez(save_path + save_name + "-csis.npz",
                      csi_amp=self.data.amp,
                      csi_phase=self.data.phase,
@@ -164,6 +169,8 @@ class MyCsi(object):
         :param save_name: filename, default = self.name
         :return: save_name + '-spectrum.npz'
         """
+        print(self.name, "spectrum save start...", time.asctime(time.localtime(time.time())))
+        
         try:
             if self.data.spectrum is None:
                 raise DataError("spectrum: " + str(self.data.spectrum))
@@ -177,7 +184,6 @@ class MyCsi(object):
                 save_name = self.name
 
             # Keys: spectrum, info
-            print(self.name, "spectrum save start...", time.asctime(time.localtime(time.time())))
             np.savez(save_path + save_name + "-spectrum.npz",
                      csi_spectrum=self.data.spectrum,
                      csi_algorithm=self.data.algorithm)
@@ -217,11 +223,12 @@ class MyCsi(object):
 
             :return: Processed amplitude
             """
+            print("  Apply invalid value removal...", time.asctime(time.localtime(time.time())))
+            
             try:
                 if self.amp is None:
                     raise DataError("amplitude: " + str(self.amp))
 
-                print("  Apply invalid value removal..." + time.asctime(time.localtime(time.time())))
                 print("  Found", len(np.where(self.amp == float('-inf'))[0]), "-inf values")
 
                 if len(np.where(self.amp == float('-inf'))[0]) != 0:
@@ -256,6 +263,8 @@ class MyCsi(object):
             :param metric: 'amplitude' or 'phase'
             :return: value-time plot
             """
+            print(self.name, metric, "plotting...", time.asctime(time.localtime(time.time())))
+            
             try:
                 if metric == "amplitude":
                     csi_matrix = self.amp
@@ -268,8 +277,6 @@ class MyCsi(object):
 
                 if csi_matrix is None:
                     raise DataError("csi data")
-
-                print(self.name, metric, "plotting...", time.asctime(time.localtime(time.time())))
 
                 for rx in range(csi_matrix.shape[2]):
                     csi_matrix_squeezed = np.squeeze(csi_matrix[:, :, rx, 0])
@@ -292,7 +299,7 @@ class MyCsi(object):
             :param notion: string, save additional information in filename if autosave
             :return: spectrum plot
             """
-            replace = self.commonfunc.replace_labels
+            print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
 
             try:
                 if self.spectrum is None:
@@ -304,9 +311,8 @@ class MyCsi(object):
                 if not isinstance(num_ticks, int) or num_ticks < 3:
                     raise ArgError("num_ticks: " + str(num_ticks) + "\nPlease specify an integer larger than 3")
 
-                print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
-
                 spectrum = np.array(self.spectrum)
+                replace = self.commonfunc.replace_labels
 
                 if threshold > 0:
                     spectrum[spectrum > threshold] = threshold
@@ -439,6 +445,8 @@ class MyCsi(object):
         recon = self.commonfunc.reconstruct_csi
         smooth = self.commonfunc.smooth_csi
 
+        print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
+
         try:
             if self.data.amp is None:
                 raise DataError("amplitude: " + str(self.data.amp))
@@ -450,8 +458,6 @@ class MyCsi(object):
             subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
                                      4 * delta_subfreq)
             antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
-
-            print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
@@ -495,9 +501,9 @@ class MyCsi(object):
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
-            print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
             self.data.spectrum = spectrum
             self.data.algorithm = 'aoa'
+            print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
             print(e, "\nPlease load data")
@@ -518,6 +524,8 @@ class MyCsi(object):
         delta_t = 1.e-3
         recon = self.commonfunc.reconstruct_csi
 
+        print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
+        
         try:
             if self.data.amp is None:
                 raise DataError("amplitude: " + str(self.data.amp))
@@ -527,8 +535,6 @@ class MyCsi(object):
 
             # Delay list is determined by num_samples
             delay_list = np.arange(0, num_samples, 1.).reshape(-1, 1)
-
-            print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
             # Replace -inf values with neighboring packets before computing
 
@@ -557,9 +563,9 @@ class MyCsi(object):
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
-            print(self.name, "Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
             self.data.spectrum = spectrum
             self.data.algorithm = 'doppler'
+            print(self.name, "Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
             print(e, "\nPlease load data")
@@ -581,6 +587,9 @@ class MyCsi(object):
         nsub = self.nsub
         recon = self.commonfunc.reconstruct_csi
 
+        print(self.name, "apply phase calibration according to " + input_mycsi.name + "...",
+              time.asctime(time.localtime(time.time())))
+
         try:
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase))
@@ -593,9 +602,6 @@ class MyCsi(object):
 
             if reference_antenna not in (0, 1, 2):
                 raise ArgError("reference_antenna: " + str(reference_antenna))
-
-            print(self.name, "apply phase calibration according to " + input_mycsi.name + "...",
-                  time.asctime(time.localtime(time.time())))
 
             reference_csi = recon(input_mycsi.data.amp, input_mycsi.data.phase)
             current_csi = recon(self.data.amp, self.data.phase)
@@ -629,14 +635,14 @@ class MyCsi(object):
         nsub = self.nsub
         recon = self.commonfunc.reconstruct_csi
 
+        print(self.name, "apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
+        
         try:
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
 
             if reference_antenna not in (0, 1, 2):
                 raise ArgError("reference_antenna: " + str(reference_antenna) + "\nPlease specify an integer from 0~2")
-
-            print(self.name, "apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
 
             complex_csi = recon(self.data.amp, self.data.phase)
             conjugate_csi = complex_csi[:, :, reference_antenna, None].repeat(3, axis=2)
@@ -671,6 +677,7 @@ class MyCsi(object):
         Default is 100
         :return: Resampled csi data
         """
+        print(self.name, "resampling at " + str(sampling_rate) + "Hz...", time.asctime(time.localtime(time.time())))
 
         try:
             if self.data.amp is None or self.data.phase is None:
@@ -678,8 +685,6 @@ class MyCsi(object):
 
             if sampling_rate > 5000 or not isinstance(sampling_rate, int):
                 raise ArgError("sampling_rate: " + str(sampling_rate))
-
-            print(self.name, "resampling at " + str(sampling_rate) + "Hz...", time.asctime(time.localtime(time.time())))
 
             new_interval = 1. / sampling_rate
             new_length = int(self.data.timestamps[-1] * sampling_rate) + 1  # Flooring
