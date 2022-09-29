@@ -138,7 +138,7 @@ class MyCsi(object):
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
 
-            save_path = os.getcwd().replace('\\', '/') + "/npsave" + self.name[:4]
+            save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/'
 
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
@@ -148,7 +148,7 @@ class MyCsi(object):
 
             # Keys: amp, phase, timestamps
             print(self.name, "csi save start...", time.asctime(time.localtime(time.time())))
-            np.savez(save_path + "/" + save_name + "-csis.npz",
+            np.savez(save_path + save_name + "-csis.npz",
                      csi_amp=self.data.amp,
                      csi_phase=self.data.phase,
                      csi_timestamps=self.data.timestamps)
@@ -168,7 +168,7 @@ class MyCsi(object):
             if self.data.spectrum is None:
                 raise DataError("spectrum: " + str(self.data.spectrum))
 
-            save_path = os.getcwd().replace('\\', '/') + "/npsave" + self.name[:4]
+            save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/'
 
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
@@ -178,7 +178,7 @@ class MyCsi(object):
 
             # Keys: spectrum, info
             print(self.name, "spectrum save start...", time.asctime(time.localtime(time.time())))
-            np.savez(save_path + "/" + save_name + "-spectrum.npz",
+            np.savez(save_path + save_name + "-spectrum.npz",
                      csi_spectrum=self.data.spectrum,
                      csi_algorithm=self.data.algorithm)
             print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
@@ -571,7 +571,7 @@ class MyCsi(object):
         Initial Phase Offset is removed.
 
         :param input_mycsi: CSI recorded at 0 degree
-        :param reference_antenna: select one antenna with which to calculate phase difference between antennas. 
+        :param reference_antenna: select one antenna with which to calculate phase difference between antennas.
         Default is 0
         :return: calibrated phase, unwrapped
         """
@@ -588,7 +588,7 @@ class MyCsi(object):
 
             if input_mycsi.data.phase is None:
                 raise DataError("reference phase: " + str(input_mycsi.data.phase))
-            
+
             if reference_antenna not in (0, 1, 2):
                 raise ArgError("reference_antenna: " + str(reference_antenna))
 
@@ -630,7 +630,7 @@ class MyCsi(object):
         try:
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
-            
+
             if reference_antenna not in (0, 1, 2):
                 raise ArgError("reference_antenna: " + str(reference_antenna) + "\nPlease specify an integer from 0~2")
 
