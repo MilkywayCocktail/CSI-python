@@ -500,11 +500,12 @@ class MyCsi(object):
         except DataError as e:
             print(e, "\nPlease load data")
 
-    def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05)):
+    def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05), pick_antenna=0):
         """
         Computes Doppler spectrum by MUSIC. Under construction.
 
         :param: input_velocity_list: list of velocities. Default = -5~5
+        :param pick_antenna: select one antenna packets to compute spectrum. Default is 0
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
         lightspeed = self.lightspeed
@@ -513,7 +514,6 @@ class MyCsi(object):
         ntx = self.ntx
         num_samples = 100
         delta_t = 1.e-3
-        pick_antenna = 0  # Multi-rx data is not needed here
         recon = self.commonfunc.reconstruct_csi
 
         try:
@@ -709,6 +709,8 @@ class MyCsi(object):
 if __name__ == '__main__':
 
     # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
+
+    # Raw CSI naming: csi-XXXX<date>-Y<A or B>-ZZ<#exp>-.dat
 
     filepath = "data/0919/"
     filenames = os.listdir(filepath)
