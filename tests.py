@@ -15,6 +15,25 @@ class MyTest(pycsi.MyCsi):
     """
 
 
+def timereporter(csi_name=None, func_name=None):
+    """
+    A decorator that prints currently processed csi and function name, plus start and end time.
+
+    :param csi_name: csi name
+    :param func_name: function name
+    :return: decorator
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            print(csi_name, func_name, "start...", time.asctime(time.localtime(time.time())))
+            result = func(*args, **kwargs)
+            print(csi_name, func_name, "complete", time.asctime(time.localtime(time.time())))
+            return result
+        return wrapper
+    return decorator
+
+
 def batch_tool(folder_path, func, *args, **kwargs):
     """
     Specify a path that contains csi data files (.npz). The specified function will walk through all files.
@@ -158,11 +177,11 @@ def test_doppler(name0, name1):
     standard.data.remove_inf_values()
 
     csi.calibrate_phase(standard)
-    # csi.extract_dynamic()
+    csi.extract_dynamic()
     csi.resample_packets()
 
     csi.doppler_by_music()
-    csi.data.view_spectrum()
+    csi.data.view_spectrum(autosave=True, notion='_an0')
 
 
 def test_aoa(name0, name1):
@@ -286,11 +305,11 @@ if __name__ == '__main__':
             6: 'test_simulation'}
 
     n0 = "0919A00f"
-    n1 = "0919A00b"
+    n1 = "0919A15"
 
     path = 'npsave/0919/'
 
-    #batch_tool(path, order, 2, n0)
+    batch_tool(path, order, 3, n0)
 
-    order(2, n0, n1)
+    # order(2, n0, n1)
 
