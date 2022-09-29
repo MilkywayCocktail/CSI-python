@@ -312,13 +312,15 @@ class MyCsi(object):
                     spectrum[spectrum > threshold] = threshold
 
                 ax = sns.heatmap(spectrum)
-                labels = replace(input_timestamps=self.timestamps, input_length=self.length)
+                label0 = [i * self.length // (num_ticks - 1) for i in range(num_ticks)]
+                label0.append(self.length - 1)
+                labels = replace(self.timestamps, self.length)
 
                 if self.algorithm == 'aoa':
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    plt.xticks(range(0, self.length, self.length // 10), labels)
+                    plt.xticks(label0, labels)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
                     ax.set_ylabel("Angel / $deg$")
@@ -328,7 +330,7 @@ class MyCsi(object):
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    plt.xticks(range(0, self.length, self.length // 10), labels)
+                    plt.xticks(range(0, self.length, self.length // (num_ticks - 1)), labels)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
                     ax.set_ylabel("Velocity / $m/s$")
@@ -504,7 +506,7 @@ class MyCsi(object):
         """
         Computes Doppler spectrum by MUSIC. Under construction.
 
-        :param: input_velocity_list: list of velocities. Default = -5~5
+        :param input_velocity_list: list of velocities. Default = -5~5
         :param pick_antenna: select one antenna packets to compute spectrum. Default is 0
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
@@ -625,7 +627,7 @@ class MyCsi(object):
         nrx = self.nrx
         ntx = self.ntx
         nsub = self.nsub
-        recon = self.commonfunc.smooth_csi
+        recon = self.commonfunc.reconstruct_csi
 
         try:
             if self.data.amp is None or self.data.phase is None:
