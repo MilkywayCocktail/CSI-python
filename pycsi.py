@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-29
+# Last edit: 2022-09-30
 import types
 
 from CSIKit.reader import get_reader
@@ -113,7 +113,7 @@ class MyCsi(object):
         :return: spectrum
         """
         print(self.name, "spectrum load start...", time.asctime(time.localtime(time.time())))
-        
+
         try:
             if input_path is None or not os.path.exists(input_path):
                 raise PathError(input_path)
@@ -139,7 +139,7 @@ class MyCsi(object):
         :return: save_name + '-csis.npz'
         """
         print(self.name, "csi save start...", time.asctime(time.localtime(time.time())))
-        
+
         try:
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
@@ -170,7 +170,7 @@ class MyCsi(object):
         :return: save_name + '-spectrum.npz'
         """
         print(self.name, "spectrum save start...", time.asctime(time.localtime(time.time())))
-        
+
         try:
             if self.data.spectrum is None:
                 raise DataError("spectrum: " + str(self.data.spectrum))
@@ -224,7 +224,7 @@ class MyCsi(object):
             :return: Processed amplitude
             """
             print("  Apply invalid value removal...", time.asctime(time.localtime(time.time())))
-            
+
             try:
                 if self.amp is None:
                     raise DataError("amplitude: " + str(self.amp))
@@ -264,7 +264,7 @@ class MyCsi(object):
             :return: value-time plot
             """
             print(self.name, metric, "plotting...", time.asctime(time.localtime(time.time())))
-            
+
             try:
                 if metric == "amplitude":
                     csi_matrix = self.amp
@@ -318,15 +318,13 @@ class MyCsi(object):
                     spectrum[spectrum > threshold] = threshold
 
                 ax = sns.heatmap(spectrum)
-                label0 = [i * self.length // (num_ticks - 1) for i in range(num_ticks)]
-                label0.append(self.length - 1)
-                labels = replace(self.timestamps, self.length)
+                label0, label1 = replace(self.timestamps, self.length, num_ticks)
 
                 if self.algorithm == 'aoa':
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    plt.xticks(label0, labels)
+                    plt.xticks(label0, label1)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
                     ax.set_ylabel("Angel / $deg$")
@@ -336,7 +334,7 @@ class MyCsi(object):
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    plt.xticks(label0, labels)
+                    plt.xticks(label0, label1)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
                     ax.set_ylabel("Velocity / $m/s$")
@@ -410,21 +408,24 @@ class MyCsi(object):
             return reconstruct_csi
 
         @staticmethod
-        def replace_labels(input_timestamps, input_length, total_ticks=11):
+        def replace_labels(input_timestamps, input_length, input_ticks):
             """
             Static method.\n
             Generates a list of timestamps to plot as x-axis labels.
 
             :param input_timestamps: ordinarily input self.data.timestamps
             :param input_length: ordinarily input self.data.length
-            :param total_ticks: how many labels you need (including start and end)
+            :param input_ticks: how many labels you need (including start and end)
             :return: a list of timestamps
             """
 
-            indices = [i * input_length // (total_ticks - 1) for i in range(total_ticks - 1)]
+            indices = [i * input_length // (input_ticks - 1) for i in range(input_ticks - 1)]
             indices.append(input_length - 1)
+            
+            labels = indices if len(np.where(input_timestamps) < 0) > 0 else [
+                float('%.6f' % x) for x in input_timestamps[indices]]
 
-            return [float('%.6f' % x) for x in input_timestamps[indices]]
+            return indices, labels
 
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
@@ -525,7 +526,7 @@ class MyCsi(object):
         recon = self.commonfunc.reconstruct_csi
 
         print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
-        
+
         try:
             if self.data.amp is None:
                 raise DataError("amplitude: " + str(self.data.amp))
@@ -636,7 +637,7 @@ class MyCsi(object):
         recon = self.commonfunc.reconstruct_csi
 
         print(self.name, "apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
-        
+
         try:
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
