@@ -13,3 +13,13 @@ pycsi.py
 tests.py
 - Added function: batch_tool()
 - Bugfix: test_resampling(), labeling related bug
+
+## 0930
+
+pycsi.py
+- Bugfix: resample_packets(), added reaction to nagative timestamping bug (originated in csitool)
+
+tests.py
+- Added function: npzloader()
+- Added function: test_times()
+- Modification: all functions, inserted npzloader()
