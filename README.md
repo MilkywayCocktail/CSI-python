@@ -9,7 +9,7 @@ main functionality codes
 test codes for testing defferent parts of pycsi. (To be moved into tests.py)
 
 ### tests.py
-collection of all tests. You can run parallel tests and get patch results.
+collection of all tests. You can run parallel tests and get batch results.
 
 ### WIdar2.py
 raw version
