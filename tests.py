@@ -15,6 +15,18 @@ class MyTest(pycsi.MyCsi):
     """
 
 
+def npzloader(name, path=None):
+
+    if path is None:
+        file = "npsave/" + name[:4] + '/' + name + "-csis.npz"
+    else:
+        file = path + name + "-csis.npz"
+
+    csi = pycsi.MyCsi(name, file)
+    csi.load_data()
+    return csi
+
+
 def timereporter(csi_name=None, func_name=None):
     """
     A decorator that prints currently processed csi and function name, plus start and end time.
@@ -48,13 +60,13 @@ def batch_tool(folder_path, func, *args, **kwargs):
 
     for file in filenames:
         name = file[:-9]
-        func(name1=name, *args, **kwargs)
+        func(name1=name, path=folder_path, *args, **kwargs)
 
     print("- Batch processing complete -")
     return
 
 
-def test_calibration(name0, name1):
+def test_calibration(name0, name1, path):
     """
     Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from 2 random packets.
 
@@ -63,16 +75,9 @@ def test_calibration(name0, name1):
     :return:
     """
 
-    npzpath0 = "npsave/" + name0[:4] + '/' + name0 + "-csis.npz"
-    npzpath1 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
+    standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
 
-    # CSI data composition: [no_frames, no_subcarriers, no_rx_ant, no_tx_ant]
-
-    csi = pycsi.MyCsi(name1, npzpath1)
-    standard = pycsi.MyCsi(name0, npzpath0)
-
-    csi.load_data()
-    standard.load_data()
     csi.data.remove_inf_values()
     standard.data.remove_inf_values()
 
@@ -110,7 +115,7 @@ def test_calibration(name0, name1):
     plt.show()
 
 
-def test_resampling(name1, sampling_rate=100):
+def test_resampling(name1, path, sampling_rate=100):
     """
     Plots amplitudes of antemma0 subcarrier0 before and after resampling.
 
@@ -119,10 +124,8 @@ def test_resampling(name1, sampling_rate=100):
     :return:
     """
 
-    npzpath0 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
 
-    csi = pycsi.MyCsi(name1, npzpath0)
-    csi.load_data()
     print(csi.data.length)
 
     fig, ax = plt.subplots(2, 1)
@@ -156,7 +159,7 @@ def test_resampling(name1, sampling_rate=100):
     plt.show()
 
 
-def test_doppler(name0, name1):
+def test_doppler(name0, name1, path):
     """
     Plots doppler spectrum. Walks through calibration, dynamic extraction and resampling.
 
@@ -165,30 +168,25 @@ def test_doppler(name0, name1):
     :return:
     """
 
-    npzpath0 = "npsave/" + name0[:4] + '/' + name0 + "-csis.npz"
-    npzpath1 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
+    standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
 
-    csi = pycsi.MyCsi(name1, npzpath1)
-    csi.load_data()
     csi.data.remove_inf_values()
-    print(csi.data.length)
 
-    standard = pycsi.MyCsi(name0, npzpath0)
-    standard.load_data()
     standard.data.remove_inf_values()
 
-    csi.calibrate_phase(standard)
-    print(csi.data.length)
-    csi.extract_dynamic()
-    print(csi.data.length)
-    csi.resample_packets()
-    print(csi.data.length)
+    csi.calibrate_phase(standard, reference_antenna=2)
 
-    csi.doppler_by_music()
-    csi.data.view_spectrum(autosave=True, notion='_an0')
+    csi.extract_dynamic(reference_antenna=2)
+
+    if csi.resample_packets() == 'bad':
+        pass
+    else:
+        csi.doppler_by_music(pick_antenna=0)
+        csi.data.view_spectrum(autosave=True, notion='_an0_cal2')
 
 
-def test_aoa(name0, name1):
+def test_aoa(name0, name1, path):
     """
     Plots aoa spectrum. Walks through  calibration, dynamic extraction and resampling.
 
@@ -197,15 +195,9 @@ def test_aoa(name0, name1):
     :return:
     """
 
-    npzpath0 = "npsave/" + name0[:4] + '/' + name0 + "-csis.npz"
-    npzpath1 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
-
-    csi = pycsi.MyCsi(name1, npzpath1)
-    csi.load_data()
+    standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
     csi.data.remove_inf_values()
-
-    standard = pycsi.MyCsi(name0, npzpath0)
-    standard.load_data()
     standard.data.remove_inf_values()
 
     csi.calibrate_phase(standard)
@@ -216,7 +208,7 @@ def test_aoa(name0, name1):
     csi.data.view_spectrum()
 
 
-def test_phasediff(name1):
+def test_phasediff(name1, path):
     """
     Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from a random packet.
 
@@ -224,10 +216,7 @@ def test_phasediff(name1):
     :return:
     """
 
-    npzpath0 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
-
-    csi = pycsi.MyCsi(name1, npzpath0)
-    csi.load_data()
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
     csi.data.remove_inf_values()
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
 
@@ -277,37 +266,36 @@ def test_simulation():
     plt.show()
 
 
-def test_times(name1):
-    npzpath1 = "npsave/" + name1[:4] + '/' + name1 + "-csis.npz"
+def test_times(name1, path):
 
-    csi = pycsi.MyCsi(name1, npzpath1)
-    csi.load_data()
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
     plt.plot(csi.data.timestamps)
     plt.show()
 
-def order(index, name0, name1):
+
+def order(index, name0, name1, path):
 
     if index == 1:
         print("test_calibration")
-        test_calibration(name0, name1)
+        test_calibration(name0, name1, path)
     elif index == 2:
         print("test_resampling")
-        test_resampling(name1)
+        test_resampling(name1, path)
     elif index == 3:
         print("test_doppler")
-        test_doppler(name0, name1)
+        test_doppler(name0, name1, path)
     elif index == 4:
         print("test_aoa")
-        test_aoa(name0, name1)
+        test_aoa(name0, name1, path)
     elif index == 5:
         print("test_phasediff")
-        test_phasediff(name1)
+        test_phasediff(name1, path)
     elif index == 6:
         print('test_simulation')
         test_simulation()
     elif index == 7:
         print('test_times')
-        test_times(name1)
+        test_times(name1, path)
 
 
 if __name__ == '__main__':
@@ -323,9 +311,10 @@ if __name__ == '__main__':
     n0 = "0919A00f"
     n1 = "0919A11"
 
-    path = 'npsave/0919/'
+    mypath = 'npsave/0919/A/'
+    ref = npzloader(n0, mypath)
 
-    # batch_tool(path, order, 3, n0)
+    batch_tool(mypath, order, 3, ref)
 
-    order(7, n0, n1)
+    # order(3, n0, n1)
 
