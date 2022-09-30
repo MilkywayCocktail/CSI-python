@@ -421,8 +421,8 @@ class MyCsi(object):
 
             indices = [i * input_length // (input_ticks - 1) for i in range(input_ticks - 1)]
             indices.append(input_length - 1)
-            
-            labels = indices if len(np.where(input_timestamps) < 0) > 0 else [
+
+            labels = indices if len(np.where(input_timestamps < 0)[0]) > 0 else [
                 float('%.6f' % x) for x in input_timestamps[indices]]
 
             return indices, labels
@@ -454,6 +454,9 @@ class MyCsi(object):
 
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase))
+
+            if smooth is not True and smooth is not False:
+                raise ArgError("smooth:" + str(smooth))
 
             # Subcarriers from -58 to 58, step = 4
             subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
@@ -508,6 +511,8 @@ class MyCsi(object):
 
         except DataError as e:
             print(e, "\nPlease load data")
+        except ArgError as e:
+            print(e, "\nPlease specify smooth=True or False")
 
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05), pick_antenna=0):
         """
@@ -688,7 +693,13 @@ class MyCsi(object):
                 raise ArgError("sampling_rate: " + str(sampling_rate))
 
             new_interval = 1. / sampling_rate
-            new_length = int(self.data.timestamps[-1] * sampling_rate) + 1  # Flooring
+
+            if len(np.where(self.data.timestamps < 0)[0]) > 0:
+                print(self.name, "Timestamping bug detected!")
+                return 'bad'
+
+            else:
+                new_length = int(self.data.timestamps[-1] * sampling_rate) + 1  # Flooring
             resample_indicies = []
 
             for i in range(new_length):
