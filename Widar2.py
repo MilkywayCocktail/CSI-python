@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import numpy as np
 from scipy import signal, interpolate
 import matplotlib.pyplot as plt
@@ -5,7 +10,6 @@ import matplotlib.cm as cm
 from joblib import Parallel, delayed
 import datetime
 import colorsys
-from tqdm import tqdm
 import constant_value
 
 
@@ -19,7 +23,7 @@ class config(object):
     delta_f = 2 * 312.5 * (10. ** 3)  # FI
     # delta_t = 1. / sample_rate  # TI
     dist_antenna = 0.025  # AS
-    center_freq = 5.670 * (10 ** 9)
+    center_freq = 5.320 * (10 ** 9)
     taulist = np.arange(-100., 400., 1.) * (10. ** -9)  # TR
     thetalist = np.deg2rad(np.arange(-0., 180., 1.))  # AR
     dopplerlist = np.arange(-5., 5., 0.01)  # DR
@@ -27,9 +31,6 @@ class config(object):
     overlapped = 0.0
     centering = False
     n_jobs = -1
-    debug = False
-    uppe_stop = 50
-    lowe_stop = 1
 
     @staticmethod
     def print_config():
@@ -53,11 +54,11 @@ def steering_vector(delta_f, num_subcarrier, taulist,
                     delta_t, window_length, dopplerlist):
     a_tau = np.exp(-1.j * 2 * np.pi
                    * delta_f * np.arange(num_subcarrier).reshape(-1, 1) * taulist.reshape(1, -1))
-    a_theta = np.exp(-1.j * 2 * np.pi
-                     * dist_antenna * (center_freq / constant_value.light_speed)
-                     * np.cos(thetalist).reshape(1, -1) * np.arange(num_rx).reshape(-1, 1))
+    # a_theta = np.exp(-1.j * 2 * np.pi
+    #                  * dist_antenna * (center_freq / constant_value.light_speed)
+    #                  * np.cos(thetalist).reshape(1, -1) * np.arange(num_rx).reshape(-1, 1))
 
-    # a_theta = np.exp(-1.j * thetalist.reshape(1, -1) * np.arange(num_rx).reshape(-1, 1))
+    a_theta = np.exp(-1.j * thetalist.reshape(1, -1) * np.arange(num_rx).reshape(-1, 1))
 
     a_doppler = np.exp(1.j * 2 * np.pi * (center_freq / constant_value.light_speed)
                        * delta_t * np.arange(window_length).reshape(-1, 1) * dopplerlist.reshape(1, -1))
@@ -147,19 +148,215 @@ def sage_maximization(latent_signal, latent_parameter, latent_index,
     return _latent_parameter, _latent_index, [tof_object_vector, aoa_object_vector, doppler_object_vector]
 
 
+def sage_maximization2(latent_signal, latent_parameter, latent_index,
+                       a_tau, a_theta, a_doppler, taulist, thetalist, dopplerlist,
+                       window_length, num_subcarrier, num_rx):
+    """
+
+    :param latent_signal: window_length*num_subcarrier*num_rx*num_signal
+    :param latent_parameter: tof, aoa, doppler, amplitude
+    :param latent_index: tof, aoa, doppler
+    :return:
+    """
+    latent_index = latent_index.astype(int)
+
+    _latent_parameter = np.zeros_like(latent_parameter)
+    _latent_index = np.zeros_like(latent_index)
+
+    # Estimation of doppler
+    aoa_matrix = a_theta[:, latent_index[1]].reshape(1, 1, -1)
+    tof_matrix = a_tau[:, latent_index[0]].reshape(1, -1, 1)
+
+    coeff_matrix = latent_signal * np.conj(aoa_matrix) * np.conj(tof_matrix)
+    coeff_vector = np.sum(coeff_matrix, axis=(1, 2)).reshape(-1, 1)
+    doppler_object_vector = np.abs(np.sum(coeff_vector * np.conj(a_doppler), axis=0))
+    _latent_index[2] = np.argmax(doppler_object_vector)
+    _latent_parameter[2] = dopplerlist[_latent_index[2]]
+
+    # Estimation of tof
+    doppler_matrix = a_doppler[:, _latent_index[2]].reshape(-1, 1, 1)
+
+    coeff_matrix = latent_signal * np.conj(aoa_matrix) * np.conj(doppler_matrix)
+    coeff_vector = np.sum(coeff_matrix, axis=(0, 2)).reshape(-1, 1)
+    tof_object_vector = np.abs(np.sum(coeff_vector * np.conj(a_tau), axis=0))
+    _latent_index[0] = np.argmax(tof_object_vector)
+    _latent_parameter[0] = taulist[_latent_index[0]]
+
+    # Estimation of aoa
+    tof_matrix = a_tau[:, _latent_index[0]].reshape(1, -1, 1)
+
+    coeff_matrix = latent_signal * np.conj(doppler_matrix) * np.conj(tof_matrix)
+    coeff_vector = np.sum(coeff_matrix, axis=(0, 1)).reshape(-1, 1)
+    aoa_object_vector = np.abs(np.sum(coeff_vector * np.conj(a_theta), axis=0))
+    _latent_index[1] = np.argmax(aoa_object_vector)
+    _latent_parameter[1] = thetalist[_latent_index[1]]
+
+    # Estimation of amplitude
+    aoa_matrix = a_theta[:, _latent_index[1]].reshape(1, 1, -1)
+    coeff_matrix = latent_signal * np.conj(aoa_matrix) * np.conj(tof_matrix) * np.conj(doppler_matrix)
+    _latent_parameter[3] = np.sum(coeff_matrix) / (window_length * num_subcarrier * num_rx)
+
+    return _latent_parameter, _latent_index, [tof_object_vector, aoa_object_vector, doppler_object_vector]
 
 
-def sage_algorithm(csi_signal, id=0, num_sample=1, static_csilist=None):
+def sage_maximization_amp(latent_signal, latent_parameter, latent_index,
+                          a_tau, a_theta, a_doppler, taulist, thetalist, dopplerlist,
+                          window_length, num_subcarrier, num_rx):
+    """
+
+    :param latent_signal: window_length*num_subcarrier*num_rx*num_signal
+    :param latent_parameter: tof, aoa, doppler, amplitude
+    :param latent_index: tof, aoa, doppler
+    :return:
+    """
+    latent_index = latent_index.astype(int)
+
+    _latent_parameter = np.copy(latent_parameter)
+    _latent_index = np.copy(latent_index)
+
+    # Estimation of doppler
+    aoa_matrix = a_theta[:, latent_index[1]].reshape(1, 1, -1)
+    tof_matrix = a_tau[:, latent_index[0]].reshape(1, -1, 1)
+    doppler_matrix = a_doppler[:, latent_index[2]].reshape(-1, 1, 1)
+
+    # Estimation of amplitude
+    coeff_matrix = latent_signal * np.conj(aoa_matrix) * np.conj(tof_matrix) * np.conj(doppler_matrix)
+    _latent_parameter[3] = np.sum(coeff_matrix) / (window_length * num_subcarrier * num_rx)
+
+    return _latent_parameter, _latent_index
+
+
+def sage_algorithm3(csi_signal, initial_parameter, initial_index, id=0):
     """
     Space Alternating Generalized Expectation Maximization (SAGE) algorithm
     :param csi_signal: window_length * num_subcarrier * num_rx
+    :param initial_parameter: (tof, aoa, doppler, amplitude) * num_signal
+    :param initial_index: (tof, aoa, doppler) * num_signal
     :return:
     """
-    initial_parameter = np.zeros((4, config.num_signal), dtype=complex)
-    initial_index = np.zeros((3, config.num_signal), dtype=int)
-    initial_index[0, :] = int(np.round((0 - config.taulist[0]) / (config.taulist[1] - config.taulist[0])))
-    initial_index[1, :] = int(np.round((0 - config.thetalist[0]) / (config.thetalist[1] - config.thetalist[0])))
-    initial_index[2, :] = int(np.round((0 - config.dopplerlist[0]) / (config.dopplerlist[1] - config.dopplerlist[0])))
+
+    # static_csilist = np.mean(csi_signal, axis=0)
+    # csi_signal = csi_signal - static_csilist
+
+    st = datetime.datetime.now()
+
+    a_tau, a_theta, a_doppler = steering_vector(config.delta_f, config.num_subcarrier, config.taulist,
+                                                config.dist_antenna, config.center_freq, config.num_rx,
+                                                config.thetalist,
+                                                1. / config.sample_rate, config.window_length, config.dopplerlist)
+
+    # Initialize
+    latent_signal = np.zeros((config.window_length, config.num_subcarrier, config.num_rx, config.num_signal),
+                             dtype=complex)
+    for i in range(config.num_signal):
+        if initial_parameter[3, i] != 0:
+            latent_signal[:, :, :, i] = sage_signal(initial_parameter[:, i], initial_index[:, i],
+                                                    a_tau, a_theta, a_doppler)
+
+    # Iteration
+    final_parameter = np.copy(initial_parameter)
+    temp_parameter = np.copy(initial_parameter)
+    temp_index = np.copy(initial_index)
+    final_index = np.copy(initial_index)
+    for lp in range(config.max_loop):
+        for i in range(1, config.num_signal):
+            temp_signal = sage_expectation(csi_signal, latent_signal, i, config.update_ratio)
+            if i == 0:
+                temp_parameter[:, i], temp_index[:, i] \
+                    = sage_maximization_amp(temp_signal, final_parameter[:, i], final_index[:, i],
+                                            a_tau, a_theta, a_doppler, config.taulist, config.thetalist,
+                                            config.dopplerlist,
+                                            config.window_length, config.num_subcarrier, config.num_rx)
+            else:
+                temp_parameter[:, i], temp_index[:, i], _ \
+                    = sage_maximization(temp_signal, final_parameter[:, i], final_index[:, i],
+                                        a_tau, a_theta, a_doppler, config.taulist, config.thetalist, config.dopplerlist,
+                                        config.window_length, config.num_subcarrier, config.num_rx)
+            latent_signal[:, :, :, i] = sage_signal(temp_parameter[:, i], temp_index[:, i], a_tau, a_theta, a_doppler)
+
+        parameter_diff = np.sqrt(np.sum(np.power(np.abs(temp_parameter - final_parameter), 2), axis=1))
+        final_parameter = np.copy(temp_parameter)
+        final_index = np.copy(temp_index)
+
+        if parameter_diff[0] < 10. ** -9 and parameter_diff[1] < 1. / 180. * np.pi \
+                and parameter_diff[2] < 0.01 and parameter_diff[3] < 10. ** -9:
+            break
+
+    residue_error = csi_signal - np.sum(latent_signal, axis=3)
+    residue_error = np.mean(np.abs(residue_error)) / np.mean(np.abs(csi_signal))
+
+    print("ID:{}, Loop:{}, residual:{}, time:{}s".format(id, lp, residue_error,
+                                                         (datetime.datetime.now() - st).total_seconds()))
+
+    return final_parameter, residue_error, id
+
+
+def sage_algorithm2(csi_signal, initial_parameter, initial_index, id=0):
+    """
+    Space Alternating Generalized Expectation Maximization (SAGE) algorithm
+    :param csi_signal: window_length * num_subcarrier * num_rx
+    :param initial_parameter: (tof, aoa, doppler, amplitude) * num_signal
+    :param initial_index: (tof, aoa, doppler) * num_signal
+    :return:
+    """
+    if config.centering:
+        static_csilist = np.mean(csi_signal, axis=0)
+        csi_signal = csi_signal - static_csilist
+
+    st = datetime.datetime.now()
+
+    a_tau, a_theta, a_doppler = steering_vector(config.delta_f, config.num_subcarrier, config.taulist,
+                                                config.dist_antenna, config.center_freq, config.num_rx,
+                                                config.thetalist,
+                                                1. / config.sample_rate, config.window_length, config.dopplerlist)
+
+    # Initialize
+    latent_signal = np.zeros((config.window_length, config.num_subcarrier, config.num_rx, config.num_signal),
+                             dtype=complex)
+    for i in range(config.num_signal):
+        if initial_parameter[3, i] != 0:
+            latent_signal[:, :, :, i] = sage_signal(initial_parameter[:, i], initial_index[:, i],
+                                                    a_tau, a_theta, a_doppler)
+
+    # Iteration
+    final_parameter = np.copy(initial_parameter)
+    temp_parameter = np.copy(initial_parameter)
+    temp_index = np.copy(initial_index)
+    final_index = np.copy(initial_index)
+    for i in range(config.num_signal):
+        for lp in range(config.max_loop):
+            temp_signal = sage_expectation(csi_signal, latent_signal, i, config.update_ratio)
+            temp_parameter[:, i], temp_index[:, i], obj_vec \
+                = sage_maximization(temp_signal, final_parameter[:, i], final_index[:, i],
+                                    a_tau, a_theta, a_doppler, config.taulist, config.thetalist, config.dopplerlist,
+                                    config.window_length, config.num_subcarrier, config.num_rx)
+            latent_signal[:, :, :, i] = sage_signal(temp_parameter[:, i], temp_index[:, i], a_tau, a_theta, a_doppler)
+
+            parameter_diff = np.abs(temp_parameter[:, i] - final_parameter[:, i])
+            final_parameter = np.copy(temp_parameter)
+            final_index = np.copy(temp_index)
+
+            if parameter_diff[0] < 10. ** -9 and parameter_diff[1] < 1. / 180. * np.pi \
+                    and parameter_diff[2] < 0.01 and parameter_diff[3] < 10. ** -9:
+                break
+
+    residue_error = csi_signal - np.sum(latent_signal, axis=3)
+    residue_error = np.mean(np.abs(residue_error)) / np.mean(np.abs(csi_signal))
+
+    print("ID:{}, Loop:{}, residual:{}, time:{}s".format(id, lp, residue_error,
+                                                         (datetime.datetime.now() - st).total_seconds()))
+
+    return final_parameter, residue_error, id, obj_vec, lp
+
+
+def sage_algorithm(csi_signal, initial_parameter, initial_index, id=0, num_sample=1, static_csilist=None):
+    """
+    Space Alternating Generalized Expectation Maximization (SAGE) algorithm
+    :param csi_signal: window_length * num_subcarrier * num_rx
+    :param initial_parameter: (tof, aoa, doppler, amplitude) * num_signal
+    :param initial_index: (tof, aoa, doppler) * num_signal
+    :return:
+    """
 
     if config.centering:
         if static_csilist is None:
@@ -209,10 +406,10 @@ def sage_algorithm(csi_signal, id=0, num_sample=1, static_csilist=None):
     residue_error = csi_signal - np.sum(latent_signal, axis=3)
     residue_error = np.mean(np.abs(residue_error)) / np.mean(np.abs(csi_signal))
 
-    if config.debug:
-        print("{}/{} {}%, Loop:{}, residual:{}, time:{}s".format(id, num_sample, int(id * 100 / num_sample),
-                                                                 lp, residue_error,
-                                                                 (datetime.datetime.now() - st).total_seconds()))
+    print("{}/{} {}%, Loop:{}, residual:{}, time:{}s".format(id, num_sample, int(id * 100 / num_sample),
+                                                             lp, residue_error,
+                                                             (datetime.datetime.now() - st).total_seconds()))
+
     return final_parameter, residue_error, id, obj_vec, lp
 
 
@@ -229,20 +426,15 @@ def sage_main(csilist, indices, num_sample=1):
     # for i in range(len(indices)):
     #     sage_algorithm(csilist[indices[i]], initial_parameter, initial_index, i)
 
-    if config.debug:
-        verbose = 10
-    else:
-        verbose = 0
-
-    retlist = Parallel(n_jobs=config.n_jobs, verbose=verbose)(
-        [delayed(sage_algorithm)(csilist[indices[i]], indices[i][0], num_sample,
-                                 None
-                                 # np.mean(csilist[
-                                 #         max(indices[i][int(config.window_length / 2)] - int(config.sample_rate / 4),
-                                 #             0):
-                                 #         min(indices[i][int(config.window_length / 2)] + int(config.sample_rate / 4),
-                                 #             len(csilist))],
-                                 #         axis=0)
+    retlist = Parallel(n_jobs=config.n_jobs, verbose=10)(
+        [delayed(sage_algorithm)(csilist[indices[i]], initial_parameter, initial_index, indices[i][0], num_sample,
+                                 # None
+                                 np.mean(csilist[
+                                         max(indices[i][int(config.window_length / 2)] - int(config.sample_rate / 4),
+                                             0):
+                                         min(indices[i][int(config.window_length / 2)] + int(config.sample_rate / 4),
+                                             len(csilist))],
+                                         axis=0)
                                  )
          for i in range(len(indices))])
 
@@ -258,18 +450,16 @@ def sage_main(csilist, indices, num_sample=1):
 def sage_main_divided(csilist, indices, num_batch=100):
     estimated_parameter_list = np.empty((4, config.num_signal, 0), dtype=complex)
     obj_vec_list = np.empty((0, 3), dtype=float)
-    with tqdm(total=len(indices), desc="Widar2") as pbar:
-        for i in range(0, len(indices), num_batch):
-            ids = indices[i:i + num_batch]
-            estimated_parameter, obj_vec = sage_main(csilist, ids, num_sample=len(csilist))
-            estimated_parameter_list = np.concatenate((estimated_parameter_list, estimated_parameter), axis=-1)
-            obj_vec_list = np.concatenate((obj_vec_list, obj_vec), axis=0)
-            pbar.update(len(ids))
+    for i in range(0, len(indices), num_batch):
+        ids = indices[i:i + num_batch]
+        estimated_parameter, obj_vec = sage_main(csilist, ids, num_sample=len(csilist))
+        estimated_parameter_list = np.concatenate((estimated_parameter_list, estimated_parameter), axis=-1)
+        obj_vec_list = np.concatenate((obj_vec_list, obj_vec), axis=0)
 
     return estimated_parameter_list, obj_vec_list
 
 
-def conj_mult(csilist, param_file_name=None):
+def conj_mult(csilist):
     ### Find reference antenna.
     csi_amplitude = np.mean(np.abs(csilist), axis=0)
     csi_variance = np.std(np.abs(csilist), axis=0)
@@ -278,8 +468,7 @@ def conj_mult(csilist, param_file_name=None):
     midx = np.argmax(ant_ratio)
     # midx=0
     csi_ref = csilist[:, midx]
-    if config.debug:
-        print("Reference antenna:{}".format(midx))
+    print("Reference antenna:{}".format(midx))
 
     ### Weight
     alpha = np.min(np.abs(csilist), axis=0)
@@ -294,38 +483,26 @@ def conj_mult(csilist, param_file_name=None):
 
     csi_mult = csilist * np.conj(csi_ref).reshape(csi_ref.shape[0], 1, csi_ref.shape[1])
 
-    if param_file_name is not None:
-        with open(param_file_name, "w") as f:
-            f.write("Reference antenna,{}\n".format(midx))
-            f.write("alpha,{}\n".format(alpha))
-            f.write("beta,{}\n".format(beta))
-
     return csi_mult
 
 
-def preprocess_Widar2(csilist, sec_timelist, datetimelist=None, use_filter=True, static_indices=None,
-                      use_bandstop_filter=False, bandstop=0, param_file_name=None):
-    csi_mult = conj_mult(csilist, param_file_name)
+def preprocess_Widar2(csilist, sec_timelist, datetimelist=None, use_filter=True, static_indices=None):
+    csi_mult = conj_mult(csilist)
 
     ### Filter
     if use_filter:
-        if config.debug:
-            print("filtering...")
+        print("filtering...")
         if datetimelist is not None:
             hlfrt = float((len(csilist) / (datetimelist[-1] - datetimelist[0]).total_seconds()) / 2)
         else:
             hlfrt = config.sample_rate / 2.
-
-        B33, A33 = signal.butter(1, [max((bandstop - 2), 1) / hlfrt, (bandstop + 2) / hlfrt], 'bandstop')
-        # B66, A66 = signal.butter(1, [63. / hlfrt, 69. / hlfrt], 'bandstop')
-
         # uppe_orde = 6
-        uppe_stop = config.uppe_stop
+        uppe_stop = 100
         # lowe_orde = 3
-        lowe_stop = config.lowe_stop
+        lowe_stop = 2
         # B, A = signal.butter(5, [lowe_stop / hlfrt, uppe_stop / hlfrt], 'bandpass')
-        B, A = signal.butter(4, uppe_stop / hlfrt, 'lowpass')
-        B2, A2 = signal.butter(4, lowe_stop / hlfrt, 'highpass')
+        B, A = signal.butter(5, uppe_stop / hlfrt, 'lowpass')
+        B2, A2 = signal.butter(5, lowe_stop / hlfrt, 'highpass')
         # csi_filter = signal.filtfilt(B, A, csi_mult, axis=0)  # python default
         # csi_mult = signal.filtfilt(B, A, csi_mult, axis=0, padlen=3 * (max(len(A), len(B)) - 1))  # matlab
 
@@ -333,11 +510,7 @@ def preprocess_Widar2(csilist, sec_timelist, datetimelist=None, use_filter=True,
         for i in range(csi_mult.shape[1]):
             for j in range(csi_mult.shape[2]):
                 # csi_filter[:, i, j] = signal.filtfilt(B, A, csi_mult[:, i, j])
-                tmp = csi_mult[:, i, j]
-                if use_bandstop_filter:
-                    tmp = signal.filtfilt(B33, A33, tmp)
-                    # tmp = signal.filtfilt(B66, B66, tmp)
-                csi_filter[:, i, j] = signal.filtfilt(B2, A2, signal.filtfilt(B, A, tmp))
+                csi_filter[:, i, j] = signal.filtfilt(B2, A2, signal.filtfilt(B, A, csi_mult[:, i, j]))
 
         csi_mult = csi_filter
 
@@ -364,30 +537,27 @@ def preprocess_Widar2(csilist, sec_timelist, datetimelist=None, use_filter=True,
         csi_mult = csi_mult - np.mean(static_csi, axis=0)
 
     ### Interpolation
-    if config.debug:
-        print("Interpolating...")
+    print("Interpolating...")
     interp_stamp = np.arange(0, sec_timelist[-1] * config.sample_rate) / config.sample_rate
     csi_interp = interpolate.interp1d(sec_timelist, csi_mult, axis=0)(interp_stamp)
 
     return csi_interp
 
 
-def widar_main(csilist, sec_timelist, datetimelist=None, use_filter=True, static_indices=None,
-               use_bandstop_filter=False, bandstop=0, param_file_name=None, num_batch=2000):
+def widar_main(csilist, sec_timelist, datetimelist=None, use_filter=True, static_indices=None):
     config.print_config()
 
     if csilist.ndim == 4:
         csilist = csilist[:, 0]
 
-    csilist = preprocess_Widar2(csilist, sec_timelist, datetimelist, use_filter, static_indices, use_bandstop_filter,
-                                bandstop, param_file_name=param_file_name)
+    csilist = preprocess_Widar2(csilist, sec_timelist, datetimelist, use_filter, static_indices)
 
     ### Estimation
     slide = int(config.window_length * (1. - config.overlapped))
     start = np.arange(0, len(csilist) - config.window_length, slide, dtype=int)
     indices = [range(i, i + config.window_length) for i in start]
 
-    estimated_parameter, obj_vec = sage_main_divided(csilist.transpose(0, 2, 1), indices, num_batch=num_batch)
+    estimated_parameter, obj_vec = sage_main_divided(csilist.transpose(0, 2, 1), indices, num_batch=500)
 
     if datetimelist is not None:
         interp_stamp = np.arange(0, sec_timelist[-1] * config.sample_rate) / config.sample_rate
@@ -404,16 +574,16 @@ def plot_estimated_parameter(estimated_parameter):
     fig, axs = plt.subplots(2, 2, figsize=(24, 15))
     axs = axs.flatten()
 
-    axs[0].scatter(range(np.shape(estimated_parameter)[2]) * np.shape(estimated_parameter)[1],
+    axs[0].scatter(range(estimated_parameter.shape[2]) * estimated_parameter.shape[1],
                    estimated_parameter[0].real.reshape(-1), c=np.log(np.abs(estimated_parameter[3]).reshape(-1)),
                    linewidths=0)
-    axs[1].scatter(range(np.shape(estimated_parameter)[2]) * np.shape(estimated_parameter)[1],
+    axs[1].scatter(range(estimated_parameter.shape[2]) * estimated_parameter.shape[1],
                    np.rad2deg(estimated_parameter[1].real).reshape(-1),
                    c=np.log(np.abs(estimated_parameter[3]).reshape(-1)), linewidths=0)
-    axs[2].scatter(range(np.shape(estimated_parameter)[2]) * np.shape(estimated_parameter)[1],
+    axs[2].scatter(range(estimated_parameter.shape[2]) * estimated_parameter.shape[1],
                    estimated_parameter[2].real.reshape(-1), c=np.log(np.abs(estimated_parameter[3]).reshape(-1)),
                    linewidths=0)
-    axs[3].scatter(range(np.shape(estimated_parameter)[2]) * np.shape(estimated_parameter)[1],
+    axs[3].scatter(range(estimated_parameter.shape[2]) * estimated_parameter.shape[1],
                    np.abs(estimated_parameter[3]).reshape(-1), c=np.log(np.abs(estimated_parameter[3]).reshape(-1)),
                    linewidths=0)
 
@@ -551,35 +721,17 @@ def _test(csilist, timestamp):
     fig.axes[3].plot(np.abs(estimated_path[3].T))
     plt.show()
 
-def clocktime2second(timelist, clock_freq=1. * 10 ** 6, clock_maxval=2. ** 32):
-    timelist = np.array(timelist)
-    clockdiff = timelist[1:] - timelist[:-1]
-    # minus_indices = np.arange(len(clockdiff))[clockdiff < 0] + 1
-    minus_indices = np.arange(len(clockdiff))[clockdiff < -clock_maxval / 2] + 1
-    for i in minus_indices:
-        timelist[i:] = timelist[i:] + clock_maxval
-
-    return (timelist - timelist[0]).astype(float) / clock_freq
 
 if __name__ == "__main__":
-
     from scipy import io
-    import pycsi
+    from loader import csi_loader
 
-    name = "0812C01"
+    dev_conf = io.loadmat("/mnt/poplin/2018/ohara/csi/Widar2.0Project/data/classroom/device_config.mat")
+    data = io.loadmat("/mnt/poplin/2018/ohara/csi/Widar2.0Project/data/classroom/T01.mat")
+    _test(data["csi_data"].reshape(-1, 3, 30),
+          csi_loader.clocktime2second(data["time_stamp"].reshape(-1)))
 
-    mypath = "data/csi" + name + ".dat"
-    npzpath = "npsave/" + name + "-csis.npz"
 
-    today = pycsi.MyCsi(name, npzpath)
-    today.load_data()
-
-    csi_data = np.squeeze(today.data.amp) * np.squeeze(today.data.phase)
-    print(csi_data.swapaxes(1,2).shape)
-    time_diff = today.data.timestamps[1:] - today.data.timestamps[:-1]
-
-    _test(csi_data.swapaxes(1,2),
-          clocktime2second(today.data.timestamps.reshape(-1)))
 
     # estimated_parameter = widar_main(data["csi_data"].reshape(-1, 3, 30),
     #                                  csi_loader.clocktime2second(data["time_stamp"].reshape(-1)))
