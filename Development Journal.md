@@ -23,3 +23,13 @@ tests.py
 - Added function: npzloader()
 - Added function: test_times()
 - Modification: all functions, inserted npzloader()
+
+## 1003
+
+pycsi.py
+- Bugfix: extract_dynamic(), conjugate multiplication related bug
+- Bugfix: aoa_by_music(), double definition of smooth
+- Added function: aoa_tof_by_music()
+
+tests.py
+- Modification: test_doppler(), removed calibrate_phase()
