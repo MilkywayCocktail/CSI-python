@@ -30,7 +30,6 @@ def npzloader(name, path=None):
 def timereporter(csi_name=None, func_name=None):
     """
     A decorator that prints currently processed csi and function name, plus start and end time.
-
     :param csi_name: csi name
     :param func_name: function name
     :return: decorator
@@ -49,7 +48,6 @@ def timereporter(csi_name=None, func_name=None):
 def batch_tool(folder_path, func, *args, **kwargs):
     """
     Specify a path that contains csi data files (.npz). The specified function will walk through all files.
-
     :param folder_path: folder path that contains csi data files (.npz)
     :param func: a test function from the menu.
     :return: iterative function that enables batch processing
@@ -69,7 +67,6 @@ def batch_tool(folder_path, func, *args, **kwargs):
 def test_calibration(name0, name1, path):
     """
     Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from 2 random packets.
-
     :param name0: reference csi
     :param name1: subject csi
     :return:
@@ -118,7 +115,6 @@ def test_calibration(name0, name1, path):
 def test_resampling(name1, path, sampling_rate=100):
     """
     Plots amplitudes of antemma0 subcarrier0 before and after resampling.
-
     :param name1: subject csi
     :param sampling_rate: default is 100
     :return:
@@ -162,7 +158,6 @@ def test_resampling(name1, path, sampling_rate=100):
 def test_doppler(name0, name1, path):
     """
     Plots doppler spectrum. Walks through calibration, dynamic extraction and resampling.
-
     :param name0: reference csi
     :param name1: subject csi
     :return:
@@ -175,21 +170,18 @@ def test_doppler(name0, name1, path):
 
     standard.data.remove_inf_values()
 
-    csi.calibrate_phase(standard, reference_antenna=2)
-
-    csi.extract_dynamic(reference_antenna=2)
+    csi.extract_dynamic(mode='running', reference_antenna=0)
 
     if csi.resample_packets() == 'bad':
         pass
     else:
         csi.doppler_by_music(pick_antenna=0)
-        csi.data.view_spectrum(autosave=True, notion='_an0_cal2')
+        csi.data.view_spectrum(autosave=True, notion='_an0_ref0')
 
 
 def test_aoa(name0, name1, path):
     """
     Plots aoa spectrum. Walks through  calibration, dynamic extraction and resampling.
-
     :param name0: reference csi
     :param name1: subject csi
     :return:
@@ -211,7 +203,6 @@ def test_aoa(name0, name1, path):
 def test_phasediff(name1, path):
     """
     Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from a random packet.
-
     :param name1: subject csi
     :return:
     """
@@ -221,10 +212,10 @@ def test_phasediff(name1, path):
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
 
     diff_csilist = csilist * csilist[:, :, 0, :][:, :, np.newaxis, :].conj()
-    plt.plot(np.angle(diff_csilist[13000, :, :, 0]))
+    plt.plot(np.unwrap(np.angle(diff_csilist[13000, :, :, 0])))
     plt.xlabel('subcarrier')
     plt.ylabel('difference of phase')
-    plt.title(name1 + 'phasediff')
+    plt.title(name1 + ' phasediff')
     plt.show()
 
 
@@ -309,12 +300,11 @@ if __name__ == '__main__':
             7: 'test_times'}
 
     n0 = "0919A00f"
-    n1 = "0919A11"
+    n1 = "0919A25"
 
     mypath = 'npsave/0919/A/'
     ref = npzloader(n0, mypath)
 
     batch_tool(mypath, order, 3, ref)
 
-    # order(3, n0, n1)
-
+    # order(3, n0, n1, mypath)
