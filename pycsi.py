@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-09-30
+# Last edit: 2022-10-03
 import types
 
 from CSIKit.reader import get_reader
@@ -68,7 +68,6 @@ class MyCsi(object):
         """
         Loads csi data into current MyCsi instance.
         Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).
-
         :return: csi data
         """
         try:
@@ -108,7 +107,6 @@ class MyCsi(object):
     def load_spectrum(self, input_path=None):
         """
         Loads .npz spectrum into current MyCsi instance.
-
         :param input_path: the path of spectrum, usually in 'npsave' folder
         :return: spectrum
         """
@@ -134,7 +132,6 @@ class MyCsi(object):
     def save_csi(self, save_name=None):
         """
         Saves csi data as npz. Strongly recommended for speeding up loading.
-
         :param save_name: filename, defalut = self.name
         :return: save_name + '-csis.npz'
         """
@@ -165,7 +162,6 @@ class MyCsi(object):
     def save_spectrum(self, save_name=None):
         """
         Saves spectrum as npz.
-
         :param save_name: filename, default = self.name
         :return: save_name + '-spectrum.npz'
         """
@@ -220,7 +216,6 @@ class MyCsi(object):
             Removes -inf values in csi amplitude which hinders further calculation.
             Replaces packets with -inf values with neighboring ones.\n
             Embodied in spectrum calculating methods.
-
             :return: Processed amplitude
             """
             print("  Apply invalid value removal...", time.asctime(time.localtime(time.time())))
@@ -259,7 +254,6 @@ class MyCsi(object):
         def view_all_rx(self, metric="amplitude"):
             """
             Plots csi amplitude OR phase for all antennas.
-
             :param metric: 'amplitude' or 'phase'
             :return: value-time plot
             """
@@ -292,7 +286,6 @@ class MyCsi(object):
         def view_spectrum(self, threshold=0, num_ticks=11, autosave=False, notion=''):
             """
             Plots spectrum. You can select whether save the image or not.
-
             :param threshold: set threshold of spectrum, must be larger than 0. Default is 0 (none)
             :param num_ticks: set number of ticks to be plotted in the figure, must be larger than 2. Default is 11
             :param autosave: True or False. Default is False
@@ -376,7 +369,6 @@ class MyCsi(object):
             """
             Static method.\n
             Applies SpotFi smoothing technique. You have to run for amplitude and phase each.
-
             :param input_csi:  [packet, sub, rx]
             :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
             :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
@@ -412,7 +404,6 @@ class MyCsi(object):
             """
             Static method.\n
             Generates a list of timestamps to plot as x-axis labels.
-
             :param input_timestamps: ordinarily input self.data.timestamps
             :param input_length: ordinarily input self.data.length
             :param input_ticks: how many labels you need (including start and end)
@@ -430,7 +421,6 @@ class MyCsi(object):
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
         Computes AoA spectrum by MUSIC.
-
         :param input_theta_list: list of angels, default = -90~90
         :param smooth: whether apply SpotFi smoothing or not, default = False
         :return: AoA spectrum by MUSIC stored in self.data.spectrum
@@ -517,7 +507,6 @@ class MyCsi(object):
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05), pick_antenna=0):
         """
         Computes Doppler spectrum by MUSIC. Under construction.
-
         :param input_velocity_list: list of velocities. Default = -5~5
         :param pick_antenna: select one antenna packets to compute spectrum. Default is 0
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
@@ -583,7 +572,6 @@ class MyCsi(object):
         """
         Calibrates phase offset between other degrees against 0 degree.\n
         Initial Phase Offset is removed.
-
         :param input_mycsi: CSI recorded at 0 degree
         :param reference_antenna: select one antenna with which to calculate phase difference between antennas.
         Default is 0
@@ -631,7 +619,6 @@ class MyCsi(object):
         """
         Removes the static component from csi.\n
         Strongly recommended when Tx is placed beside Rx.
-
         :param mode: 'overall' or 'running' (in terms of averaging). Default is 'overall'
         :param reference_antenna: select one antenna with which to remove random phase offsets. Default is 0
         :return: phase and amplitude of dynamic component of csi
@@ -651,21 +638,21 @@ class MyCsi(object):
                 raise ArgError("reference_antenna: " + str(reference_antenna) + "\nPlease specify an integer from 0~2")
 
             complex_csi = recon(self.data.amp, self.data.phase)
-            conjugate_csi = complex_csi[:, :, reference_antenna, None].repeat(3, axis=2)
+            conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, None]).repeat(3, axis=2)
             hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
 
             if mode == 'overall':
-                average_hc = np.mean(hc, axis=0).reshape((1, nsub, nrx, ntx))
+                average_hc = np.mean(hc, axis=0).reshape((1, nsub, nrx, ntx)).repeat(self.data.length, axis=0)
 
             elif mode == 'running':
                 average_hc = np.array([[np.convolve(np.squeeze(hc[:, sub, antenna, :]),
                                         np.ones(101) / 101, mode='same')
                                         for sub in range(30)]
-                                      for antenna in range(3)]).swapaxes(0, 2).reshape((1, nsub, nrx, ntx))
+                                      for antenna in range(3)]).swapaxes(0, 2).reshape((-1, nsub, nrx, ntx))
             else:
                 raise ArgError("mode: " + str(mode) + "\nPlease specify mode=\"running\" or \"overall\"")
 
-            dynamic_csi = hc - average_hc.repeat(self.data.length, axis=0)
+            dynamic_csi = hc - average_hc
             self.data.amp = np.abs(dynamic_csi)
             self.data.phase = np.angle(dynamic_csi)
 
@@ -678,7 +665,6 @@ class MyCsi(object):
         """
         Resample from raw CSI to reach a specified sampling rate.\n
         Strongly recommended when uniform interval is required.
-
         :param sampling_rate: sampling rate in Hz after resampling. Must be less than 5000.
         Default is 100
         :return: Resampled csi data
@@ -755,4 +741,3 @@ if __name__ == '__main__':
     #    print(today.data.spectrum.shape)
 
     # today.data.vis_spectrum(0)
-
