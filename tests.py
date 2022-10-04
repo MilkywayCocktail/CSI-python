@@ -69,6 +69,7 @@ def test_calibration(name0, name1, path):
     Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from 2 random packets.
     :param name0: reference csi
     :param name1: subject csi
+    :param path: folder path that contains batch csi files
     :return:
     """
 
@@ -117,6 +118,7 @@ def test_resampling(name1, path, sampling_rate=100):
     Plots amplitudes of antemma0 subcarrier0 before and after resampling.
     :param name1: subject csi
     :param sampling_rate: default is 100
+    :param path: folder path that contains batch csi files
     :return:
     """
 
@@ -157,9 +159,10 @@ def test_resampling(name1, path, sampling_rate=100):
 
 def test_doppler(name0, name1, path):
     """
-    Plots doppler spectrum. Walks through calibration, dynamic extraction and resampling.
+    Plots doppler spectrum. Walks through dynamic extraction and resampling.
     :param name0: reference csi
     :param name1: subject csi
+    :param path: folder path that contains batch csi files
     :return:
     """
 
@@ -170,20 +173,22 @@ def test_doppler(name0, name1, path):
 
     standard.data.remove_inf_values()
 
-    csi.extract_dynamic(mode='running', reference_antenna=0)
+    csi.extract_dynamic(mode='running', window_length=91, reference_antenna=0)
 
     if csi.resample_packets() == 'bad':
         pass
     else:
         csi.doppler_by_music(pick_antenna=0)
-        csi.data.view_spectrum(autosave=True, notion='_an0_ref0')
+        csi.data.view_spectrum(autosave=True, notion='_an0_ref0_running91')
 
 
 def test_aoa(name0, name1, path):
     """
-    Plots aoa spectrum. Walks through  calibration, dynamic extraction and resampling.
+    Plots aoa spectrum. Walks through calibration and dynamic extraction.
+
     :param name0: reference csi
     :param name1: subject csi
+    :param path: folder path that contains batch csi files
     :return:
     """
 
@@ -200,10 +205,34 @@ def test_aoa(name0, name1, path):
     csi.data.view_spectrum()
 
 
+def test_aoatof(name0, name1, path):
+    """
+    Plots aoa-tof spectrum. Walks through calibration and dynamic extraction.
+
+    :param name0: reference csi
+    :param name1: subject csi
+    :param path: folder path that contains batch csi files
+    :return:
+    """
+
+    standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
+
+    csi.data.remove_inf_values()
+    standard.data.remove_inf_values()
+
+    csi.calibrate_phase(standard)
+    csi.extract_dynamic()
+
+    csi.aoa_tof_by_music()
+    csi.data.view_spectrum()
+
+
 def test_phasediff(name1, path):
     """
     Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from a random packet.
     :param name1: subject csi
+    :param path: folder path that contains batch csi files
     :return:
     """
 
@@ -211,11 +240,14 @@ def test_phasediff(name1, path):
     csi.data.remove_inf_values()
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
 
-    diff_csilist = csilist * csilist[:, :, 0, :][:, :, np.newaxis, :].conj()
-    plt.plot(np.unwrap(np.angle(diff_csilist[13000, :, :, 0])))
+    ref_antenna = 0
+    packet = np.random.randint(csi.data.length)
+
+    diff_csilist = csilist * csilist[:, :, ref_antenna, :][:, :, np.newaxis, :].conj()
+    plt.plot(np.unwrap(np.angle(diff_csilist[packet, :, :, 0])))
     plt.xlabel('subcarrier')
     plt.ylabel('difference of phase')
-    plt.title(name1 + ' phasediff')
+    plt.title(name1 + ' phasediff at' + str(packet) + ' with ref ' + str(ref_antenna))
     plt.show()
 
 
@@ -279,12 +311,15 @@ def order(index, name0, name1, path):
         print("test_aoa")
         test_aoa(name0, name1, path)
     elif index == 5:
+        print("test_aoatof")
+        test_aoatof(name0, name1, path)
+    elif index == 6:
         print("test_phasediff")
         test_phasediff(name1, path)
-    elif index == 6:
+    elif index == 7:
         print('test_simulation')
         test_simulation()
-    elif index == 7:
+    elif index == 8:
         print('test_times')
         test_times(name1, path)
 
@@ -295,9 +330,10 @@ if __name__ == '__main__':
             2: 'test_resampling',
             3: 'test_doppler',
             4: 'test_aoa',
-            5: 'test_phasediff',
-            6: 'test_simulation',
-            7: 'test_times'}
+            5: 'test_aoatof',
+            6: 'test_phasediff',
+            7: 'test_simulation',
+            8: 'test_times'}
 
     n0 = "0919A00f"
     n1 = "0919A25"
@@ -305,6 +341,6 @@ if __name__ == '__main__':
     mypath = 'npsave/0919/A/'
     ref = npzloader(n0, mypath)
 
-    batch_tool(mypath, order, 3, ref)
+    # batch_tool(mypath, order, 3, ref)
 
-    # order(3, n0, n1, mypath)
+    order(3, n0, n1, mypath)
