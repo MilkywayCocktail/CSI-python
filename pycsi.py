@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-04
+# Last edit: 2022-10-05
 import types
 
 from CSIKit.reader import get_reader
@@ -67,6 +67,7 @@ class MyCsi(object):
         """
         Loads csi data into current MyCsi instance.
         Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).
+
         :return: csi data
         """
         try:
@@ -106,6 +107,7 @@ class MyCsi(object):
     def load_spectrum(self, input_path=None):
         """
         Loads .npz spectrum into current MyCsi instance.
+
         :param input_path: the path of spectrum, usually in 'npsave' folder
         :return: spectrum
         """
@@ -131,6 +133,7 @@ class MyCsi(object):
     def save_csi(self, save_name=None):
         """
         Saves csi data as npz. Strongly recommended for speeding up loading.
+
         :param save_name: filename, defalut = self.name
         :return: save_name + '-csis.npz'
         """
@@ -161,6 +164,7 @@ class MyCsi(object):
     def save_spectrum(self, save_name=None):
         """
         Saves spectrum as npz.
+
         :param save_name: filename, default = self.name
         :return: save_name + '-spectrum.npz'
         """
@@ -199,6 +203,12 @@ class MyCsi(object):
             self.commonfunc = MyCsi._CommonFunctions
 
         def show_shape(self):
+            """
+            Shows dimesionality information of csi data.
+
+            :return: csi data shape
+            """
+
             try:
                 if self.amp is None or self.phase is None:
                     raise DataError("csi data")
@@ -215,6 +225,7 @@ class MyCsi(object):
             Removes -inf values in csi amplitude which hinders further calculation.
             Replaces packets with -inf values with neighboring ones.\n
             Embodied in spectrum calculating methods.
+
             :return: Processed amplitude
             """
             print("  Apply invalid value removal...", time.asctime(time.localtime(time.time())))
@@ -253,6 +264,7 @@ class MyCsi(object):
         def view_all_rx(self, metric="amplitude"):
             """
             Plots csi amplitude OR phase for all antennas.
+
             :param metric: 'amplitude' or 'phase'
             :return: value-time plot
             """
@@ -285,6 +297,7 @@ class MyCsi(object):
         def view_spectrum(self, threshold=0, num_ticks=11, autosave=False, notion=''):
             """
             Plots spectrum. You can select whether save the image or not.
+
             :param threshold: set threshold of spectrum, must be larger than 0. Default is 0 (none)
             :param num_ticks: set number of ticks to be plotted in the figure, must be larger than 2. Default is 11
             :param autosave: True or False. Default is False
@@ -340,11 +353,9 @@ class MyCsi(object):
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    ax.xaxis.set_major_locator(ticker.MultipleLocator(1e-8))
-                    ax.xaxis.set_major_formatter(ticker.FixedFormatter([-1e-8, 0, 1e-8, 2e-8, 3e-8,
-                                                                        4e-8, 5e-8, 6e-8, 7e-8, 8e-8]))
-                    ax.xaxis.set_minor_locator(ticker.MultipleLocator(2.e-9))
-                    ax.set_xlabel("ToF / $s$")
+                    plt.xticks([0, 20, 40, 60, 80, 100, 120, 140, 160], [0, 10, 20, 30, 40, 50, 60, 70, 80])
+                    ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+                    ax.set_xlabel("ToF / $ns$")
                     ax.set_ylabel("AoA / $deg$")
                     plt.title(self.name + " AoA-ToF Spectrum" + str(notion))
 
@@ -384,6 +395,7 @@ class MyCsi(object):
             """
             Static method.\n
             Applies SpotFi smoothing technique. You have to run for amplitude and phase each.
+
             :param input_csi:  [packet, sub, rx]
             :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
             :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
@@ -405,6 +417,7 @@ class MyCsi(object):
             """
             Static method.\n
             Reconstructs csi data as complex numbers. Singular dimensions are squeezed.
+
             :param input_amp: csi amplitude
             :param input_phase: csi phase
             :return: reconstructed csi
@@ -419,6 +432,7 @@ class MyCsi(object):
             """
             Static method.\n
             Generates a list of timestamps to plot as x-axis labels.
+
             :param input_timestamps: ordinarily input self.data.timestamps
             :param input_length: ordinarily input self.data.length
             :param input_ticks: how many labels you need (including start and end)
@@ -436,6 +450,7 @@ class MyCsi(object):
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
         Computes AoA spectrum by MUSIC.
+
         :param input_theta_list: list of angels, default = -90~90
         :param smooth: whether apply SpotFi smoothing or not, default = False
         :return: AoA spectrum by MUSIC stored in self.data.spectrum
@@ -522,6 +537,7 @@ class MyCsi(object):
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05), pick_antenna=0):
         """
         Computes Doppler spectrum by MUSIC.
+
         :param input_velocity_list: list of velocities. Default = -5~5
         :param pick_antenna: select one antenna packets to compute spectrum. Default is 0
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
@@ -581,7 +597,7 @@ class MyCsi(object):
             print(e, "\nPlease load data")
 
     def aoa_tof_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
-                         input_time_list=np.arange(0, 8.e-8, 2.e-9),
+                         input_time_list=np.arange(0, 8.e-8, 5.e-10),
                          smooth=False):
         """
         Computes AoA-ToF spectrum by MUSIC.
@@ -616,6 +632,7 @@ class MyCsi(object):
                 raise ArgError("smooth:" + str(smooth))
 
             # Subcarriers from -58 to 58, step = 4
+            subcarrier_list = np.arange(-58, 62, 4)
             subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
                                      4 * delta_subfreq)
             antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
@@ -639,7 +656,7 @@ class MyCsi(object):
                     temp_amp = self.data.amp[i]
                     temp_phase = self.data.phase[i]
 
-                csi = recon(temp_amp, temp_phase).reshape((1, -1))  # nrx * nsub columns
+                csi = recon(temp_amp, temp_phase).reshape(1, -1)  # nrx * nsub columns
 
                 value, vector = np.linalg.eigh(csi.T.dot(np.conjugate(csi)))
                 descend_order_index = np.argsort(-value)
@@ -657,12 +674,12 @@ class MyCsi(object):
                                                       for sub_freq in subfreq_list[:15]])
                         else:
                             steering_aoa = np.exp(mjtwopi * dist_antenna * np.sin(aoa * torad) *
-                                                  antenna_list * center_freq / lightspeed)
-                            steering_tof = np.exp([mjtwopi * delta_subfreq * tof])
-                            steering_vector = np.dot(steering_tof.T, steering_aoa).reshape((1, -1))  # nrx * nsub cols
+                                                  antenna_list * center_freq / lightspeed).reshape(1, -1)
+                            steering_tof = np.exp([mjtwopi * delta_subfreq * subcarrier_list * tof]).reshape(1, -1)
+                            steering_vector = np.dot(steering_tof.T, steering_aoa).reshape(-1, 1)  # nrx * nsub rows
 
-                    a_en = np.conjugate(steering_vector.T).dot(noise_space)
-                    spectrum[i, k, j] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
+                        a_en = np.conjugate(steering_vector.T).dot(noise_space)
+                        spectrum[i, j, k] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
             self.data.spectrum = spectrum
             self.data.algorithm = 'aoa-tof'
@@ -674,16 +691,43 @@ class MyCsi(object):
             print(e, "\nPlease specify smooth=True or False")
 
     def sanitize_phase(self):
-        pass
+        """
+        Also known as SpotFi Algorithm1. Removes the STO shared by all rx antennas.
+
+        :return: sanitized phase
+        """
+
+        nrx = self.nrx
+        nsub = self.nsub
+
+        print(self.name, "apply SpotFi Algorithm1 to remove STO", time.asctime(time.localtime(time.time())))
+
+        try:
+            if self.data.phase is None:
+                raise DataError("phase: " + str(self.data.phase))
+
+            fit_x = np.concatenate([np.arange(0, nsub) for i in range(nrx)])
+            fit_y = np.unwrap(np.squeeze(self.data.phase), axis=1).swapaxes(1, 2).reshape(self.data.length, -1)
+
+            A = np.stack((fit_x, np.ones_like(fit_x)), axis=-1)
+            fit = np.linalg.inv(A.T.dot(A)).dot(A.T).dot(fit_y.T).T
+            # fit = np.array([np.polyfit(fit_x, fit_y[i], 1) for i in range(self.data.length)])
+
+            self.data.phase = np.unwrap(self.data.phase, axis=1) - \
+                              np.arange(nsub).reshape(1, nsub, 1, 1) * fit[:, 0].reshape(self.data.length, 1, 1, 1)
+
+        except DataError as e:
+            print(e, "\nPlease load data")
 
     def calibrate_phase(self, input_mycsi, reference_antenna=0):
         """
         Calibrates phase offset between other degrees against 0 degree.\n
         Initial Phase Offset is removed.
+
         :param input_mycsi: CSI recorded at 0 degree
         :param reference_antenna: select one antenna with which to calculate phase difference between antennas.
         Default is 0
-        :return: calibrated phase, unwrapped
+        :return: calibrated phase
         """
         nrx = self.nrx
         nsub = self.nsub
@@ -727,6 +771,7 @@ class MyCsi(object):
         """
         Removes the static component from csi.\n
         Strongly recommended when Tx is placed beside Rx.
+
         :param mode: 'overall' or 'running' (in terms of averaging). Default is 'overall'
         :param window_length: if mode is 'running', specify a window length for running mean. Default is 31
         :param reference_antenna: select one antenna with which to remove random phase offsets. Default is 0
@@ -778,6 +823,7 @@ class MyCsi(object):
         """
         Resample from raw CSI to reach a specified sampling rate.\n
         Strongly recommended when uniform interval is required.
+
         :param sampling_rate: sampling rate in Hz after resampling. Must be less than 5000.
         Default is 100
         :return: Resampled csi data
