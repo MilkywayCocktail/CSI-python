@@ -47,7 +47,7 @@ def timereporter(csi_name=None, func_name=None):
 
 def test_calibration(name0, name1, path):
     """
-    Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from 2 random packets.
+    Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from 2 random packets before and after calibration.
     :param name0: reference csi
     :param name1: subject csi
     :param path: folder path that contains batch csi files
@@ -205,7 +205,12 @@ def test_aoatof(name0, name1, path):
     csi.calibrate_phase(standard)
     csi.extract_dynamic()
 
+    csi.data.length = 10
+    csi.data.amp = csi.data.amp[:10]
+    csi.data.phase = csi.data.phase[:10]
+
     csi.aoa_tof_by_music()
+    print(csi.data.spectrum.shape)
     csi.data.view_spectrum()
 
 
@@ -229,6 +234,58 @@ def test_phasediff(name1, path, name0=None):
     plt.xlabel('subcarrier')
     plt.ylabel('difference of phase')
     plt.title(name1 + ' phasediff at ' + str(packet) + ' with ref ' + str(ref_antenna))
+    plt.show()
+
+
+def test_sanitize(name1, path, name0=None):
+    """
+    Plots phase difference of 30 subcarriers of 3 antennas from 2 random packets before and after sanitization.
+    :param name0: reference csi
+    :param name1: subject csi
+    :param path: folder path that contains batch csi files
+    :return:
+    """
+
+    # standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
+
+    csi.data.remove_inf_values()
+    csi.data.phase -= np.mean(csi.data.phase, axis=1).reshape(-1, 1,3,1)
+    # standard.data.remove_inf_values()
+
+    #packet1 = np.random.randint(csi.data.length)
+    #packet2 = np.random.randint(csi.data.length)
+
+    packet1 = 1000
+    packet2 = 1001
+
+    fig, ax = plt.subplots(2, 1)
+    ax[0].set_title("Before sanitization")
+    ax[0].plot(np.unwrap(np.squeeze(csi.data.phase[packet1, :, 0, :])), label='antenna0 #' + str(packet1), color='b')
+    ax[0].plot(np.unwrap(np.squeeze(csi.data.phase[packet1, :, 1, :])), label='antenna1 #' + str(packet1), color='r')
+    ax[0].plot(np.unwrap(np.squeeze(csi.data.phase[packet1, :, 2, :])), label='antenna2 #' + str(packet1), color='y')
+    ax[0].plot(np.unwrap(np.squeeze(csi.data.phase[packet2, :, 0, :])), label='antenna0 #' + str(packet2), color='b', linestyle='--')
+    ax[0].plot(np.unwrap(np.squeeze(csi.data.phase[packet2, :, 1, :])), label='antenna1 #' + str(packet2), color='r', linestyle='--')
+    ax[0].plot(np.unwrap(np.squeeze(csi.data.phase[packet2, :, 2, :])), label='antenna2 #' + str(packet2), color='y', linestyle='--')
+    ax[0].set_xlabel('Subcarrier', loc='right')
+    ax[0].set_ylabel('Phase Difference')
+    ax[0].legend()
+
+    csi.sanitize_phase()
+    csi.data.phase -= np.mean(csi.data.phase, axis=1).reshape(-1, 1,3,1)
+
+    ax[1].set_title("After sanitization")
+    ax[1].plot(np.unwrap(np.squeeze(csi.data.phase[packet1, :, 0, :])), label='antenna0 #' + str(packet1), color='b')
+    ax[1].plot(np.unwrap(np.squeeze(csi.data.phase[packet1, :, 1, :])), label='antenna1 #' + str(packet1), color='r')
+    ax[1].plot(np.unwrap(np.squeeze(csi.data.phase[packet1, :, 2, :])), label='antenna2 #' + str(packet1), color='y')
+    ax[1].plot(np.unwrap(np.squeeze(csi.data.phase[packet2, :, 0, :])), label='antenna0 #' + str(packet2), color='b', linestyle='--')
+    ax[1].plot(np.unwrap(np.squeeze(csi.data.phase[packet2, :, 1, :])), label='antenna1 #' + str(packet2), color='r', linestyle='--')
+    ax[1].plot(np.unwrap(np.squeeze(csi.data.phase[packet2, :, 2, :])), label='antenna2 #' + str(packet2), color='y', linestyle='--')
+    ax[1].set_xlabel('Subcarrier', loc='right')
+    ax[1].set_ylabel('Phase Difference')
+    ax[1].legend()
+
+    plt.suptitle('Sanitization of ' + name1[4:])
     plt.show()
 
 
@@ -285,12 +342,14 @@ def order(index, mypath=None, batch=False, *args, **kwargs):
             4: test_aoa,
             5: test_aoatof,
             6: test_phasediff,
-            7: test_simulation,
-            8: test_times}
+            7: test_sanitize,
+            8: test_simulation,
+            9: test_times}
 
     func = menu[index]
 
     print(func.__name__)
+    result = func(*args, **kwargs)
 
     if batch is True:
         print("- Enabling batch processing -")
@@ -299,19 +358,19 @@ def order(index, mypath=None, batch=False, *args, **kwargs):
 
         for file in filenames:
             name = file[:-9]
-            func(name1=name, path=mypath, *args, **kwargs)
+            result = func(name1=name, path=mypath, *args, **kwargs)
 
         print("- Batch processing complete -")
 
-    return func(*args, **kwargs)
+    return result
 
 
 if __name__ == '__main__':
 
     n0 = "0919A00f"
-    n1 = "0919A25"
+    n1 = "0919A03"
 
     npzpath = 'npsave/0919/A/'
     ref = npzloader(n0, npzpath)
 
-    order(index=6, name0=n0, name1=n1, path=npzpath)
+    order(index=7, name0=ref, name1=n1, path=npzpath)
