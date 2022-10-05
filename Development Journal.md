@@ -17,7 +17,7 @@ tests.py
 ## 0930
 
 pycsi.py
-- Bugfix: resample_packets(), added reaction to nagative timestamping bug (originated in csitool)
+- Bugfix: resample_packets(), added response to nagative timestamping bug (originated in csitool)
 
 tests.py
 - Added function: npzloader()
@@ -33,3 +33,18 @@ pycsi.py
 
 tests.py
 - Modification: test_doppler(), removed calibrate_phase()
+
+## 1004
+
+tests.py
+- Added parameter: ref_antenna, packet into test_phasediff()
+- Added function: test_aoatof()
+- Modification: batch() merged into order() so that the if branches are eliminated
+
+## 1005
+
+pycsi.py
+- Added function: sanitize_phase()
+
+tests.py
+- Added function: test_sanitize()
