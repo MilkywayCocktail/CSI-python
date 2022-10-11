@@ -67,13 +67,20 @@ class MyCsi(object):
         """
         Loads csi data into current MyCsi instance.
         Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).
-
         :return: csi data
         """
         try:
             if self.path is None or not os.path.exists(self.path):
-                raise PathError(self.path)
+                raise PathError("path: " + str(self.path))
+            if self.path[-3:] not in ('dat', 'npz'):
+                raise DataError("file: " + str(self.path))
 
+        except PathError as e:
+            print(e, "\nPlease check the path")
+        except DataError as e:
+            print(e, "\nFile not supported. Please input .dat or .npz")
+
+        else:
             if self.path[-3:] == "dat":
                 print(self.name, "raw load start...", time.asctime(time.localtime(time.time())))
                 csi_reader = get_reader(self.path)
@@ -96,18 +103,9 @@ class MyCsi(object):
                 self.data.timestamps = csi_data['csi_timestamps']
                 print(self.name, "npz load complete", time.asctime(time.localtime(time.time())))
 
-            else:
-                raise DataError(self.path)
-
-        except PathError as e:
-            print(e, "\nPlease check the path")
-        except DataError as e:
-            print(e, "\nFile not supported. Please input .dat or .npz")
-
     def load_spectrum(self, input_path=None):
         """
         Loads .npz spectrum into current MyCsi instance.
-
         :param input_path: the path of spectrum, usually in 'npsave' folder
         :return: spectrum
         """
@@ -115,25 +113,25 @@ class MyCsi(object):
 
         try:
             if input_path is None or not os.path.exists(input_path):
-                raise PathError(input_path)
+                raise PathError("path: " + str(input_path))
 
             if input_path[-3:] != "npz":
-                raise DataError(input_path)
-
-            csi_spectrum = np.load(input_path)
-            self.data.spectrum = csi_spectrum['csi_spectrum']
-            self.data.algorithm = csi_spectrum['csi_algorithm']
-            print(self.name, "spectrum load complete", time.asctime(time.localtime(time.time())))
+                raise DataError("file: " + str(input_path))
 
         except PathError as e:
             print(e, "\nPlease check the path.")
         except DataError as e:
             print(e, "\nFile not supported. Please input .npz")
 
+        else:
+            csi_spectrum = np.load(input_path)
+            self.data.spectrum = csi_spectrum['csi_spectrum']
+            self.data.algorithm = csi_spectrum['csi_algorithm']
+            print(self.name, "spectrum load complete", time.asctime(time.localtime(time.time())))
+
     def save_csi(self, save_name=None):
         """
         Saves csi data as npz. Strongly recommended for speeding up loading.
-
         :param save_name: filename, defalut = self.name
         :return: save_name + '-csis.npz'
         """
@@ -142,6 +140,9 @@ class MyCsi(object):
         try:
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
+
+        except DataError as e:
+            print(e, "\nPlease load data")
 
             save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/'
 
@@ -158,13 +159,9 @@ class MyCsi(object):
                      csi_timestamps=self.data.timestamps)
             print(self.name, "csi save complete", time.asctime(time.localtime(time.time())))
 
-        except DataError as e:
-            print(e, "\nPlease load data")
-
     def save_spectrum(self, save_name=None):
         """
         Saves spectrum as npz.
-
         :param save_name: filename, default = self.name
         :return: save_name + '-spectrum.npz'
         """
@@ -172,7 +169,10 @@ class MyCsi(object):
 
         try:
             if self.data.spectrum is None:
-                raise DataError("spectrum: " + str(self.data.spectrum))
+                raise DataError("spectrum")
+
+        except DataError as e:
+            print(e, "\nPlease compute spectrum")
 
             save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/'
 
@@ -182,14 +182,11 @@ class MyCsi(object):
             if save_name is None:
                 save_name = self.name
 
-            # Keys: spectrum, info
+            # Keys: spectrum, algorithm
             np.savez(save_path + save_name + "-spectrum.npz",
                      csi_spectrum=self.data.spectrum,
                      csi_algorithm=self.data.algorithm)
             print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
-
-        except DataError as e:
-            print(e, "\nPlease compute spectrum")
 
     class _Data:
         def __init__(self, input_name):
@@ -205,27 +202,26 @@ class MyCsi(object):
         def show_shape(self):
             """
             Shows dimesionality information of csi data.
-
             :return: csi data shape
             """
 
             try:
-                if self.amp is None or self.phase is None:
+                if self.amp is None and self.phase is None:
                     raise DataError("csi data")
-
-                items = ["no_frames=", "no_subcarriers=", "no_rx_ant=", "no_tx_ant="]
-                plist = [a + str(b) for a, b in zip(items, self.amp.shape)]
-                print(self.name, "data shape: ", *plist, sep='\n')
 
             except DataError as e:
                 print(e, "\nPlease load data")
+
+            else:
+                items = ["no_frames=", "no_subcarriers=", "no_rx_ant=", "no_tx_ant="]
+                _list = [a + str(b) for a, b in zip(items, self.amp.shape)]
+                print(self.name, "data shape: ", *_list, sep='\n')
 
         def remove_inf_values(self):
             """
             Removes -inf values in csi amplitude which hinders further calculation.
             Replaces packets with -inf values with neighboring ones.\n
             Embodied in spectrum calculating methods.
-
             :return: Processed amplitude
             """
             print("  Apply invalid value removal...", time.asctime(time.localtime(time.time())))
@@ -234,6 +230,10 @@ class MyCsi(object):
                 if self.amp is None:
                     raise DataError("amplitude: " + str(self.amp))
 
+            except DataError as e:
+                print(e, "\nPlease load data")
+
+            else:
                 print("  Found", len(np.where(self.amp == float('-inf'))[0]), "-inf values")
 
                 if len(np.where(self.amp == float('-inf'))[0]) != 0:
@@ -258,13 +258,9 @@ class MyCsi(object):
                             self.amp[i] = self.amp[j]
                             self.phase[i] = self.phase[j]
 
-            except DataError as e:
-                print(e, "\nPlease load data")
-
         def view_all_rx(self, metric="amplitude"):
             """
             Plots csi amplitude OR phase for all antennas.
-
             :param metric: 'amplitude' or 'phase'
             :return: value-time plot
             """
@@ -283,21 +279,22 @@ class MyCsi(object):
                 if csi_matrix is None:
                     raise DataError("csi data")
 
+            except ArgError as e:
+                print(e, "\nPlease specify metric=\"amplitude\" or \"phase\"")
+
+            except DataError as e:
+                print(e, "\nPlease load data")
+
+            else:
                 for rx in range(csi_matrix.shape[2]):
                     csi_matrix_squeezed = np.squeeze(csi_matrix[:, :, rx, 0])
                     BatchGraph.plot_heatmap(csi_matrix_squeezed, self.timestamps)
 
                 print(self.name, metric, "plot complete", time.asctime(time.localtime(time.time())))
 
-            except ArgError as e:
-                print(e, "\nPlease specify metric=\"amplitude\" or \"phase\"")
-            except DataError as e:
-                print(e, "\nPlease load data")
-
         def view_spectrum(self, threshold=0, num_ticks=11, autosave=False, notion=''):
             """
             Plots spectrum. You can select whether save the image or not.
-
             :param threshold: set threshold of spectrum, must be larger than 0. Default is 0 (none)
             :param num_ticks: set number of ticks to be plotted in the figure, must be larger than 2. Default is 11
             :param autosave: True or False. Default is False
@@ -315,6 +312,11 @@ class MyCsi(object):
 
                 if not isinstance(num_ticks, int) or num_ticks < 3:
                     raise ArgError("num_ticks: " + str(num_ticks) + "\nPlease specify an integer larger than 3")
+
+            except DataError as e:
+                print(e, "\nPlease compute spectrum")
+            except ArgError as e:
+                print(e)
 
                 spectrum = np.array(self.spectrum)
                 replace = self.commonfunc.replace_labels
@@ -380,11 +382,6 @@ class MyCsi(object):
                 else:
                     raise ArgError("autosave\nPlease specify autosave=\"True\" or \"False\"")
 
-            except DataError as e:
-                print(e, "\nPlease compute spectrum")
-            except ArgError as e:
-                print(e)
-
     class _CommonFunctions:
         """
         Collection of static methods that may be used in other methods.
@@ -395,7 +392,6 @@ class MyCsi(object):
             """
             Static method.\n
             Applies SpotFi smoothing technique. You have to run for amplitude and phase each.
-
             :param input_csi:  [packet, sub, rx]
             :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
             :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
@@ -417,7 +413,6 @@ class MyCsi(object):
             """
             Static method.\n
             Reconstructs csi data as complex numbers. Singular dimensions are squeezed.
-
             :param input_amp: csi amplitude
             :param input_phase: csi phase
             :return: reconstructed csi
@@ -432,7 +427,6 @@ class MyCsi(object):
             """
             Static method.\n
             Generates a list of timestamps to plot as x-axis labels.
-
             :param input_timestamps: ordinarily input self.data.timestamps
             :param input_length: ordinarily input self.data.length
             :param input_ticks: how many labels you need (including start and end)
@@ -450,7 +444,6 @@ class MyCsi(object):
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
         Computes AoA spectrum by MUSIC.
-
         :param input_theta_list: list of angels, default = -90~90
         :param smooth: whether apply SpotFi smoothing or not, default = False
         :return: AoA spectrum by MUSIC stored in self.data.spectrum
@@ -537,7 +530,6 @@ class MyCsi(object):
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05), pick_antenna=0):
         """
         Computes Doppler spectrum by MUSIC.
-
         :param input_velocity_list: list of velocities. Default = -5~5
         :param pick_antenna: select one antenna packets to compute spectrum. Default is 0
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
@@ -601,7 +593,6 @@ class MyCsi(object):
                          smooth=False):
         """
         Computes AoA-ToF spectrum by MUSIC.
-
         :param input_theta_list:  list of angels, default = -90~90
         :param input_time_list: list of time measurements, default = 0~8e-8
         :param smooth:  whether apply SpotFi smoothing or not, default = False
@@ -693,7 +684,6 @@ class MyCsi(object):
     def sanitize_phase(self):
         """
         Also known as SpotFi Algorithm1. Removes the STO shared by all rx antennas.
-
         :return: sanitized phase
         """
 
@@ -723,7 +713,6 @@ class MyCsi(object):
         """
         Calibrates phase offset between other degrees against 0 degree.\n
         Initial Phase Offset is removed.
-
         :param input_mycsi: CSI recorded at 0 degree
         :param reference_antenna: select one antenna with which to calculate phase difference between antennas.
         Default is 0
@@ -771,7 +760,6 @@ class MyCsi(object):
         """
         Removes the static component from csi.\n
         Strongly recommended when Tx is placed beside Rx.
-
         :param mode: 'overall' or 'running' (in terms of averaging). Default is 'overall'
         :param window_length: if mode is 'running', specify a window length for running mean. Default is 31
         :param reference_antenna: select one antenna with which to remove random phase offsets. Default is 0
@@ -823,7 +811,6 @@ class MyCsi(object):
         """
         Resample from raw CSI to reach a specified sampling rate.\n
         Strongly recommended when uniform interval is required.
-
         :param sampling_rate: sampling rate in Hz after resampling. Must be less than 5000.
         Default is 100
         :return: Resampled csi data
@@ -883,20 +870,6 @@ if __name__ == '__main__':
         mypath = filepath + file
         # npzpath = "npsave/csi" + name + "-csis.npz"
         # pmpath = "npsave/" + name + "-spectrum.npz"
-        today = MyCsi(name, mypath)
-        today.load_data()
-        today.save_csi(name)
-
-    #    today.data.show_shape()
-
-    #    today.save_csi(name)
-
-    # today.aoa_by_music(smooth=False)
-
-    #    today.save_spectrum(name)
-
-    #    today.load_spectrum(pmpath)
-
-    #    print(today.data.spectrum.shape)
-
-    # today.data.vis_spectrum(0)
+        _csi = MyCsi(name, mypath)
+        _csi.load_data()
+        _csi.save_csi(name)
