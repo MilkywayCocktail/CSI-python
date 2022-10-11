@@ -48,3 +48,8 @@ pycsi.py
 
 tests.py
 - Added function: test_sanitize()
+
+## 1011
+
+tests.py
+- BUgfix: douplex parameter in order()
