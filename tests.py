@@ -183,7 +183,7 @@ def test_aoa(name0, name1, path):
     csi.resample_packets()
 
     csi.aoa_by_music()
-    csi.data.view_spectrum()
+    csi.data.view_spectrum(threshold=10, autosave=True)
 
 
 def test_aoatof(name0, name1, path):
@@ -349,7 +349,6 @@ def order(index, mypath=None, batch=False, *args, **kwargs):
     func = menu[index]
 
     print(func.__name__)
-    result = func(*args, **kwargs)
 
     if batch is True:
         print("- Enabling batch processing -")
@@ -358,19 +357,22 @@ def order(index, mypath=None, batch=False, *args, **kwargs):
 
         for file in filenames:
             name = file[:-9]
-            result = func(name1=name, path=mypath, *args, **kwargs)
+            result = func(name0=kwargs['name0'], name1=name, path=mypath)
 
         print("- Batch processing complete -")
+
+    else:
+        result = func(*args, **kwargs)
 
     return result
 
 
 if __name__ == '__main__':
 
-    n0 = "0919A00f"
-    n1 = "0919A03"
+    n0 = "1010A01"
+    n1 = "1010A16"
 
-    npzpath = 'npsave/0919/A/'
+    npzpath = 'npsave/1010/'
     ref = npzloader(n0, npzpath)
 
-    order(index=7, name0=ref, name1=n1, path=npzpath)
+    order(index=3, batch=True, name0=ref, name1=n1, mypath=npzpath)
