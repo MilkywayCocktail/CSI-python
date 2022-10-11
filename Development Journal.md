@@ -51,5 +51,8 @@ tests.py
 
 ## 1011
 
+pycsi.py
+- Modification: exception mechanism to handle I/O related situations
+
 tests.py
 - BUgfix: douplex parameter in order()
