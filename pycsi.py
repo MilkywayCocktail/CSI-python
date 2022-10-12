@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-05
+# Last edit: 2022-10-12
 import types
 
 from CSIKit.reader import get_reader
@@ -196,12 +196,13 @@ class MyCsi(object):
             self.timestamps = None
             self.length = None
             self.spectrum = None
+            self.xlabels = None
             self.algorithm = None
             self.commonfunc = MyCsi._CommonFunctions
 
         def show_shape(self):
             """
-            Shows dimesionality information of csi data.
+            Shows dimesionality information of csi data.\n
             :return: csi data shape
             """
 
@@ -216,6 +217,23 @@ class MyCsi(object):
                 items = ["no_frames=", "no_subcarriers=", "no_rx_ant=", "no_tx_ant="]
                 _list = [a + str(b) for a, b in zip(items, self.amp.shape)]
                 print(self.name, "data shape: ", *_list, sep='\n')
+
+        def show_antenna_strength(self):
+            """
+            Shows the average of absolute values of each antenna.\n
+            :return: nrx * ntx matrix
+            """
+
+            try:
+                if self.amp is None:
+                    raise DataError("amplitude")
+
+            except DataError as e:
+                print(e, "\nPlease load data")
+
+            else:
+                mean_abs = np.mean(np.abs(self.amp), axis=(0, 1))
+                return mean_abs
 
         def remove_inf_values(self):
             """
@@ -318,6 +336,7 @@ class MyCsi(object):
             except ArgError as e:
                 print(e)
 
+            else:
                 spectrum = np.array(self.spectrum)
                 replace = self.commonfunc.replace_labels
 
@@ -339,7 +358,7 @@ class MyCsi(object):
 
                 elif self.algorithm == 'doppler':
                     ax = sns.heatmap(spectrum)
-                    label0, label1 = replace(self.timestamps, self.length, num_ticks)
+                    label0, label1 = replace(self.xlabels, len(self.xlabels), num_ticks)
 
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
@@ -356,7 +375,7 @@ class MyCsi(object):
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
                     plt.xticks([0, 20, 40, 60, 80, 100, 120, 140, 160], [0, 10, 20, 30, 40, 50, 60, 70, 80])
-                    ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+                    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("ToF / $ns$")
                     ax.set_ylabel("AoA / $deg$")
                     plt.title(self.name + " AoA-ToF Spectrum" + str(notion))
@@ -426,7 +445,7 @@ class MyCsi(object):
         def replace_labels(input_timestamps, input_length, input_ticks):
             """
             Static method.\n
-            Generates a list of timestamps to plot as x-axis labels.
+            Generates a list of timestamps to plot as x-axis labels.\n
             :param input_timestamps: ordinarily input self.data.timestamps
             :param input_length: ordinarily input self.data.length
             :param input_ticks: how many labels you need (including start and end)
@@ -437,7 +456,7 @@ class MyCsi(object):
             indices.append(input_length - 1)
 
             labels = indices if len(np.where(input_timestamps < 0)[0]) > 0 else [
-                float('%.6f' % x) for x in input_timestamps[indices]]
+                float('%.3f' % x) for x in input_timestamps[indices]]
 
             return indices, labels
 
@@ -527,19 +546,25 @@ class MyCsi(object):
         except ArgError as e:
             print(e, "\nPlease specify smooth=True or False")
 
-    def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05), pick_antenna=0):
+    def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05),
+                         pick_antenna=0,
+                         window_length=500,
+                         stride=500):
         """
         Computes Doppler spectrum by MUSIC.
         :param input_velocity_list: list of velocities. Default = -5~5
         :param pick_antenna: select one antenna packets to compute spectrum. Default is 0
+        :param window_length: window length for each step
+        :param stride: stride for each step
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
         lightspeed = self.lightspeed
         center_freq = self.center_freq
         mjtwopi = self.mjtwopi
         ntx = self.ntx
-        num_samples = 100
-        delta_t = 1.e-3
+        nrx = self.nrx
+        nsub = self.nsub
+        delta_t = 1.e-6
         recon = self.commonfunc.reconstruct_csi
 
         print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
@@ -551,22 +576,33 @@ class MyCsi(object):
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase))
 
-            # Delay list is determined by num_samples
-            delay_list = np.arange(0, num_samples, 1.).reshape(-1, 1)
+            # Delay list is determined by window_length
+            delay_list = np.arange(0, window_length, 1.).reshape(-1, 1)
 
             # Replace -inf values with neighboring packets before computing
 
             self.data.remove_inf_values()
 
-            spectrum = np.zeros((len(input_velocity_list), self.data.length))
+            # Self-calibration via conjugate multiplication
 
-            for i in range(self.data.length - num_samples):
+            strengths = self.data.show_antenna_strength()
+            ref_antenna = np.argmin(strengths)
+            pick_antenna = np.argmax(strengths)
 
-                csi = np.array([recon(self.data.amp[i + i_sub, :, pick_antenna],
-                                      self.data.phase[i + i_sub, :, 0])
-                                for i_sub in range(num_samples)])
+            csi = recon(self.data.amp, self.data.phase) * np.conjugate(
+                recon(self.data.amp[:, :, ref_antenna, :],
+                      self.data.phase[:, :, ref_antenna, :])).reshape(-1, nsub, 1).repeat(3, axis=2)
 
-                value, vector = np.linalg.eigh(csi.dot(np.conjugate(csi.T)))
+            spectrum = np.zeros((len(input_velocity_list), (self.data.length - window_length) // stride))
+
+            for i in range((self.data.length - window_length) // stride):
+
+                csi_windowed = csi[i * stride: i * stride + window_length, :, :]
+
+                csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub, nrx)
+
+                value, vector = np.linalg.eigh(
+                    csi_dynamic[:, :, pick_antenna].dot(np.conjugate(csi_dynamic[:, :, pick_antenna]).T))
                 descend_order_index = np.argsort(-value)
                 vector = vector[:, descend_order_index]
                 noise_space = vector[:, ntx:]
@@ -581,8 +617,10 @@ class MyCsi(object):
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
-            self.data.spectrum = spectrum
+            self.data.spectrum = np.log(spectrum)
             self.data.algorithm = 'doppler'
+            self.data.xlabels = self.data.timestamps[np.arange(0, self.data.length - window_length, stride)]
+
             print(self.name, "Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
@@ -711,8 +749,8 @@ class MyCsi(object):
 
     def calibrate_phase(self, input_mycsi, reference_antenna=0):
         """
-        Calibrates phase offset between other degrees against 0 degree.\n
-        Initial Phase Offset is removed.
+        Calibrates phase offset with reference csi collected at 0 degree.\n
+        Removes Initial Phase Offset.\n
         :param input_mycsi: CSI recorded at 0 degree
         :param reference_antenna: select one antenna with which to calculate phase difference between antennas.
         Default is 0
@@ -776,7 +814,7 @@ class MyCsi(object):
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
 
-            if reference_antenna not in (0, 1, 2):
+            if reference_antenna not in range(nrx):
                 raise ArgError("reference_antenna: " + str(reference_antenna) + "\nPlease specify an integer from 0~2")
 
             if not isinstance(window_length, int) or window_length < 1 or window_length > self.data.length:
