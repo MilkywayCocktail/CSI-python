@@ -52,7 +52,7 @@ tests.py
 ## 1011
 
 pycsi.py
-- Modification: exception mechanism to handle I/O related situations
+- Modification: exception design to handle I/O related situations
 
 tests.py
 - BUgfix: douplex parameter in order()
@@ -63,3 +63,8 @@ pycsi.py
 - Added parameter: self.xlabels in class \_Data, for plotting
 - Added function: show_antenna_strength()
 - Modification: doppler_by_music(), adjusted for strides
+- Modification: doppler_by_music(), built in self-calibration and dynamic extraction
+- Modification: doppler_by_music(), collaborate with resampling()
+
+tests.py
+- Added function: test_abs()
