@@ -11,7 +11,7 @@ from functools import wraps
 class MyTest(pycsi.MyCsi):
     """
     Inherits full functionalities of MyCsi.\n
-    Extra methods added for testing.
+    Extra methods added for testing.\n
     """
 
 
@@ -138,7 +138,7 @@ def test_resampling(name1, path, sampling_rate=100, name0=None):
     plt.show()
 
 
-def test_doppler(name0, name1, path):
+def test_doppler(name0, name1, path, resample=1000, wl=100):
     """
     Plots doppler spectrum. Walks through dynamic extraction and resampling.
     :param name0: reference csi
@@ -154,19 +154,17 @@ def test_doppler(name0, name1, path):
 
     standard.data.remove_inf_values()
 
-    csi.extract_dynamic(mode='running', window_length=91, reference_antenna=0)
+    if resample is True:
+        if csi.resample_packets() == 'bad':
+            pass
 
-    if csi.resample_packets() == 'bad':
-        pass
-    else:
-        csi.doppler_by_music(pick_antenna=0)
-        csi.data.view_spectrum(autosave=True, notion='_an0_ref0_running91')
+    csi.doppler_by_music(resample=resample, window_length=wl, stride=wl)
+    csi.data.view_spectrum(threshold=-4, autosave=False, notion='')
 
 
 def test_aoa(name0, name1, path):
     """
     Plots aoa spectrum. Walks through calibration and dynamic extraction.
-
     :param name0: reference csi
     :param name1: subject csi
     :param path: folder path that contains batch csi files
@@ -189,7 +187,6 @@ def test_aoa(name0, name1, path):
 def test_aoatof(name0, name1, path):
     """
     Plots aoa-tof spectrum. Walks through calibration and dynamic extraction.
-
     :param name0: reference csi
     :param name1: subject csi
     :param path: folder path that contains batch csi files
@@ -334,6 +331,12 @@ def test_times(name1, path, name0=None):
     plt.show()
 
 
+def test_abs(name1, path, name0=None):
+
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
+    print(csi.data.show_antenna_strength())
+
+
 def order(index, mypath=None, batch=False, *args, **kwargs):
 
     menu = {1: test_calibration,
@@ -344,7 +347,8 @@ def order(index, mypath=None, batch=False, *args, **kwargs):
             6: test_phasediff,
             7: test_sanitize,
             8: test_simulation,
-            9: test_times}
+            9: test_times,
+            10: test_abs}
 
     func = menu[index]
 
@@ -357,22 +361,20 @@ def order(index, mypath=None, batch=False, *args, **kwargs):
 
         for file in filenames:
             name = file[:-9]
-            result = func(name0=kwargs['name0'], name1=name, path=mypath)
+            func(name0=kwargs['name0'], name1=name, path=mypath)
 
         print("- Batch processing complete -")
 
     else:
-        result = func(*args, **kwargs)
-
-    return result
+        func(*args, **kwargs)
 
 
 if __name__ == '__main__':
 
     n0 = "1010A01"
-    n1 = "1010A16"
+    n1 = "1010A30"
 
     npzpath = 'npsave/1010/'
     ref = npzloader(n0, npzpath)
 
-    order(index=3, batch=True, name0=ref, name1=n1, mypath=npzpath)
+    order(index=3, batch=False, name0=ref, name1=n1, mypath=npzpath, path=npzpath)
