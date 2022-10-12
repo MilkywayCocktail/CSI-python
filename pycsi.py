@@ -312,8 +312,8 @@ class MyCsi(object):
 
         def view_spectrum(self, threshold=0, num_ticks=11, autosave=False, notion=''):
             """
-            Plots spectrum. You can select whether save the image or not.
-            :param threshold: set threshold of spectrum, must be larger than 0. Default is 0 (none)
+            Plots spectrum. You can select whether save the image or not.\n
+            :param threshold: set threshold of spectrum, default is 0 (none)
             :param num_ticks: set number of ticks to be plotted in the figure, must be larger than 2. Default is 11
             :param autosave: True or False. Default is False
             :param notion: string, save additional information in filename if autosave
@@ -324,9 +324,6 @@ class MyCsi(object):
             try:
                 if self.spectrum is None:
                     raise DataError("spectrum: " + str(self.spectrum))
-
-                if not isinstance(threshold, int) and not isinstance(threshold, float) or threshold < 0:
-                    raise ArgError("threshold: " + str(threshold) + "\nPlease specify a number larger than 0")
 
                 if not isinstance(num_ticks, int) or num_ticks < 3:
                     raise ArgError("num_ticks: " + str(num_ticks) + "\nPlease specify an integer larger than 3")
@@ -340,7 +337,7 @@ class MyCsi(object):
                 spectrum = np.array(self.spectrum)
                 replace = self.commonfunc.replace_labels
 
-                if threshold > 0:
+                if threshold != 0:
                     spectrum[spectrum > threshold] = threshold
 
                 if self.algorithm == 'aoa':
@@ -547,13 +544,13 @@ class MyCsi(object):
             print(e, "\nPlease specify smooth=True or False")
 
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05),
-                         pick_antenna=0,
+                         resample=0,
                          window_length=500,
                          stride=500):
         """
         Computes Doppler spectrum by MUSIC.
         :param input_velocity_list: list of velocities. Default = -5~5
-        :param pick_antenna: select one antenna packets to compute spectrum. Default is 0
+        :param resample: specify a resampling rate (in Hz) if you want, default is 0 (no resampling)
         :param window_length: window length for each step
         :param stride: stride for each step
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
@@ -564,7 +561,6 @@ class MyCsi(object):
         ntx = self.ntx
         nrx = self.nrx
         nsub = self.nsub
-        delta_t = 1.e-6
         recon = self.commonfunc.reconstruct_csi
 
         print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
@@ -576,18 +572,20 @@ class MyCsi(object):
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase))
 
-            # Delay list is determined by window_length
-            delay_list = np.arange(0, window_length, 1.).reshape(-1, 1)
-
             # Replace -inf values with neighboring packets before computing
-
             self.data.remove_inf_values()
+
+            if resample != 0:
+                self.resample_packets(sampling_rate=resample)
+                delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) * 1. / resample
+
+            # Each window has 0.1s of packets (fixed)
 
             # Self-calibration via conjugate multiplication
 
             strengths = self.data.show_antenna_strength()
-            ref_antenna = np.argmin(strengths)
-            pick_antenna = np.argmax(strengths)
+            ref_antenna = np.argmax(strengths)
+            pick_antenna = np.argmin(strengths)
 
             csi = recon(self.data.amp, self.data.phase) * np.conjugate(
                 recon(self.data.amp[:, :, ref_antenna, :],
@@ -598,6 +596,11 @@ class MyCsi(object):
             for i in range((self.data.length - window_length) // stride):
 
                 csi_windowed = csi[i * stride: i * stride + window_length, :, :]
+
+                if resample == 0:
+                    # Using original timestamps (possibly uneven intervals)
+                    delay_list = self.data.timestamps[i * stride: i * stride + window_length] - \
+                                 self.data.timestamps[i * stride]
 
                 csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub, nrx)
 
@@ -611,7 +614,7 @@ class MyCsi(object):
 
                 for j, velocity in enumerate(input_velocity_list):
 
-                    steering_vector = np.exp(mjtwopi * center_freq * delay_list * delta_t *
+                    steering_vector = np.exp(mjtwopi * center_freq * delay_list *
                                              velocity / lightspeed)
 
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
@@ -630,7 +633,7 @@ class MyCsi(object):
                          input_time_list=np.arange(0, 8.e-8, 5.e-10),
                          smooth=False):
         """
-        Computes AoA-ToF spectrum by MUSIC.
+        Computes AoA-ToF spectrum by MUSIC.\n
         :param input_theta_list:  list of angels, default = -90~90
         :param input_time_list: list of time measurements, default = 0~8e-8
         :param smooth:  whether apply SpotFi smoothing or not, default = False
@@ -721,7 +724,8 @@ class MyCsi(object):
 
     def sanitize_phase(self):
         """
-        Also known as SpotFi Algorithm1. Removes the STO shared by all rx antennas.
+        Also known as SpotFi Algorithm1.\n
+        Removes Sampling Time Offset shared by all rx antennas.\n
         :return: sanitized phase
         """
 
@@ -845,12 +849,12 @@ class MyCsi(object):
         except ArgError as e:
             print(e)
 
-    def resample_packets(self, sampling_rate=100):
+    def resample_packets(self, sampling_rate=1000):
         """
         Resample from raw CSI to reach a specified sampling rate.\n
         Strongly recommended when uniform interval is required.
         :param sampling_rate: sampling rate in Hz after resampling. Must be less than 5000.
-        Default is 100
+        Default is 1000
         :return: Resampled csi data
         """
         print(self.name, "resampling at " + str(sampling_rate) + "Hz...", time.asctime(time.localtime(time.time())))
