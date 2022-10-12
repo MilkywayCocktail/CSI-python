@@ -56,3 +56,10 @@ pycsi.py
 
 tests.py
 - BUgfix: douplex parameter in order()
+
+## 1012
+
+pycsi.py
+- Added parameter: self.xlabels in class \_Data, for plotting
+- Added function: show_antenna_strength()
+- Modification: doppler_by_music(), adjusted for strides
