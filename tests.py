@@ -45,7 +45,7 @@ def timereporter(csi_name=None, func_name=None):
     return decorator
 
 
-def test_calibration(name0, name1, path):
+def test_calibration(name1, path, cal_dict):
     """
     Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from 2 random packets before and after calibration.
     :param name0: reference csi
@@ -54,11 +54,13 @@ def test_calibration(name0, name1, path):
     :return:
     """
 
-    standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
-    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
+    for key,value in cal_dict.items():
+        degref = value if isinstance(value, pycsi.MyCsi) else npzloader(value, path)
+        degref.data.remove_inf_values()
+        cal_dict[key] = degref
 
+    csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
     csi.data.remove_inf_values()
-    standard.data.remove_inf_values()
 
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
     diff_csilist = csilist * csilist[:, :, 0, :][:, :, np.newaxis, :].conj()
@@ -76,7 +78,7 @@ def test_calibration(name0, name1, path):
     ax[0].set_ylabel('Phase Difference')
     ax[0].legend()
 
-    csi.calibrate_phase(standard)
+    csi.calibrate_phase(cal_dict=cal_dict)
 
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
     diff_csilist = csilist * csilist[:, :, 0, :][:, :, np.newaxis, :].conj()
@@ -90,7 +92,7 @@ def test_calibration(name0, name1, path):
     ax[1].set_ylabel('Phase Difference')
     ax[1].legend()
 
-    plt.suptitle('Calibration of ' + name1[4:] + ' vs ' + name0[4:])
+    plt.suptitle('Calibration of ' + name1[4:])
     plt.show()
 
 
@@ -151,7 +153,6 @@ def test_doppler(name0, name1, path, resample=1000, wl=100):
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
 
     csi.data.remove_inf_values()
-
     standard.data.remove_inf_values()
 
     if resample is True:
@@ -159,10 +160,10 @@ def test_doppler(name0, name1, path, resample=1000, wl=100):
             pass
 
     csi.doppler_by_music(resample=resample, window_length=wl, stride=wl)
-    csi.data.view_spectrum(threshold=-4, autosave=False, notion='')
+    csi.data.view_spectrum(threshold=-4, autosave=True, notion='_resample_1kHz')
 
 
-def test_aoa(name0, name1, path):
+def test_aoa(name1, path, cal_dict, name0=None):
     """
     Plots aoa spectrum. Walks through calibration and dynamic extraction.
     :param name0: reference csi
@@ -171,17 +172,19 @@ def test_aoa(name0, name1, path):
     :return:
     """
 
-    standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
+    for key, value in cal_dict.items():
+        degref = value if isinstance(value, pycsi.MyCsi) else npzloader(value, path)
+        degref.data.remove_inf_values()
+        cal_dict[key] = degref
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
     csi.data.remove_inf_values()
-    standard.data.remove_inf_values()
 
-    csi.calibrate_phase(standard)
+    csi.calibrate_phase(cal_dict=cal_dict)
     csi.extract_dynamic()
     csi.resample_packets()
 
     csi.aoa_by_music()
-    csi.data.view_spectrum(threshold=10, autosave=True)
+    csi.data.view_spectrum(threshold=0, autosave=True, notion='_5cal')
 
 
 def test_aoatof(name0, name1, path):
@@ -337,7 +340,7 @@ def test_abs(name1, path, name0=None):
     print(csi.data.show_antenna_strength())
 
 
-def order(index, mypath=None, batch=False, *args, **kwargs):
+def order(index, batch=False, *args, **kwargs):
 
     menu = {1: test_calibration,
             2: test_resampling,
@@ -354,14 +357,17 @@ def order(index, mypath=None, batch=False, *args, **kwargs):
 
     print(func.__name__)
 
+    path = kwargs['path']
+
     if batch is True:
         print("- Enabling batch processing -")
 
-        filenames = os.listdir(mypath)
+        filenames = os.listdir(path)
 
         for file in filenames:
             name = file[:-9]
-            func(name0=kwargs['name0'], name1=name, path=mypath)
+            kwargs['name1'] = name
+            func(*args, **kwargs)
 
         print("- Batch processing complete -")
 
@@ -372,9 +378,15 @@ def order(index, mypath=None, batch=False, *args, **kwargs):
 if __name__ == '__main__':
 
     n0 = "1010A01"
-    n1 = "1010A30"
+    n1 = "1010A02"
 
     npzpath = 'npsave/1010/'
     ref = npzloader(n0, npzpath)
 
-    order(index=3, batch=False, name0=ref, name1=n1, mypath=npzpath, path=npzpath)
+    cal = {'0': "1010A01",
+            '-30': "1010A02",
+            '-60': "1010A03",
+            '30': "1010A04",
+            '60': "1010A05"}
+
+    order(index=4, batch=True, name0=n0, name1=n1, path=npzpath, cal_dict=cal)
