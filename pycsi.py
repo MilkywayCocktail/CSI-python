@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-12
+# Last edit: 2022-10-13
 import types
 
 from CSIKit.reader import get_reader
@@ -428,7 +428,7 @@ class MyCsi(object):
         def reconstruct_csi(input_amp, input_phase):
             """
             Static method.\n
-            Reconstructs csi data as complex numbers. Singular dimensions are squeezed.
+            Reconstructs csi data as complex numbers.\n
             :param input_amp: csi amplitude
             :param input_phase: csi phase
             :return: reconstructed csi
@@ -436,7 +436,10 @@ class MyCsi(object):
 
             reconstruct_csi = np.squeeze(input_amp) * np.exp(1.j * np.squeeze(input_phase))
 
-            return reconstruct_csi
+            if reconstruct_csi.ndim == 3:
+                return np.expand_dims(reconstruct_csi, axis=3)
+            else:
+                return reconstruct_csi
 
         @staticmethod
         def replace_labels(input_timestamps, input_length, input_ticks):
@@ -534,7 +537,7 @@ class MyCsi(object):
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
-            self.data.spectrum = spectrum
+            self.data.spectrum = np.log(spectrum)
             self.data.algorithm = 'aoa'
             print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
@@ -548,7 +551,8 @@ class MyCsi(object):
                          window_length=500,
                          stride=500):
         """
-        Computes Doppler spectrum by MUSIC.
+        Computes Doppler spectrum by MUSIC.\n
+        Involves self-calibration, windowed dynamic component extraction and resampling (if specified).\n
         :param input_velocity_list: list of velocities. Default = -5~5
         :param resample: specify a resampling rate (in Hz) if you want, default is 0 (no resampling)
         :param window_length: window length for each step
@@ -578,8 +582,10 @@ class MyCsi(object):
             if resample != 0:
                 self.resample_packets(sampling_rate=resample)
                 delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) * 1. / resample
+            else:
+                delay_list = np.zeros(window_length)
 
-            # Each window has 0.1s of packets (fixed)
+            # Each window has 0.1s of packets (1 / resample * window_length = 0.1)
 
             # Self-calibration via conjugate multiplication
 
@@ -596,12 +602,6 @@ class MyCsi(object):
             for i in range((self.data.length - window_length) // stride):
 
                 csi_windowed = csi[i * stride: i * stride + window_length, :, :]
-
-                if resample == 0:
-                    # Using original timestamps (possibly uneven intervals)
-                    delay_list = self.data.timestamps[i * stride: i * stride + window_length] - \
-                                 self.data.timestamps[i * stride]
-
                 csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub, nrx)
 
                 value, vector = np.linalg.eigh(
@@ -610,12 +610,14 @@ class MyCsi(object):
                 vector = vector[:, descend_order_index]
                 noise_space = vector[:, ntx:]
 
-                # print(value[descend_order_index])
+                if resample == 0:
+                    # Using original timestamps (possibly uneven intervals)
+                    delay_list = self.data.timestamps[i * stride: i * stride + window_length] - \
+                                 self.data.timestamps[i * stride]
 
                 for j, velocity in enumerate(input_velocity_list):
 
-                    steering_vector = np.exp(mjtwopi * center_freq * delay_list *
-                                             velocity / lightspeed)
+                    steering_vector = np.exp(mjtwopi * center_freq * delay_list * velocity / lightspeed)
 
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
@@ -751,44 +753,59 @@ class MyCsi(object):
         except DataError as e:
             print(e, "\nPlease load data")
 
-    def calibrate_phase(self, input_mycsi, reference_antenna=0):
+    def calibrate_phase(self, reference_antenna=0, cal_dict=None):
         """
-        Calibrates phase offset with reference csi collected at 0 degree.\n
+        Calibrates phase with reference csi data files.\n
+        Multiple files is supported.\n
+        Reference files are recommended to be collected at 50cm at certain degrees (eg. 0, +-30, +-60).\n
         Removes Initial Phase Offset.\n
-        :param input_mycsi: CSI recorded at 0 degree
         :param reference_antenna: select one antenna with which to calculate phase difference between antennas.
-        Default is 0
+        :param cal_dict: formatted as "{'xx': MyCsi}", where xx is degrees
         :return: calibrated phase
         """
         nrx = self.nrx
         nsub = self.nsub
+        mjtwopi = self.mjtwopi
+        distance_antenna = self.dist_antenna
+        lightspeed = self.lightspeed
+        center_freq = self.center_freq
         recon = self.commonfunc.reconstruct_csi
 
-        print(self.name, "apply phase calibration according to " + input_mycsi.name + "...",
+        print(self.name, "apply phase calibration according to", cal_dict.keys(), "...",
               time.asctime(time.localtime(time.time())))
 
         try:
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase))
 
-            if not isinstance(input_mycsi, MyCsi):
-                raise DataError("reference csi: " + str(input_mycsi) + "\nPlease input MyCsi instance.")
-
-            if input_mycsi.data.phase is None:
-                raise DataError("reference phase: " + str(input_mycsi.data.phase))
-
             if reference_antenna not in (0, 1, 2):
                 raise ArgError("reference_antenna: " + str(reference_antenna))
 
-            reference_csi = recon(input_mycsi.data.amp, input_mycsi.data.phase)
+            if cal_dict is None:
+                raise DataError("reference: " + str(cal_dict))
+
+            ipo = 0 + 0.j
+            # cal_dict: "{'xx': MyCsi}"
+
+            for key, value in cal_dict.items():
+
+                if not isinstance(value, MyCsi):
+                    raise DataError("reference csi: " + str(value) + "\nPlease input MyCsi instance.")
+
+                if value.data.phase is None:
+                    raise DataError("reference phase: " + str(value.data.phase))
+
+                ref_angle = int(key)
+
+                ref_csi = recon(value.data.amp, value.data.phase)
+                reference = ref_csi[:, :, reference_antenna, :].conj().reshape(-1, nsub, 1, 1).repeat(3, axis=2)
+                offset = np.mean(ref_csi * reference.conj(), axis=(0, 1)).reshape((1, 1, nrx, 1))
+
+                ipo += offset * np.exp(mjtwopi * distance_antenna * center_freq * np.sin(ref_angle) / lightspeed).conj()
+
             current_csi = recon(self.data.amp, self.data.phase)
 
-            subtrahend = np.expand_dims(reference_csi[:, :, reference_antenna], axis=2).repeat(3, axis=2)
-
-            offset = np.mean(reference_csi * np.conjugate(subtrahend), axis=(0, 1)).reshape((1, 1, nrx))
-            offset = offset.repeat(nsub, axis=1).repeat(self.data.length, axis=0)
-
-            calibrated_csi = np.expand_dims(current_csi * np.conjugate(offset), axis=3)
+            calibrated_csi = current_csi * ipo.conj()
 
             self.data.amp = np.abs(calibrated_csi)
             self.data.phase = np.angle(calibrated_csi)
@@ -801,7 +818,6 @@ class MyCsi(object):
     def extract_dynamic(self, mode='overall', window_length=31, reference_antenna=0):
         """
         Removes the static component from csi.\n
-        Strongly recommended when Tx is placed beside Rx.
         :param mode: 'overall' or 'running' (in terms of averaging). Default is 'overall'
         :param window_length: if mode is 'running', specify a window length for running mean. Default is 31
         :param reference_antenna: select one antenna with which to remove random phase offsets. Default is 0
