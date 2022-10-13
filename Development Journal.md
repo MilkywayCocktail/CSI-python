@@ -68,3 +68,12 @@ pycsi.py
 
 tests.py
 - Added function: test_abs()
+
+## 1013
+
+pycsi.py
+- Modification: calibration(), updated methodology
+- Modification: calibration(), added support for multiple references
+
+tests.py
+- Modification: test_calibration(), added support for multiple references
