@@ -77,3 +77,8 @@ pycsi.py
 
 tests.py
 - Modification: test_calibration(), added support for multiple references
+
+## 1014
+
+pycsi.py
+- Modification: calibration(), updated methodology
