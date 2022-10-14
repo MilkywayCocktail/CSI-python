@@ -760,6 +760,7 @@ class MyCsi(object):
         Reference files are recommended to be collected at 50cm at certain degrees (eg. 0, +-30, +-60).\n
         Removes Initial Phase Offset.\n
         :param reference_antenna: select one antenna with which to calculate phase difference between antennas.
+        Default is 0
         :param cal_dict: formatted as "{'xx': MyCsi}", where xx is degrees
         :return: calibrated phase
         """
@@ -797,11 +798,14 @@ class MyCsi(object):
 
                 ref_angle = int(key)
 
-                ref_csi = recon(value.data.amp, value.data.phase)
+                # Rearrange by antenna to match the reference antenna
+                ref_csi = recon(value.data.amp[:, :, [1, 2, 0], :], value.data.phase[:, :, [1, 2, 0], :])
                 reference = ref_csi[:, :, reference_antenna, :].conj().reshape(-1, nsub, 1, 1).repeat(3, axis=2)
                 offset = np.mean(ref_csi * reference.conj(), axis=(0, 1)).reshape((1, 1, nrx, 1))
+                true_diff = np.exp([mjtwopi * distance_antenna * antenna * center_freq * np.sin(ref_angle) / lightspeed
+                                   for antenna in range(nrx)]).reshape(-1, 1)
 
-                ipo += offset * np.exp(mjtwopi * distance_antenna * center_freq * np.sin(ref_angle) / lightspeed).conj()
+                ipo += offset * true_diff.conj()
 
             current_csi = recon(self.data.amp, self.data.phase)
 
