@@ -72,7 +72,7 @@ tests.py
 ## 1013
 
 pycsi.py
-- Modification: calibration(), updated methodology
+- Modification: calibration(), added strength-based reference selection
 - Modification: calibration(), added support for multiple references
 
 tests.py
@@ -81,4 +81,7 @@ tests.py
 ## 1014
 
 pycsi.py
-- Modification: calibration(), updated methodology
+- Modification: calibration(), added antenna-specific phase delay
+- Added parameter: self.sampling_rate in class \MyCsi, approximated as 3965(Hz)
+- Modification: extract_dynamic(), added strength-based reference selection
+- Modification: extract_dynamic(), added high-pass filter option
