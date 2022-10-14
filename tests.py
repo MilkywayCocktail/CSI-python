@@ -24,6 +24,7 @@ def npzloader(name, path=None):
 
     csi = pycsi.MyCsi(name, file)
     csi.load_data()
+    csi.data.remove_inf_values()
     return csi
 
 
@@ -56,11 +57,9 @@ def test_calibration(name1, path, cal_dict):
 
     for key,value in cal_dict.items():
         degref = value if isinstance(value, pycsi.MyCsi) else npzloader(value, path)
-        degref.data.remove_inf_values()
         cal_dict[key] = degref
 
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
-    csi.data.remove_inf_values()
 
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
     diff_csilist = csilist * csilist[:, :, 0, :][:, :, np.newaxis, :].conj()
@@ -152,9 +151,6 @@ def test_doppler(name0, name1, path, resample=1000, wl=100):
     standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
 
-    csi.data.remove_inf_values()
-    standard.data.remove_inf_values()
-
     if resample is True:
         if csi.resample_packets() == 'bad':
             pass
@@ -174,17 +170,14 @@ def test_aoa(name1, path, cal_dict, name0=None):
 
     for key, value in cal_dict.items():
         degref = value if isinstance(value, pycsi.MyCsi) else npzloader(value, path)
-        degref.data.remove_inf_values()
         cal_dict[key] = degref
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
-    csi.data.remove_inf_values()
 
     csi.calibrate_phase(cal_dict=cal_dict)
-    csi.extract_dynamic()
-    csi.resample_packets()
+    # csi.extract_dynamic()
 
     csi.aoa_by_music()
-    csi.data.view_spectrum(threshold=0, autosave=True, notion='_5cal')
+    csi.data.view_spectrum(threshold=0, autosave=True, notion='_5cal_rearr_recal')
 
 
 def test_aoatof(name0, name1, path):
@@ -198,9 +191,6 @@ def test_aoatof(name0, name1, path):
 
     standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
-
-    csi.data.remove_inf_values()
-    standard.data.remove_inf_values()
 
     csi.calibrate_phase(standard)
     csi.extract_dynamic()
@@ -223,7 +213,6 @@ def test_phasediff(name1, path, name0=None):
     """
 
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
-    csi.data.remove_inf_values()
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
 
     ref_antenna = 0
