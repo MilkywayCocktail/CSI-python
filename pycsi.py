@@ -1,12 +1,12 @@
 # Draft by CAO
-# Last edit: 2022-10-13
+# Last edit: 2022-10-14
 import types
 
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
 
-from CSIKit.filters.passband import lowpass
+from CSIKit.filters.passband import highpass
 from CSIKit.filters.statistical import running_mean
 from CSIKit.util.filters import hampel
 
@@ -62,6 +62,7 @@ class MyCsi(object):
         self.nrx = 3
         self.ntx = 1
         self.nsub = 30
+        self.sampling_rate = 3965  # Hz (averaged)
 
     def load_data(self):
         """
@@ -462,7 +463,7 @@ class MyCsi(object):
 
     def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
-        Computes AoA spectrum by MUSIC.
+        Computes AoA spectrum by MUSIC.\n
         :param input_theta_list: list of angels, default = -90~90
         :param smooth: whether apply SpotFi smoothing or not, default = False
         :return: AoA spectrum by MUSIC stored in self.data.spectrum
@@ -822,7 +823,7 @@ class MyCsi(object):
     def extract_dynamic(self, mode='overall', window_length=31, reference_antenna=0):
         """
         Removes the static component from csi.\n
-        :param mode: 'overall' or 'running' (in terms of averaging). Default is 'overall'
+        :param mode: 'overall' or 'running' (in terms of averaging) or 'highpass'. Default is 'overall'
         :param window_length: if mode is 'running', specify a window length for running mean. Default is 31
         :param reference_antenna: select one antenna with which to remove random phase offsets. Default is 0
         :return: phase and amplitude of dynamic component of csi
@@ -830,6 +831,7 @@ class MyCsi(object):
         nrx = self.nrx
         ntx = self.ntx
         nsub = self.nsub
+        sampling_rate = self.sampling_rate
         recon = self.commonfunc.reconstruct_csi
 
         print(self.name, "apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
@@ -845,8 +847,11 @@ class MyCsi(object):
                 raise ArgError("window_length: " + str(window_length) + "\nPlease specify an integer larger than 0 and"
                                                                         "not larger than data length")
 
+            strengths = self.data.show_antenna_strength()
+            ref_antenna = np.argmax(strengths)
+
             complex_csi = recon(self.data.amp, self.data.phase)
-            conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, None]).repeat(3, axis=2)
+            conjugate_csi = np.conjugate(complex_csi[:, :, ref_antenna, None]).repeat(3, axis=2)
             hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
 
             if mode == 'overall':
@@ -855,10 +860,14 @@ class MyCsi(object):
             elif mode == 'running':
                 average_hc = np.array([[np.convolve(np.squeeze(hc[:, sub, antenna, :]),
                                         np.ones(window_length) / window_length, mode='same')
-                                        for sub in range(30)]
-                                      for antenna in range(3)]).swapaxes(0, 2).reshape((-1, nsub, nrx, ntx))
+                                        for sub in range(nsub)]
+                                      for antenna in range(nrx)]).swapaxes(0, 2).reshape((-1, nsub, nrx, ntx))
+            elif mode == 'highpass':
+                hc = highpass(hc, cutoff=10, fs=sampling_rate, order=5)
+                average_hc = 0 + 0j
+
             else:
-                raise ArgError("mode: " + str(mode) + "\nPlease specify mode=\"running\" or \"overall\"")
+                raise ArgError("mode: " + str(mode) + "\nPlease specify mode=\"overall\", \"running\" or \"highpass\"")
 
             dynamic_csi = hc - average_hc
             self.data.amp = np.abs(dynamic_csi)
@@ -912,6 +921,7 @@ class MyCsi(object):
             self.data.phase = self.data.phase[resample_indicies]
             self.data.timestamps = self.data.timestamps[resample_indicies]
             self.data.length = new_length
+            self.sampling_rate = sampling_rate
 
         except DataError as e:
             print(e, "\nPlease load data")
