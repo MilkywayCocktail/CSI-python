@@ -175,6 +175,7 @@ def test_aoa(name1, path, cal_dict, name0=None):
 
     csi.calibrate_phase(cal_dict=cal_dict)
     # csi.extract_dynamic()
+    csi.resample_packets()
 
     csi.aoa_by_music()
     csi.data.view_spectrum(threshold=0, autosave=True, notion='_5cal_rearr_recal')
