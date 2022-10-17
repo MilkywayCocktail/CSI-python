@@ -85,3 +85,10 @@ pycsi.py
 - Added parameter: self.sampling_rate in class \MyCsi, approximated as 3965(Hz)
 - Modification: extract_dynamic(), added strength-based reference selection
 - Modification: extract_dynamic(), added high-pass filter option
+
+## 1007
+
+pycsi.py
+- Bugfix: extract_dynamic(), highpass filter related bug
+- Added function: noise_space(), as static method
+- Added function: aoa_doppler_by_music()
