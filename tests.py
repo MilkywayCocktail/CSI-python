@@ -174,14 +174,14 @@ def test_aoa(name1, path, cal_dict, name0=None):
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
 
     csi.calibrate_phase(cal_dict=cal_dict)
-    # csi.extract_dynamic()
+    csi.extract_dynamic()
     csi.resample_packets()
 
     csi.aoa_by_music()
-    csi.data.view_spectrum(threshold=0, autosave=True, notion='_5cal_rearr_recal')
+    csi.data.view_spectrum(threshold=0, autosave=True, notion='_5cal_rearr_recal2_dyn')
 
 
-def test_aoatof(name0, name1, path):
+def test_aoatof(name1, path, cal_dict, name0=None):
     """
     Plots aoa-tof spectrum. Walks through calibration and dynamic extraction.
     :param name0: reference csi
@@ -189,12 +189,14 @@ def test_aoatof(name0, name1, path):
     :param path: folder path that contains batch csi files
     :return:
     """
-
-    standard = name0 if isinstance(name0, pycsi.MyCsi) else npzloader(name0, path)
+    for key, value in cal_dict.items():
+        degref = value if isinstance(value, pycsi.MyCsi) else npzloader(value, path)
+        cal_dict[key] = degref
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
 
-    csi.calibrate_phase(standard)
-    csi.extract_dynamic()
+    csi.calibrate_phase(cal_dict=cal_dict)
+    csi.sanitize_phase()
+    # csi.extract_dynamic()
 
     csi.data.length = 10
     csi.data.amp = csi.data.amp[:10]
@@ -368,7 +370,7 @@ def order(index, batch=False, *args, **kwargs):
 if __name__ == '__main__':
 
     n0 = "1010A01"
-    n1 = "1010A02"
+    n1 = "1010A01"
 
     npzpath = 'npsave/1010/'
     ref = npzloader(n0, npzpath)
@@ -379,4 +381,4 @@ if __name__ == '__main__':
             '30': "1010A04",
             '60': "1010A05"}
 
-    order(index=4, batch=True, name0=n0, name1=n1, path=npzpath, cal_dict=cal)
+    order(index=5, batch=False, name0=n0, name1=n1, path=npzpath, cal_dict=cal)
