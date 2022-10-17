@@ -368,7 +368,7 @@ class MyCsi(object):
                     plt.title(self.name + " Doppler Spectrum" + str(notion))
 
                 elif self.algorithm == 'aoa-tof':
-                    ax = sns.heatmap(spectrum[0])
+                    ax = sns.heatmap(spectrum[-1])
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
@@ -716,7 +716,7 @@ class MyCsi(object):
                         a_en = np.conjugate(steering_vector.T).dot(noise_space)
                         spectrum[i, j, k] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
-            self.data.spectrum = spectrum
+            self.data.spectrum = np.log(spectrum)
             self.data.algorithm = 'aoa-tof'
             print(self.name, "AoA-ToF by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
@@ -801,8 +801,8 @@ class MyCsi(object):
 
                 # Rearrange by antenna to match the reference antenna
                 ref_csi = recon(value.data.amp[:, :, [1, 2, 0], :], value.data.phase[:, :, [1, 2, 0], :])
-                reference = ref_csi[:, :, reference_antenna, :].conj().reshape(-1, nsub, 1, 1).repeat(3, axis=2)
-                offset = np.mean(ref_csi * reference.conj(), axis=(0, 1)).reshape((1, 1, nrx, 1))
+                ref_csi = ref_csi[:, :, reference_antenna, :].conj().reshape(-1, nsub, 1, 1).repeat(3, axis=2)
+                offset = np.mean(ref_csi * ref_csi.conj(), axis=(0, 1)).reshape((1, 1, nrx, 1))
                 true_diff = np.exp([mjtwopi * distance_antenna * antenna * center_freq * np.sin(ref_angle) / lightspeed
                                    for antenna in range(nrx)]).reshape(-1, 1)
 
@@ -882,7 +882,7 @@ class MyCsi(object):
         """
         Resample from raw CSI to reach a specified sampling rate.\n
         Strongly recommended when uniform interval is required.
-        :param sampling_rate: sampling rate in Hz after resampling. Must be less than 5000.
+        :param sampling_rate: sampling rate in Hz after resampling. Must be less than 3965.
         Default is 1000
         :return: Resampled csi data
         """
@@ -892,7 +892,7 @@ class MyCsi(object):
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
 
-            if sampling_rate > 5000 or not isinstance(sampling_rate, int):
+            if sampling_rate > 3965 or not isinstance(sampling_rate, int):
                 raise ArgError("sampling_rate: " + str(sampling_rate))
 
             new_interval = 1. / sampling_rate
@@ -926,7 +926,7 @@ class MyCsi(object):
         except DataError as e:
             print(e, "\nPlease load data")
         except ArgError as e:
-            print(e, "\nPlease specify an integer less than 5000")
+            print(e, "\nPlease specify an integer less than 3965")
 
 
 if __name__ == '__main__':
