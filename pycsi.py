@@ -852,18 +852,20 @@ class MyCsi(object):
 
             complex_csi = recon(self.data.amp, self.data.phase)
             conjugate_csi = np.conjugate(complex_csi[:, :, ref_antenna, None]).repeat(3, axis=2)
-            hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
+            hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx))
 
             if mode == 'overall':
-                average_hc = np.mean(hc, axis=0).reshape((1, nsub, nrx, ntx)).repeat(self.data.length, axis=0)
+                average_hc = np.mean(hc, axis=0).reshape((1, nsub, nrx)).repeat(self.data.length, axis=0)
 
             elif mode == 'running':
                 average_hc = np.array([[np.convolve(np.squeeze(hc[:, sub, antenna, :]),
                                         np.ones(window_length) / window_length, mode='same')
                                         for sub in range(nsub)]
-                                      for antenna in range(nrx)]).swapaxes(0, 2).reshape((-1, nsub, nrx, ntx))
+                                      for antenna in range(nrx)]).swapaxes(0, 2).reshape((-1, nsub, nrx))
             elif mode == 'highpass':
-                hc = highpass(hc, cutoff=10, fs=sampling_rate, order=5)
+                for packet in range(self.data.length):
+                    for antenna in range(nrx):
+                        hc[packet, :, antenna] = highpass(hc[packet, :, antenna], cutoff=10, fs=1000, order=5)
                 average_hc = 0 + 0j
 
             else:
