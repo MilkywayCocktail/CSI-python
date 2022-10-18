@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-17
+# Last edit: 2022-10-18
 import types
 
 from CSIKit.reader import get_reader
@@ -160,10 +160,10 @@ class MyCsi(object):
                      csi_timestamps=self.data.timestamps)
             print(self.name, "csi save complete", time.asctime(time.localtime(time.time())))
 
-    def save_spectrum(self, save_name=None):
+    def save_spectrum(self, notion=''):
         """
         Saves spectrum as npz.
-        :param save_name: filename, default = self.name
+        :param notion: additional information in the savename, default is empty
         :return: save_name + '-spectrum.npz'
         """
         print(self.name, "spectrum save start...", time.asctime(time.localtime(time.time())))
@@ -180,11 +180,8 @@ class MyCsi(object):
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
 
-            if save_name is None:
-                save_name = self.name
-
             # Keys: spectrum, algorithm
-            np.savez(save_path + save_name + "-spectrum.npz",
+            np.savez(save_path + self.name + self.data.algorithm + "-spectrum" + notion + ".npz",
                      csi_spectrum=self.data.spectrum,
                      csi_algorithm=self.data.algorithm)
             print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
@@ -341,7 +338,7 @@ class MyCsi(object):
                 if threshold != 0:
                     spectrum[spectrum > threshold] = threshold
 
-                if self.algorithm == 'aoa':
+                if self.algorithm == '_aoa':
                     ax = sns.heatmap(spectrum)
                     label0, label1 = replace(self.timestamps, self.length, num_ticks)
 
@@ -354,7 +351,7 @@ class MyCsi(object):
                     ax.set_ylabel("AoA / $deg$")
                     plt.title(self.name + " AoA Spectrum" + str(notion))
 
-                elif self.algorithm == 'doppler':
+                elif self.algorithm == '_doppler':
                     ax = sns.heatmap(spectrum)
                     label0, label1 = replace(self.xlabels, len(self.xlabels), num_ticks)
 
@@ -367,8 +364,8 @@ class MyCsi(object):
                     ax.set_ylabel("Velocity / $m/s$")
                     plt.title(self.name + " Doppler Spectrum" + str(notion))
 
-                elif self.algorithm == 'aoa-tof':
-                    ax = sns.heatmap(spectrum[-1])
+                elif self.algorithm == '_aoatof':
+                    ax = sns.heatmap(spectrum[0])
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
@@ -377,6 +374,20 @@ class MyCsi(object):
                     ax.set_xlabel("ToF / $ns$")
                     ax.set_ylabel("AoA / $deg$")
                     plt.title(self.name + " AoA-ToF Spectrum" + str(notion))
+
+                elif self.algorithm == '_aoadoppler':
+                    ax = sns.heatmap(spectrum[0])
+
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
+                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
+                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
+                    ax.xaxis.set_major_locator(ticker.MultipleLocator(20))
+                    ax.xaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
+                    ax.xaxis.set_minor_locator(ticker.MultipleLocator(10))
+                    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+                    ax.set_xlabel("Velocity / $m/s$")
+                    ax.set_ylabel("AoA / $deg$")
+                    plt.title(self.name + " AoA-Doppler Spectrum" + str(notion))
 
                 ax.collections[0].colorbar.set_label('Power / $dB$')
 
@@ -548,7 +559,7 @@ class MyCsi(object):
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
             self.data.spectrum = np.log(spectrum)
-            self.data.algorithm = 'aoa'
+            self.data.algorithm = '_aoa'
             print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
@@ -628,7 +639,7 @@ class MyCsi(object):
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
             self.data.spectrum = np.log(spectrum)
-            self.data.algorithm = 'doppler'
+            self.data.algorithm = '_doppler'
             self.data.xlabels = self.data.timestamps[np.arange(0, self.data.length - window_length, stride)]
 
             print(self.name, "Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
@@ -717,7 +728,7 @@ class MyCsi(object):
                         spectrum[i, j, k] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
             self.data.spectrum = np.log(spectrum)
-            self.data.algorithm = 'aoa-tof'
+            self.data.algorithm = '_aoatof'
             print(self.name, "AoA-ToF by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
@@ -727,7 +738,6 @@ class MyCsi(object):
 
     def aoa_doppler_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
                              input_velocity_list=np.arange(-5, 5.05, 0.05),
-                             smooth=False,
                              resample=0,
                              window_length=500,
                              stride=500):
@@ -735,7 +745,6 @@ class MyCsi(object):
         Computes AoA-Doppler spectrum by MUSIC.\n
         :param input_theta_list:  list of angels, default = -90~90
         :param input_velocity_list: list of velocities. Default = -5~5
-        :param smooth: whether apply SpotFi smoothing or not, default = False
         :param resample: specify a resampling rate (in Hz) if you want, default is 0 (no resampling)
         :param window_length: window length for each step
         :param stride: stride for each step
@@ -747,12 +756,10 @@ class MyCsi(object):
         dist_antenna = self.dist_antenna
         mjtwopi = self.mjtwopi
         torad = self.torad
-        delta_subfreq = self.delta_subfreq
         nrx = self.nrx
         ntx = self.ntx
         nsub = self.nsub
         recon = self.commonfunc.reconstruct_csi
-        smoothing = self.commonfunc.smooth_csi
         noise = self.commonfunc.noise_space
 
         print(self.name, "AoA-Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
@@ -764,20 +771,10 @@ class MyCsi(object):
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase))
 
-            if smooth is not True and smooth is not False:
-                raise ArgError("smooth:" + str(smooth))
-
-            # Subcarriers from -58 to 58, step = 4
-            subcarrier_list = np.arange(-58, 62, 4)
-            subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
-                                     4 * delta_subfreq)
-            antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
-
-            if smooth is True:
-                print(self.name, "apply Smoothing via SpotFi...")
-
             # Replace -inf values with neighboring packets before computing
             self.data.remove_inf_values()
+
+            antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
 
             # Each window has 0.1s of packets (1 / resample * window_length = 0.1)
             if resample != 0:
@@ -789,9 +786,8 @@ class MyCsi(object):
             # Self-calibration via conjugate multiplication
             strengths = self.data.show_antenna_strength()
             ref_antenna = np.argmax(strengths)
-            pick_antenna = np.argmin(strengths)
 
-            csi = recon(self.data.amp, self.data.phase) * np.conjugate(
+            csi = np.squeeze(recon(self.data.amp, self.data.phase)) * np.conjugate(
                 recon(self.data.amp[:, :, ref_antenna, 0],
                       self.data.phase[:, :, ref_antenna, 0])).reshape(-1, nsub, 1).repeat(3, axis=2)
 
@@ -802,40 +798,25 @@ class MyCsi(object):
 
                 csi_windowed = csi[i * stride: i * stride + window_length, :, :]
                 csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub, nrx)
-                csi_static = csi[i]
 
-                if smooth is True:
-                    temp_amp = smoothing(np.squeeze(csi_dynamic[0]))
-                    temp_phase = smoothing(np.squeeze(csi_dynamic[0]))
-
-                else:
-                    temp_amp = csi_dynamic[0]
-                    temp_phase = csi_dynamic[0]
-
-                csi = recon(temp_amp, temp_phase).reshape(1, -1)  # nrx * nsub columns
-                noise_space = noise(csi, ntx)
+                csi_dynamic = csi_dynamic.swapaxes(1, 2).reshape(window_length * nrx, nsub)
+                noise_space = noise(csi_dynamic, ntx)
 
                 for j, aoa in enumerate(input_theta_list):
 
                     for k, velocity in enumerate(input_velocity_list):
 
-                        if smooth is True:
-                            steering_vector = np.exp([mjtwopi * dist_antenna * np.sin(aoa * torad) *
-                                                      no_antenna * sub_freq / lightspeed
-                                                      for no_antenna in antenna_list[:2]
-                                                      for sub_freq in subfreq_list[:15]])
-                        else:
-                            steering_aoa = np.exp(mjtwopi * dist_antenna * np.sin(aoa * torad) *
-                                                  antenna_list * center_freq / lightspeed).reshape(1, -1)
-                            steering_doppler = np.exp(mjtwopi * center_freq * delay_list * velocity / lightspeed).reshape(1, -1)
+                        steering_aoa = np.exp(mjtwopi * dist_antenna * np.sin(aoa * torad) *
+                                              antenna_list * center_freq / lightspeed).reshape(1, -1)
+                        steering_doppler = np.exp(mjtwopi * center_freq * delay_list * velocity / lightspeed).reshape(1, -1)
 
-                            steering_vector = np.dot(steering_doppler.T, steering_aoa).reshape(-1, 1)  # nrx * nsub rows
+                        steering_vector = np.dot(steering_doppler.T, steering_aoa).reshape(-1, 1)  # nrx * winlen rows
 
                         a_en = np.conjugate(steering_vector.T).dot(noise_space)
                         spectrum[i, j, k] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
             self.data.spectrum = np.log(spectrum)
-            self.data.algorithm = 'aoa-doppler'
+            self.data.algorithm = '_aoadoppler'
             print(self.name, "AoA-Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
