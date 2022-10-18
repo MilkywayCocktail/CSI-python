@@ -46,7 +46,7 @@ def timereporter(csi_name=None, func_name=None):
     return decorator
 
 
-def test_calibration(name1, path, cal_dict):
+def test_calibration(name1, path, cal_dict, name0=None):
     """
     Plots phase difference of 30 subcarriers of antenna1-0 and 2-0 from 2 random packets before and after calibration.
     :param name0: reference csi
@@ -57,15 +57,22 @@ def test_calibration(name1, path, cal_dict):
 
     for key,value in cal_dict.items():
         degref = value if isinstance(value, pycsi.MyCsi) else npzloader(value, path)
+        # degref.data.phase = degref.data.phase[:, :, [1, 2, 0], :]
+        # degref.data.amp = degref.data.amp[:, :, [1, 2, 0], :]
         cal_dict[key] = degref
 
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
 
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
+    # csi.data.amp = csi.data.amp[:, :, [1, 2, 0], :]
+    # csi.data.phase = csi.data.phase[:, :, [1, 2, 0], :]
+
     diff_csilist = csilist * csilist[:, :, 0, :][:, :, np.newaxis, :].conj()
 
-    packet1 = np.random.randint(csi.data.length)
-    packet2 = np.random.randint(csi.data.length)
+    #packet1 = np.random.randint(csi.data.length)
+    #packet2 = np.random.randint(csi.data.length)
+    packet1 = 30000
+    packet2 = 31000
 
     fig, ax = plt.subplots(2, 1)
     ax[0].set_title("Before calibration")
@@ -92,7 +99,15 @@ def test_calibration(name1, path, cal_dict):
     ax[1].legend()
 
     plt.suptitle('Calibration of ' + name1[4:])
-    plt.show()
+    save_path = os.getcwd().replace('\\', '/') + "/visualization/" + csi.name[:4] + '/'
+
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
+
+    savename = save_path + csi.name[4:] + '_cal.png'
+    plt.savefig(savename)
+    print(csi.name, "saved as", savename, time.asctime(time.localtime(time.time())))
+    plt.close()
 
 
 def test_resampling(name1, path, sampling_rate=100, name0=None):
@@ -223,10 +238,13 @@ def test_aoadoppler(name1, path, cal_dict, name0=None):
     print(csi.data.length)
 
     #csi.calibrate_phase(cal_dict=cal_dict)
+    csi.data.length = 3000
+    csi.data.amp = csi.data.amp[30000:33000]
+    csi.data.phase = csi.data.phase[30000:33000]
 
     csi.aoa_doppler_by_music()
     print(csi.data.spectrum.shape)
-    csi.save_spectrum(notion='_30sub')
+    csi.save_spectrum(notion='_30sub_nocal')
     csi.data.view_spectrum()
 
 
@@ -241,14 +259,14 @@ def test_phasediff(name1, path, name0=None):
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
 
-    ref_antenna = 0
+    # ref_antenna = np.argmax(csi.data.show_antenna_strength())
     packet = np.random.randint(csi.data.length)
 
     diff_csilist = csilist * csilist[:, :, ref_antenna, :][:, :, np.newaxis, :].conj()
     plt.plot(np.unwrap(np.angle(diff_csilist[packet, :, :, 0])))
     plt.xlabel('subcarrier')
     plt.ylabel('difference of phase')
-    plt.title(name1 + ' phasediff at ' + str(packet) + ' with ref ' + str(ref_antenna))
+    plt.title(name1 + ' phasediff at ' + str(packet) + ' without ref')
     plt.show()
 
 
@@ -394,7 +412,7 @@ def order(index, batch=False, *args, **kwargs):
 if __name__ == '__main__':
 
     n0 = "1010A01"
-    n1 = "1010A26"
+    n1 = "1010A27"
 
     npzpath = 'npsave/1010/'
     ref = npzloader(n0, npzpath)
@@ -405,4 +423,5 @@ if __name__ == '__main__':
             '30': "1010A04",
             '60': "1010A05"}
 
+    #order(index=1, batch=True, name0=ref, name1=n1, path=npzpath, cal_dict=cal)
     order(index=6, batch=False, name0=ref, name1=n1, path=npzpath, cal_dict=cal)
