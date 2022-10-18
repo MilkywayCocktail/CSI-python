@@ -145,6 +145,7 @@ class MyCsi(object):
         except DataError as e:
             print(e, "\nPlease load data")
 
+        else:
             save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/'
 
             if not os.path.exists(save_path):
@@ -175,6 +176,7 @@ class MyCsi(object):
         except DataError as e:
             print(e, "\nPlease compute spectrum")
 
+        else:
             save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/'
 
             if not os.path.exists(save_path):
@@ -342,8 +344,8 @@ class MyCsi(object):
                     ax = sns.heatmap(spectrum)
                     label0, label1 = replace(self.timestamps, self.length, num_ticks)
 
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
                     plt.xticks(label0, label1)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
@@ -355,8 +357,8 @@ class MyCsi(object):
                     ax = sns.heatmap(spectrum)
                     label0, label1 = replace(self.xlabels, len(self.xlabels), num_ticks)
 
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
                     plt.xticks(label0, label1)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
@@ -366,8 +368,8 @@ class MyCsi(object):
 
                 elif self.algorithm == '_aoatof':
                     ax = sns.heatmap(spectrum[0])
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
                     plt.xticks([0, 20, 40, 60, 80, 100, 120, 140, 160], [0, 10, 20, 30, 40, 50, 60, 70, 80])
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
@@ -378,13 +380,13 @@ class MyCsi(object):
                 elif self.algorithm == '_aoadoppler':
                     ax = sns.heatmap(spectrum[0])
 
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    ax.xaxis.set_major_locator(ticker.MultipleLocator(20))
-                    ax.xaxis.set_major_formatter(ticker.FixedFormatter([-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5]))
-                    ax.xaxis.set_minor_locator(ticker.MultipleLocator(10))
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+                    ax.xaxis.set_major_locator(ticker.MultipleLocator(20))
+                    ax.xaxis.set_minor_locator(ticker.MultipleLocator(10))
+                    plt.xticks([0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200], [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5])
                     ax.set_xlabel("Velocity / $m/s$")
                     ax.set_ylabel("AoA / $deg$")
                     plt.title(self.name + " AoA-Doppler Spectrum" + str(notion))
@@ -784,12 +786,15 @@ class MyCsi(object):
                 delay_list = np.zeros(window_length)
 
             # Self-calibration via conjugate multiplication
+            '''
             strengths = self.data.show_antenna_strength()
             ref_antenna = np.argmax(strengths)
 
             csi = np.squeeze(recon(self.data.amp, self.data.phase)) * np.conjugate(
                 recon(self.data.amp[:, :, ref_antenna, 0],
                       self.data.phase[:, :, ref_antenna, 0])).reshape(-1, nsub, 1).repeat(3, axis=2)
+                      '''
+            csi = np.squeeze(recon(self.data.amp, self.data.phase))
 
             spectrum = np.zeros(((self.data.length - window_length) // stride, len(input_theta_list),
                                  len(input_velocity_list)))
