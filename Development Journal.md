@@ -99,6 +99,12 @@ pycsi.py
 - Modification: reconstruct_csi(), changed returning shape
 - Modification: vis_spectrum(), added aoa-doppler option
 - Modification: save_spectrum(), added notion support
+- Added functoin: rearrange_antenna()
 
 tests.py
 - Added function: test_aoadoppler()
+
+pycsitest.py
+- Started drafting
+
+
