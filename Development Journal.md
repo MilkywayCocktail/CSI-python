@@ -86,9 +86,19 @@ pycsi.py
 - Modification: extract_dynamic(), added strength-based reference selection
 - Modification: extract_dynamic(), added high-pass filter option
 
-## 1007
+## 1017
 
 pycsi.py
 - Bugfix: extract_dynamic(), highpass filter related bug
 - Added function: noise_space(), as static method
 - Added function: aoa_doppler_by_music()
+
+## 1018
+
+pycsi.py
+- Modification: reconstruct_csi(), changed returning shape
+- Modification: vis_spectrum(), added aoa-doppler option
+- Modification: save_spectrum(), added notion support
+
+tests.py
+- Added function: test_aoadoppler()
