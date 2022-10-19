@@ -107,4 +107,10 @@ tests.py
 pycsitest.py
 - Started drafting
 
+## 1019
 
+pycsitest.pu
+- Added function: logger()
+- Added function: show_all_methods()
+- Added function: test()
+- Added function: \_test_phase_diff()
