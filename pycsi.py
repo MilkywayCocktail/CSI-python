@@ -146,7 +146,7 @@ class MyCsi(object):
             print(e, "\nPlease load data")
 
         else:
-            save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/'
+            save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/csi/'
 
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
@@ -177,7 +177,7 @@ class MyCsi(object):
             print(e, "\nPlease compute spectrum")
 
         else:
-            save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/'
+            save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/spectrum/'
 
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
@@ -234,6 +234,19 @@ class MyCsi(object):
             else:
                 mean_abs = np.mean(np.abs(self.amp), axis=(0, 1))
                 return mean_abs
+
+        def rearrange_antenna(self):
+            """
+            Rearranges rx antenna permutation as [1, 2, 0].\n
+            :return: rearranged csi
+            """
+
+            try:
+                if self.amp is None and self.phase is None:
+                    raise DataError("data")
+
+            except DataError as e:
+                print(e, "\nPlease load data")
 
         def remove_inf_values(self):
             """
@@ -786,14 +799,13 @@ class MyCsi(object):
                 delay_list = np.zeros(window_length)
 
             # Self-calibration via conjugate multiplication
-            '''
             strengths = self.data.show_antenna_strength()
             ref_antenna = np.argmax(strengths)
 
-            csi = np.squeeze(recon(self.data.amp, self.data.phase)) * np.conjugate(
-                recon(self.data.amp[:, :, ref_antenna, 0],
-                      self.data.phase[:, :, ref_antenna, 0])).reshape(-1, nsub, 1).repeat(3, axis=2)
-                      '''
+            #csi = np.squeeze(recon(self.data.amp, self.data.phase)) * np.conjugate(
+            #    recon(self.data.amp[:, :, ref_antenna, 0],
+            #          self.data.phase[:, :, ref_antenna, 0])).reshape(-1, nsub, 1).repeat(3, axis=2)
+
             csi = np.squeeze(recon(self.data.amp, self.data.phase))
 
             spectrum = np.zeros(((self.data.length - window_length) // stride, len(input_theta_list),
