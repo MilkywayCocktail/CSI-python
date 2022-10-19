@@ -57,29 +57,38 @@ def test_calibration(name1, path, cal_dict, name0=None):
 
     for key,value in cal_dict.items():
         degref = value if isinstance(value, pycsi.MyCsi) else npzloader(value, path)
-        # degref.data.phase = degref.data.phase[:, :, [1, 2, 0], :]
-        # degref.data.amp = degref.data.amp[:, :, [1, 2, 0], :]
+        degref.data.rearrange_antenna()
         cal_dict[key] = degref
 
     csi = name1 if isinstance(name1, pycsi.MyCsi) else npzloader(name1, path)
 
+    csi.data.rearrange_antenna()
     csilist = csi.data.amp * np.exp(1.j * csi.data.phase)
-    # csi.data.amp = csi.data.amp[:, :, [1, 2, 0], :]
-    # csi.data.phase = csi.data.phase[:, :, [1, 2, 0], :]
 
+    # ref_antenna = 0
+    ref_antenna = np.argmax(csi.data.show_antenna_strength())
+    antennas = [0, 1, 2]
+    antennas.remove(int(ref_antenna))
     diff_csilist = csilist * csilist[:, :, 0, :][:, :, np.newaxis, :].conj()
 
     #packet1 = np.random.randint(csi.data.length)
-    #packet2 = np.random.randint(csi.data.length)
+    #packet2 = np.random.randint(csi.data.length)=
     packet1 = 30000
     packet2 = 31000
 
     fig, ax = plt.subplots(2, 1)
     ax[0].set_title("Before calibration")
-    ax[0].plot(np.angle(diff_csilist[packet1, :, 1, 0]), label='antenna0-1 #' + str(packet1), color='b')
-    ax[0].plot(np.angle(diff_csilist[packet1, :, 2, 0]), label='antenna0-2 #' + str(packet1), color='r')
-    ax[0].plot(np.angle(diff_csilist[packet2, :, 1, 0]), label='antenna0-1 #' + str(packet2), color='b', linestyle='--')
-    ax[0].plot(np.angle(diff_csilist[packet2, :, 2, 0]), label='antenna0-2 #' + str(packet2), color='r', linestyle='--')
+    ax[0].plot(np.angle(diff_csilist[packet1, :, antennas[0], 0]),
+               label='antenna' + str(antennas[0]) + '-' + str(ref_antenna) + ' #' + str(packet1), color='b')
+    ax[0].plot(np.angle(diff_csilist[packet1, :, antennas[1], 0]),
+               label='antenna' + str(antennas[1]) + '-' + str(ref_antenna) + ' #' + str(packet1), color='r')
+    ax[0].plot(np.angle(diff_csilist[packet2, :, antennas[0], 0]),
+               label='antenna' + str(antennas[0]) + '-' + str(ref_antenna) + ' #' + str(packet2), color='b',
+               linestyle='--')
+    ax[0].plot(np.angle(diff_csilist[packet2, :, antennas[1], 0]),
+               label='antenna' + str(antennas[1]) + '-' + str(ref_antenna) + ' #' + str(packet2), color='r',
+               linestyle='--')
+
     ax[0].set_xlabel('Subcarrier', loc='right')
     ax[0].set_ylabel('Phase Difference')
     ax[0].legend()
@@ -90,10 +99,17 @@ def test_calibration(name1, path, cal_dict, name0=None):
     diff_csilist = csilist * csilist[:, :, 0, :][:, :, np.newaxis, :].conj()
 
     ax[1].set_title("After calibration")
-    ax[1].plot(np.angle(diff_csilist[packet1, :, 1, 0]), label='antenna0-1 #' + str(packet1), color='b')
-    ax[1].plot(np.angle(diff_csilist[packet1, :, 2, 0]), label='antenna0-2 #' + str(packet1), color='r')
-    ax[1].plot(np.angle(diff_csilist[packet2, :, 1, 0]), label='antenna0-1 #' + str(packet2), color='b', linestyle='--')
-    ax[1].plot(np.angle(diff_csilist[packet2, :, 2, 0]), label='antenna0-2 #' + str(packet2), color='r', linestyle='--')
+    ax[1].plot(np.angle(diff_csilist[packet1, :, antennas[0], 0]),
+               label='antenna' + str(antennas[0]) + '-' + str(ref_antenna) + ' #' + str(packet1), color='b')
+    ax[1].plot(np.angle(diff_csilist[packet1, :, antennas[1], 0]),
+               label='antenna' + str(antennas[1]) + '-' + str(ref_antenna) + ' #' + str(packet1), color='r')
+    ax[1].plot(np.angle(diff_csilist[packet2, :, antennas[0], 0]),
+               label='antenna' + str(antennas[0]) + '-' + str(ref_antenna) + ' #' + str(packet2), color='b',
+               linestyle='--')
+    ax[1].plot(np.angle(diff_csilist[packet2, :, antennas[1], 0]),
+               label='antenna' + str(antennas[1]) + '-' + str(ref_antenna) + ' #' + str(packet2), color='r',
+               linestyle='--')
+
     ax[1].set_xlabel('Subcarrier', loc='right')
     ax[1].set_ylabel('Phase Difference')
     ax[1].legend()
@@ -104,7 +120,7 @@ def test_calibration(name1, path, cal_dict, name0=None):
     if not os.path.exists(save_path):
         os.mkdir(save_path)
 
-    savename = save_path + csi.name[4:] + '_cal.png'
+    savename = save_path + csi.name[4:] + '_cal_str.png'
     plt.savefig(savename)
     print(csi.name, "saved as", savename, time.asctime(time.localtime(time.time())))
     plt.close()
@@ -412,9 +428,9 @@ def order(index, batch=False, *args, **kwargs):
 if __name__ == '__main__':
 
     n0 = "1010A01"
-    n1 = "1010A27"
+    n1 = "1010A30"
 
-    npzpath = 'npsave/1010/'
+    npzpath = 'npsave/1010/csi'
     ref = npzloader(n0, npzpath)
 
     cal = {'0': "1010A01",
@@ -423,5 +439,5 @@ if __name__ == '__main__':
             '30': "1010A04",
             '60': "1010A05"}
 
-    #order(index=1, batch=True, name0=ref, name1=n1, path=npzpath, cal_dict=cal)
-    order(index=6, batch=False, name0=ref, name1=n1, path=npzpath, cal_dict=cal)
+    order(index=1, batch=False, name0=ref, name1=n1, path=npzpath, cal_dict=cal)
+    #order(index=6, batch=False, name0=ref, name1=n1, path=npzpath, cal_dict=cal)
