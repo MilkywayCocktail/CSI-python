@@ -32,7 +32,7 @@ The folder structure:<br>
 &ensp;&ensp;&ensp;&ensp;|\_\_(folder named by date)<br>
 |\_\_visualization (_stores figures_)<br>
 &ensp;&ensp;|\_\_(folder named by date)<br>
-|<br>    
+|  
 |\_\_csitest.py (_Execute tests here, you can also import this file_)<br>
 |\_\_myfunc.py (_Stores testing methods. Executed by csitest.py_)<br>
 |\_\_pycsi.py (_Defines csi data strucutres and algorithms_)<br>
