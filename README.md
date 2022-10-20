@@ -21,8 +21,6 @@ The work panel of getting csi results.
 raw version
 
 ## How to use this code
-<br>
-<br>
 The folder structure:<br>
 ----------<br>
 |__data (Put your raw csi data here)<br>
