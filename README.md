@@ -26,16 +26,16 @@ raw version
 The folder structure:<br>
 ----------<br>
 |__data (Put your raw csi data here)<br>
-    |__(folder named by date)<br>
+____|__(folder named by date)<br>
 |__logs (Logs of tests)<br>
-    |__(folder named by date)<br>
+____|__(folder named by date)<br>
 |__npsave (stores csi and spectrum as .npz)<br>
-    |__csi<br>
-        |__(folder named by date)<br>
-    |__spectrum<br>
-        |__(folder names by date)<br>
+____|__csi<br>
+________|__(folder named by date)<br>
+____|__spectrum<br>
+________|__(folder names by date)<br>
 |__visualization (stores figures)<br>
-    |__(folder named by date)<br>
+____|__(folder named by date)<br>
 |<br>    
 |__csitest.py (Execute tests here, you can also import this file)<br>
 |__myfunc.py (Stores testing methods. Executed by csitest.py)<br>
