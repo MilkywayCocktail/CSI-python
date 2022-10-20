@@ -21,21 +21,21 @@ raw version
 # How to use this code
 The folder structure:<br>
 ----------<br>
-|__data (Put your raw csi data here)<br>
-&ensp;&ensp;|__(folder named by date)<br>
-|__logs (Logs of tests)<br>
-&ensp;&ensp;|__(folder named by date)<br>
-|__npsave (stores csi and spectrum as .npz)<br>
-&ensp;&ensp;|__csi<br>
-&ensp;&ensp;&ensp;&ensp;|__(folder named by date)<br>
-&ensp;&ensp;|__spectrum<br>
-&ensp;&ensp;&ensp;&ensp;|__(folder named by date)<br>
-|__visualization (stores figures)<br>
-&ensp;&ensp;|__(folder named by date)<br>
+|\_\_data (_Put your raw csi data here_)<br>
+&ensp;&ensp;|\_\_(_folder named by date_)<br>
+|\_\_logs (Logs of tests)<br>
+&ensp;&ensp;|\_\_(_folder named by date_)<br>
+|\_\_npsave (stores csi and spectrum as .npz)<br>
+&ensp;&ensp;|\_\_csi<br>
+&ensp;&ensp;&ensp;&ensp;|\_\_(_folder named by date_)<br>
+&ensp;&ensp;|\_\_spectrum<br>
+&ensp;&ensp;&ensp;&ensp;|\_\_(_folder named by date_)<br>
+|\_\_visualization (_stores figures_)<br>
+&ensp;&ensp;|\_\_(_folder named by date_)<br>
 |<br>    
-|__csitest.py (Execute tests here, you can also import this file)<br>
-|__myfunc.py (Stores testing methods. Executed by csitest.py)<br>
-|__pycsi.py (Defines csi data strucutres and algorithms)<br>
+|\_\_csitest.py (_Execute tests here, you can also import this file_)<br>
+|\_\_myfunc.py (_Stores testing methods. Executed by csitest.py_)<br>
+|\_\_pycsi.py (_Defines csi data strucutres and algorithms_)<br>
 
 # How to modify this code
 Please write a new class to inherit the class you want to modify and override.<br>
