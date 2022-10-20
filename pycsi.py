@@ -65,7 +65,10 @@ class MyCsi(object):
         self.sampling_rate = 3965  # Hz (averaged)
 
     def __str__(self):
-        return self.name
+        return 'MyCsi-' + self.name
+
+    def __repr__(self):
+        return 'MyCsi-' + self.name
 
     def load_data(self):
         """
@@ -75,7 +78,7 @@ class MyCsi(object):
         """
         try:
             if self.path is None or not os.path.exists(self.path):
-                raise PathError("path: " + str(self.path))
+                raise PathError(str(self.path))
             if self.path[-3:] not in ('dat', 'npz'):
                 raise DataError("file: " + str(self.path))
 
@@ -117,7 +120,7 @@ class MyCsi(object):
 
         try:
             if input_path is None or not os.path.exists(input_path):
-                raise PathError("path: " + str(input_path))
+                raise PathError(str(input_path))
 
             if input_path[-3:] != "npz":
                 raise DataError("file: " + str(input_path))
@@ -250,6 +253,10 @@ class MyCsi(object):
 
             except DataError as e:
                 print(e, "\nPlease load data")
+
+            else:
+                self.amp = self.amp[:, :, [1, 2, 0], :]
+                self.phase = self.phase[:, :, [1, 2, 0], :]
 
         def remove_inf_values(self):
             """
