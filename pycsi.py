@@ -64,6 +64,9 @@ class MyCsi(object):
         self.nsub = 30
         self.sampling_rate = 3965  # Hz (averaged)
 
+    def __str__(self):
+        return self.name
+
     def load_data(self):
         """
         Loads csi data into current MyCsi instance.
