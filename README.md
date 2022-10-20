@@ -23,9 +23,9 @@ The folder structure:<br>
 ----------<br>
 |\_\_data (_Put your raw csi data here_)<br>
 &ensp;&ensp;|\_\_(folder named by date)<br>
-|\_\_logs (Logs of tests)<br>
+|\_\_logs (_Logs of tests_)<br>
 &ensp;&ensp;|\_\_(folder named by date)<br>
-|\_\_npsave (_stores csi and spectrum as .npz_)<br>
+|\_\_npsave (_Stores csi and spectrum as .npz_)<br>
 &ensp;&ensp;|\_\_csi<br>
 &ensp;&ensp;&ensp;&ensp;|\_\_(folder named by date)<br>
 &ensp;&ensp;|\_\_spectrum<br>
