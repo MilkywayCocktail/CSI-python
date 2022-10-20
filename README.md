@@ -1,6 +1,4 @@
-# CSI
-
-## Python-based CSI analyze
+# Python-based CSI analyze
 
 ### pycsi.py
 main functionality codes
@@ -20,7 +18,7 @@ The work panel of getting csi results.
 ### WIdar2.py
 raw version
 
-## How to use this code
+# How to use this code
 The folder structure:<br>
 ----------<br>
 |__data (Put your raw csi data here)<br>
@@ -39,5 +37,5 @@ The folder structure:<br>
 |__myfunc.py (Stores testing methods. Executed by csitest.py)<br>
 |__pycsi.py (Defines csi data strucutres and algorithms)<br>
 
-## How to modify this code
+# How to modify this code
 Please write a new class to inherit the class you want to modify and override.<br>
