@@ -109,8 +109,24 @@ pycsitest.py
 
 ## 1019
 
-pycsitest.pu
+pycsitest.py
 - Added function: logger()
 - Added function: show_all_methods()
 - Added function: test()
 - Added function: \_test_phase_diff()
+
+## 1020
+
+pycsi.py
+- Added parameter: \_\_str__
+- Added parameter: \_\_repr__
+
+pycsitest.py:
+- Split into myfunc.py and csitest.py
+
+myfunc.py
+- Added class: MyFunc
+- Added class: \_TestPhaseDiff
+
+csitest.py
+- Added class: MyTest
