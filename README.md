@@ -33,7 +33,7 @@ The folder structure:<br>
 &ensp;&ensp;|__csi<br>
 &ensp;&ensp;&ensp;&ensp;|__(folder named by date)<br>
 &ensp;&ensp;|__spectrum<br>
-&ensp;&ensp;&ensp;&ensp;|__(folder names by date)<br>
+&ensp;&ensp;&ensp;&ensp;|__(folder named by date)<br>
 |__visualization (stores figures)<br>
 &ensp;&ensp;|__(folder named by date)<br>
 |<br>    
