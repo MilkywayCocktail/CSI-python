@@ -254,6 +254,7 @@ class MyCsi(object):
                 print(e, "\nPlease load data")
 
             else:
+
                 self.amp = self.amp[:, :, [1, 2, 0], :]
                 self.phase = self.phase[:, :, [1, 2, 0], :]
 
@@ -332,10 +333,11 @@ class MyCsi(object):
 
                 print(self.name, metric, "plot complete", time.asctime(time.localtime(time.time())))
 
-        def view_spectrum(self, threshold=0, num_ticks=11, autosave=False, notion=''):
+        def view_spectrum(self, threshold=0, sid=0, num_ticks=11, autosave=False, notion=''):
             """
             Plots spectrum. You can select whether save the image or not.\n
             :param threshold: set threshold of spectrum, default is 0 (none)
+            :param sid: index of spectrum (when there are multiple spectra)
             :param num_ticks: set number of ticks to be plotted in the figure, must be larger than 2. Default is 11
             :param autosave: True or False. Default is False
             :param notion: string, save additional information in filename if autosave
@@ -389,7 +391,7 @@ class MyCsi(object):
                     plt.title(self.name + " Doppler Spectrum" + str(notion))
 
                 elif self.algorithm == '_aoatof':
-                    ax = sns.heatmap(spectrum[0])
+                    ax = sns.heatmap(spectrum[sid])
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
@@ -400,7 +402,7 @@ class MyCsi(object):
                     plt.title(self.name + " AoA-ToF Spectrum" + str(notion))
 
                 elif self.algorithm == '_aoadoppler':
-                    ax = sns.heatmap(spectrum[0])
+                    ax = sns.heatmap(spectrum[sid])
 
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
@@ -764,6 +766,7 @@ class MyCsi(object):
 
     def aoa_doppler_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
                              input_velocity_list=np.arange(-5, 5.05, 0.05),
+                             self_cal=True,
                              resample=0,
                              window_length=500,
                              stride=500):
@@ -771,6 +774,7 @@ class MyCsi(object):
         Computes AoA-Doppler spectrum by MUSIC.\n
         :param input_theta_list:  list of angels, default = -90~90
         :param input_velocity_list: list of velocities. Default = -5~5
+        :param self_cal: whether self-calibrate phase. Default is True
         :param resample: specify a resampling rate (in Hz) if you want, default is 0 (no resampling)
         :param window_length: window length for each step
         :param stride: stride for each step
@@ -813,11 +817,12 @@ class MyCsi(object):
             strengths = self.data.show_antenna_strength()
             ref_antenna = np.argmax(strengths)
 
-            #csi = np.squeeze(recon(self.data.amp, self.data.phase)) * np.conjugate(
-            #    recon(self.data.amp[:, :, ref_antenna, 0],
-            #          self.data.phase[:, :, ref_antenna, 0])).reshape(-1, nsub, 1).repeat(3, axis=2)
-
-            csi = np.squeeze(recon(self.data.amp, self.data.phase))
+            if self_cal is True:
+                csi = np.squeeze(recon(self.data.amp, self.data.phase)) * np.conjugate(
+                    recon(self.data.amp[:, :, ref_antenna, 0],
+                          self.data.phase[:, :, ref_antenna, 0])).reshape(-1, nsub, 1).repeat(3, axis=2)
+            else:
+                csi = np.squeeze(recon(self.data.amp, self.data.phase))
 
             spectrum = np.zeros(((self.data.length - window_length) // stride, len(input_theta_list),
                                  len(input_velocity_list)))
@@ -1007,12 +1012,12 @@ class MyCsi(object):
         except ArgError as e:
             print(e)
 
-    def resample_packets(self, sampling_rate=1000):
+    def resample_packets(self, sampling_rate=100):
         """
         Resample from raw CSI to reach a specified sampling rate.\n
         Strongly recommended when uniform interval is required.\n
         :param sampling_rate: sampling rate in Hz after resampling. Must be less than 3965.
-        Default is 1000
+        Default is 100
         :return: Resampled csi data
         """
         print(self.name, "resampling at " + str(sampling_rate) + "Hz...", time.asctime(time.localtime(time.time())))
