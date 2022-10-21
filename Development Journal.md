@@ -133,7 +133,14 @@ csitest.py
 
 # 1021
 
+pycsi.py
+- Modification: added return for vis_spectrum()
+
 myfunc.py
 - Added class: CoultClass
 - Added class: \_TestResampling
 - Added class: \_TestSanitize
+- Added class: \_TestAoA
+- Added class: \_TestDoppler
+- Added class: \_TestAoAToF
+- Added class: \_TestAoADoppler
