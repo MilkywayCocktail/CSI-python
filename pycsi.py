@@ -1,6 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-18
-import types
+# Last edit: 2022-10-20
 
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
