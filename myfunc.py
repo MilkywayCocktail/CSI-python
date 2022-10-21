@@ -26,6 +26,11 @@ class MyFunc(object):
         self.date = data_date
         self.title = str(test_title)
         self.rearrange = rearrange
+        self.calibrate = False
+        self.extract = False
+        self.sanitize = False
+        self.resample = False
+        self.sampling_rate = 0
         self.reference = reference
         self.subject = subject
         self.autosave = False
@@ -34,6 +39,31 @@ class MyFunc(object):
 
     def __str__(self):
         return 'My Test Functions'
+
+    def preprocess(self):
+        if self.rearrange is True:
+            print("  Apply antenna order rearrangement...", time.asctime(time.localtime(time.time())))
+            self.subject.data.rearrange_antenna()
+
+            for value in self.reference.values():
+                value.data.rearrange_antenna()
+
+        if self.calibrate is True:
+            self.subject.calibrate_phase(cal_dict=self.reference)
+
+        if self.sanitize is True:
+            self.subject.sanitize_phase()
+
+        if self.extract is True:
+            self.subject.extract_dynamic()
+
+        if self.resample is False:
+            self.sampling_rate = 0
+
+        if self.resample is True and 0 < self.sampling_rate < 3965:
+
+            if self.subject.resample_packets(sampling_rate=self.sampling_rate) == 'bad':
+                return 'Subject skipped due to resampling error'
 
     def func(self):
         pass
@@ -108,8 +138,7 @@ class _TestPhaseDiff(MyFunc):
 
     def func(self):
 
-        if self.rearrange is True:
-            self.subject.data.rearrange_antenna()
+        self.preprocess()
 
         csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
         phase_diff = np.angle(csi * csi[:, :, self.ref_antenna, :][:, :, np.newaxis, :].conj())
@@ -118,10 +147,6 @@ class _TestPhaseDiff(MyFunc):
 
         fig, ax = plt.subplots(2, 1)
         self.mysubplot(ax[0], self.title1, phase_diff)
-
-        if self.rearrange is True:
-            for ref in self.reference.values():
-                ref.data.rearrange_antenna()
 
         self.subject.calibrate_phase(self.ref_antenna, self.reference)
 
@@ -163,6 +188,8 @@ class _TestResampling(MyFunc):
 
     def func(self):
 
+        self.preprocess()
+
         print('Length before resampling:', self.subject.data.length)
         print(self.subject.name, "test_resampling plotting...", time.asctime(time.localtime(time.time())))
 
@@ -189,7 +216,7 @@ class _TestSanitize(MyFunc):
         self.suptitle = 'Sanitization of ' + self.subject.name
 
     def __str__(self):
-        return 'Test Resamping at Given Sampling Rate'
+        return 'Test Sanitization (SpotFi Algorithm1)'
 
     def mysubplot(self, axis, title, phase):
         axis.set_title(title)
@@ -211,6 +238,8 @@ class _TestSanitize(MyFunc):
 
     def func(self):
 
+        self.preprocess()
+
         # self.subject.data.phase -= np.mean(self.subject.data.phase, axis=1).reshape(-1, 1, 3, 1)
 
         print(self.subject.name, "test_sanitization plotting...", time.asctime(time.localtime(time.time())))
@@ -225,4 +254,119 @@ class _TestSanitize(MyFunc):
         print(self.subject.name, "test_sanitization plot complete", time.asctime(time.localtime(time.time())))
 
         return self.save_show_figure()
+
+
+@CountClass
+class _TestAoA(MyFunc):
+
+    def __init__(self, *args, **kwargs):
+        MyFunc.__init__(self, *args, **kwargs)
+
+        self.threshold = 0
+        self.calibrate = True
+        self.num_ticks = 11
+
+    def __str__(self):
+        return 'Plot AoA Spectrum'
+
+    def func(self):
+
+        self.preprocess()
+        self.subject.aoa_by_music()
+
+        return self.subject.data.view_spectrum(self.threshold, self.num_ticks, self.autosave, self.notion)
+
+
+@CountClass
+class _TestDoppler(MyFunc):
+
+    def __init__(self, *args, **kwargs):
+        MyFunc.__init__(self, *args, **kwargs)
+
+        self.threshold = 0
+        self.window_length = 500
+        self.stride = 500
+        self.num_ticks = 11
+
+    def __str__(self):
+        return 'Plot Doppler Spectrum'
+
+    def func(self):
+
+        self.preprocess()
+
+        self.subject.doppler_by_music(resample=self.sampling_rate, window_length=self.window_length, stride=self.stride)
+
+        return self.subject.data.view_spectrum(self.threshold, self.num_ticks, self.autosave, self.notion)
+
+
+@CountClass
+class _TestAoAToF(MyFunc):
+
+    # Not finished
+
+    def __init__(self, *args, **kwargs):
+        MyFunc.__init__(self, *args, **kwargs)
+
+        self.threshold = 0
+        self.start = 0
+        self.end = self.subject.data.length
+        self.calibrate = True
+        self.sanitize = True
+        self.extract = True
+        self.resample = True
+        self.sampling_rate = 100
+        self.num_ticks = 11
+
+    def __str__(self):
+        return 'Plot AoA-ToF Spectrum'
+
+    def func(self):
+
+        self.preprocess()
+
+        if 0 <= self.start <= self.end <= self.subject.data.length:
+            self.subject.data.length = self.end - self.start
+            self.subject.data.amp = self.subject.data.amp[self.start: self.end]
+            self.subject.data.phase = self.subject.data.phase[self.start: self.end]
+
+        self.subject.aoa_tof_by_music()
+
+        for spectrum in self.subject.spectrum.length:
+            return self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave, self.notion)
+
+
+@CountClass
+class _TestAoADoppler(MyFunc):
+
+    # Not finished
+
+    def __init__(self, *args, **kwargs):
+        MyFunc.__init__(self, *args, **kwargs)
+
+        self.threshold = 0
+        self.start = 0
+        self.end = self.subject.data.length
+        self.extract = True
+        self.resample = True
+        self.sampling_rate = 100
+        self.num_ticks = 11
+        self.self_cal = True
+
+    def __str__(self):
+        return 'Plot AoA-Doppler Spectrum'
+
+    def func(self):
+
+        self.preprocess()
+
+        if 0 <= self.start <= self.end <= self.subject.data.length:
+            self.subject.data.length = self.end - self.start
+            self.subject.data.amp = self.subject.data.amp[self.start: self.end]
+            self.subject.data.phase = self.subject.data.phase[self.start: self.end]
+
+        self.subject.aoa_doppler_by_music(self_cal=self.self_cal)
+
+        for spectrum in self.subject.spectrum.length:
+            return self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave, self.notion)
 
