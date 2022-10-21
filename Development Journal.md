@@ -130,3 +130,10 @@ myfunc.py
 
 csitest.py
 - Added class: MyTest
+
+# 1021
+
+myfunc.py
+- Added class: CoultClass
+- Added class: \_TestResampling
+- Added class: \_TestSanitize
