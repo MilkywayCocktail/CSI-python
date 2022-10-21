@@ -419,6 +419,7 @@ class MyCsi(object):
 
                 if autosave is False:
                     plt.show()
+                    return "No saving"
 
                 elif autosave is True:
                     save_path = os.getcwd().replace('\\', '/') + "/visualization/" + self.name[:4] + '/'
@@ -430,6 +431,7 @@ class MyCsi(object):
                     plt.savefig(savename)
                     print(self.name, "saved as", savename, time.asctime(time.localtime(time.time())))
                     plt.close()
+                    return savename
 
                 else:
                     raise ArgError("autosave\nPlease specify autosave=\"True\" or \"False\"")
@@ -990,7 +992,7 @@ class MyCsi(object):
             elif mode == 'highpass':
                 for packet in range(self.data.length):
                     for antenna in range(nrx):
-                        hc[packet, :, antenna] = highpass(hc[packet, :, antenna], cutoff=10, fs=1000, order=5)
+                        hc[packet, :, antenna] = highpass(hc[packet, :, antenna], cutoff=10, fs=sampling_rate, order=5)
                 average_hc = 0 + 0j
 
             else:
