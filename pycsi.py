@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-20
+# Last edit: 2022-10-21
 
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
@@ -71,8 +71,8 @@ class MyCsi(object):
 
     def load_data(self):
         """
-        Loads csi data into current MyCsi instance.
-        Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).
+        Loads csi data into current MyCsi instance.\n
+        Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).\n
         :return: csi data
         """
         try:
@@ -111,8 +111,8 @@ class MyCsi(object):
 
     def load_spectrum(self, input_path=None):
         """
-        Loads .npz spectrum into current MyCsi instance.
-        :param input_path: the path of spectrum, usually in 'npsave' folder
+        Loads .npz spectrum into current MyCsi instance.\n
+        :param input_path: the path of spectrum, usually in 'npsave' folder\n
         :return: spectrum
         """
         print(self.name, "spectrum load start...", time.asctime(time.localtime(time.time())))
@@ -137,7 +137,7 @@ class MyCsi(object):
 
     def save_csi(self, save_name=None):
         """
-        Saves csi data as npz. Strongly recommended for speeding up loading.
+        Saves csi data as npz. Strongly recommended for speeding up loading.\n
         :param save_name: filename, defalut = self.name
         :return: save_name + '-csis.npz'
         """
@@ -168,7 +168,7 @@ class MyCsi(object):
 
     def save_spectrum(self, notion=''):
         """
-        Saves spectrum as npz.
+        Saves spectrum as npz.\n
         :param notion: additional information in the savename, default is empty
         :return: save_name + '-spectrum.npz'
         """
@@ -259,9 +259,9 @@ class MyCsi(object):
 
         def remove_inf_values(self):
             """
-            Removes -inf values in csi amplitude which hinders further calculation.
-            Replaces packets with -inf values with neighboring ones.\n
-            Embodied in spectrum calculating methods.
+            Removes -inf values in csi amplitude which hinders further calculation.\n
+            Replaces packets having -inf values with neighboring ones.\n
+            Embodied in spectrum calculating methods.\n
             :return: Processed amplitude
             """
             print("  Apply invalid value removal...", time.asctime(time.localtime(time.time())))
@@ -300,7 +300,7 @@ class MyCsi(object):
 
         def view_all_rx(self, metric="amplitude"):
             """
-            Plots csi amplitude OR phase for all antennas.
+            Plots csi amplitude OR phase for all antennas.\n
             :param metric: 'amplitude' or 'phase'
             :return: value-time plot
             """
@@ -436,7 +436,7 @@ class MyCsi(object):
 
     class _CommonFunctions:
         """
-        Collection of static methods that may be used in other methods.
+        Collection of static methods that may be used in other methods.\n
         """
 
         @staticmethod
@@ -1008,7 +1008,7 @@ class MyCsi(object):
     def resample_packets(self, sampling_rate=1000):
         """
         Resample from raw CSI to reach a specified sampling rate.\n
-        Strongly recommended when uniform interval is required.
+        Strongly recommended when uniform interval is required.\n
         :param sampling_rate: sampling rate in Hz after resampling. Must be less than 3965.
         Default is 1000
         :return: Resampled csi data
