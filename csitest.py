@@ -105,6 +105,7 @@ class MyTest(object):
         self.log.append(os.getcwd().replace('\\', '/') + "/logs/" + str(self.date) + '/' + self.title + '.txt')
         self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(self.select_func
                                                                                           ) + ' ----TEST START----')
+        print(self.title, "Test Start", time.asctime(time.localtime(time.time())))
 
         if self.batch_trigger is False and self.subject is not None:
             self.load_all_references()
@@ -113,7 +114,7 @@ class MyTest(object):
             self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
 
             self.testfunc = eval('myfunc.' + self.select_func +
-                                 '(title=self.title, reference=self.reference, subject=self.subject)')
+                                 '(test_title=self.title, reference=self.reference, subject=self.subject)')
             self.testfunc.set_params(**kwargs)
             self.logger(self.testfunc.__dict__)
             self.logger(self.testfunc.func())
@@ -131,7 +132,7 @@ class MyTest(object):
                     if not isinstance(self.subject, pycsi.MyCsi) else self.subject
 
                 self.testfunc = eval('myfunc.' + self.select_func +
-                                     '(title=self.title, reference=self.reference, subject=self.subject)')
+                                     '(test_title=self.title, reference=self.reference, subject=self.subject)')
                 self.testfunc.set_params(**kwargs)
                 self.logger(self.testfunc.__dict__)
                 self.logger(self.testfunc.func())
@@ -140,6 +141,7 @@ class MyTest(object):
 
         self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(self.select_func
                                                                                           ) + ' ----TEST FINISH----')
+        print(self.title, "Test Complete", time.asctime(time.localtime(time.time())))
 
 
 if __name__ == '__main__':
@@ -154,7 +156,7 @@ if __name__ == '__main__':
            '30': "1010A04",
            '60': "1010A05"}
 
-    mytest = MyTest(title='trys', date='1010', subject=sub, reference=cal, path=npzpath, func_index=0)
+    mytest = MyTest(title='trys4', date='1010', subject=sub, reference=cal, path=npzpath, func_index=0)
     mytest.show_all_methods()
-    mytest.run(rearrange=False, autosave=True, notion='_trial1')
-    mytest.run(rearrange=True, autosave=True, notion='_trial2')
+    mytest.run(rearrange=False, autosave=True, notion='_raw')
+    mytest.run(rearrange=True, autosave=True, notion='_rearr')
