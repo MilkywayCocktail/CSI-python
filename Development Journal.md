@@ -135,6 +135,7 @@ csitest.py
 
 pycsi.py
 - Modification: added return for vis_spectrum()
+- Added parameter: self_cal in doppler_by_music()
 
 myfunc.py
 - Added class: CoultClass
@@ -144,3 +145,4 @@ myfunc.py
 - Added class: \_TestDoppler
 - Added class: \_TestAoAToF
 - Added class: \_TestAoADoppler
+- Added function: preprocess()
