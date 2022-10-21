@@ -12,7 +12,7 @@ A collection of all testing methods.
 ### csitests.py
 The work panel of getting csi results.
 
-### WIdar2.py
+### Widar2.py
 raw version
 
 # How to use this code
