@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-21
+# Last edit: 2022-10-24
 
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
@@ -333,14 +333,15 @@ class MyCsi(object):
 
                 print(self.name, metric, "plot complete", time.asctime(time.localtime(time.time())))
 
-        def view_spectrum(self, threshold=0, sid=0, num_ticks=11, autosave=False, notion=''):
+        def view_spectrum(self, threshold=0, sid=0, num_ticks=11, autosave=False, notion='', folder_name=''):
             """
             Plots spectrum. You can select whether save the image or not.\n
             :param threshold: set threshold of spectrum, default is 0 (none)
-            :param sid: index of spectrum (when there are multiple spectra)
+            :param sid: index of spectrum (for AoA-ToF and AoA-Doppler)
             :param num_ticks: set number of ticks to be plotted in the figure, must be larger than 2. Default is 11
             :param autosave: True or False. Default is False
             :param notion: string, save additional information in filename if autosave
+            :param folder_name: if entered, create a folder if autosave is True
             :return: spectrum plot
             """
             print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
@@ -424,7 +425,8 @@ class MyCsi(object):
                     return "No saving"
 
                 elif autosave is True:
-                    save_path = os.getcwd().replace('\\', '/') + "/visualization/" + self.name[:4] + '/'
+                    save_path = os.getcwd().replace('\\', '/') + "/visualization/" + self.name[:4] + '/' + str(
+                        folder_name) + '/'
 
                     if not os.path.exists(save_path):
                         os.mkdir(save_path)
