@@ -103,8 +103,9 @@ class MyTest(object):
 
     def run(self, **kwargs):
         self.log.append(os.getcwd().replace('\\', '/') + "/logs/" + str(self.date) + '/' + self.title + '.txt')
-        self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(self.select_func
-                                                                                          ) + ' ----TEST START----')
+        self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(
+            self.select_func) + ' ----TEST START----')
+
         print(self.title, "Test Start", time.asctime(time.localtime(time.time())))
 
         if self.batch_trigger is False and self.subject is not None:
@@ -139,8 +140,9 @@ class MyTest(object):
 
             print("- Batch processing complete -")
 
-        self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(self.select_func
-                                                                                          ) + ' ----TEST FINISH----')
+        self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(
+            self.select_func) + ' ----TEST FINISH----\n')
+
         print(self.title, "Test Complete", time.asctime(time.localtime(time.time())))
 
 
