@@ -368,6 +368,6 @@ class _TestAoADoppler(MyFunc):
 
         self.subject.aoa_doppler_by_music(self_cal=self.self_cal)
 
-        for spectrum in self.subject.spectrum.length:
-            return self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave, self.notion)
-
+        for i, spectrum in enumerate(self.subject.data.spectrum):
+            return self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
+                                                   self.notion + '_' + str(i))
