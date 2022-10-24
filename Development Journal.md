@@ -146,3 +146,8 @@ myfunc.py
 - Added class: \_TestAoAToF
 - Added class: \_TestAoADoppler
 - Added function: preprocess()
+
+# 1024
+
+myfunc.py
+- Bugfix: iteration for visualizing spectrum in \_TestAoAToF and \_TestAoADoppler
