@@ -149,5 +149,8 @@ myfunc.py
 
 # 1024
 
+pycsi.py
+- Added Parameter: folder_name in save_spectrum()
+
 myfunc.py
 - Bugfix: iteration for visualizing spectrum in \_TestAoAToF and \_TestAoADoppler
