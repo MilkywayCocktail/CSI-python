@@ -332,8 +332,9 @@ class _TestAoAToF(MyFunc):
 
         self.subject.aoa_tof_by_music()
 
-        for spectrum in self.subject.spectrum.length:
-            return self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave, self.notion)
+        for i, spectrum in enumerate(self.subject.data.spectrum):
+            return self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
+                                                   self.notion + '_' + str(i))
 
 
 @CountClass
