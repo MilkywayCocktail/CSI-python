@@ -332,9 +332,13 @@ class _TestAoAToF(MyFunc):
 
         self.subject.aoa_tof_by_music()
 
+        return_name = []
+
         for i, spectrum in enumerate(self.subject.data.spectrum):
-            return self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
-                                                   self.notion + '_' + str(i))
+            return_name = self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
+                                            self.notion + '_' + str(i), self.title)
+
+        return return_name
 
 
 @CountClass
@@ -368,6 +372,10 @@ class _TestAoADoppler(MyFunc):
 
         self.subject.aoa_doppler_by_music(self_cal=self.self_cal)
 
+        return_name = []
+
         for i, spectrum in enumerate(self.subject.data.spectrum):
-            return self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
-                                                   self.notion + '_' + str(i))
+            return_name = self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
+                                                          self.notion + '_' + str(i), self.title)
+
+        return return_name
