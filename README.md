@@ -42,7 +42,7 @@ The folder structure:<br>
 - XX: number of take
 
 ### Preload the data
-- Use CSIKit to convert .dat files into .npz, which saves a bunch time for later use
+- Use CSIKit to convert .dat files into .npz, which saves a bunch of time for later use
 - Put your raw csi file in data/MMDD/ as illustrated in the folder structure
 - Sample code:
 
