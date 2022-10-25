@@ -56,6 +56,7 @@ The folder structure:<br>
         _csi.load_data()
         _csi.save_csi(name)
 ```
+- The saved file is named as <MMDDNXX-csis.npz>
 - MyCsi is defined in pycsi.py, make sure to import it
 
 ### Try out algorithms
