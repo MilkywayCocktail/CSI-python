@@ -154,3 +154,8 @@ pycsi.py
 
 myfunc.py
 - Bugfix: iteration for visualizing spectrum in \_TestAoAToF and \_TestAoADoppler
+
+# 1025
+
+pycsi.py
+- Bugfix: save_data() and save_spectrum(), replaced os.mkdir() with os.makedirs() to support multi-level folder creation
