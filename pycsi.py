@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-24
+# Last edit: 2022-10-25
 
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
@@ -154,7 +154,7 @@ class MyCsi(object):
             save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/csi/'
 
             if not os.path.exists(save_path):
-                os.mkdir(save_path)
+                os.makedirs(save_path)
 
             if save_name is None:
                 save_name = self.name
@@ -185,7 +185,7 @@ class MyCsi(object):
             save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/spectrum/'
 
             if not os.path.exists(save_path):
-                os.mkdir(save_path)
+                os.makedirs(save_path)
 
             # Keys: spectrum, algorithm
             np.savez(save_path + self.name + self.data.algorithm + "-spectrum" + notion + ".npz",
@@ -431,7 +431,7 @@ class MyCsi(object):
                     if not os.path.exists(save_path):
                         os.mkdir(save_path)
 
-                    savename = save_path + self.name[4:] + '_' + self.algorithm + str(notion) + '.png'
+                    savename = save_path + self.name[4:] + self.algorithm + str(notion) + '.png'
                     plt.savefig(savename)
                     print(self.name, "saved as", savename, time.asctime(time.localtime(time.time())))
                     plt.close()
