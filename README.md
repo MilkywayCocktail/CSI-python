@@ -65,7 +65,6 @@ The folder structure:<br>
 
 ```
     name = "1010A30"
-    npzpath = 'npsave/1010/csi'
     file = "npsave/" + name[:4] + '/' + name + "-csis.npz"
     csi = pycsi.MyCsi(name, file)
     csi.load_data()
