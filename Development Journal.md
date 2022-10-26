@@ -159,3 +159,16 @@ myfunc.py
 
 pycsi.py
 - Bugfix: save_data() and save_spectrum(), replaced os.mkdir() with os.makedirs() to support multi-level folder creation
+
+# 1026
+
+pycsi.py
+- Bugfix: noise_space(), squeezing csi before operation
+- Bugfix: noise_space(), position of transpose (correlatively in aoa_tof_by_music())
+- Modification: remove_inf_valuse(), added denial operation to data with more than 20% -inf packages
+
+myfunc.py
+- Added parameter: self.smoothing in \_TestDoppler() and \_TestAoADoppler()
+
+csitest.py
+- Bugfix: run(), failed to load references
