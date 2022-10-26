@@ -129,7 +129,7 @@ class MyTest(object):
 
             for file in filenames:
                 name = file[:-9]
-        
+
                 self.subject = self.npzloader(name, self.path) \
                     if not isinstance(self.subject, pycsi.MyCsi) else self.subject
                 self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
@@ -150,19 +150,19 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = '1010A30'
+    sub = '1025A03'
 
-    npzpath = 'npsave/1010/csi/'
+    npzpath = 'npsave/1025/csi/'
 
-    cal = {'0': "1010A01",
-           '-30': "1010A02",
-           '-60': "1010A03",
-           '30': "1010A04",
-           '60': "1010A05"}
+    cal = {'180': "1025A18",
+           '-30': "1025A33",
+           '-60': "1025A30",
+           '30': "1025A03",
+           '60': "1025A06"}
 
     test0 = MyTest()
     test0.show_all_methods()
 
-    mytest = MyTest(title='aoatof', date='1010', subject=sub, reference=cal, path=npzpath, func_index=2)
-    mytest.run(rearrange=True, autosave=True, notion='_100Hz')
-
+    mytest = MyTest(title='phasediff', date='1025', subject=sub, reference=cal, path=npzpath, batch=True,
+                    func_index=4)
+    mytest.run(rearrange=False, calibrate=False, sanitize=False, extract=False, autosave=True, notion='_raw')
