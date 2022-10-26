@@ -281,7 +281,8 @@ class MyCsi(object):
                     
                     _amp = self.amp.reshape((self.length, -1))
                     for l in range(_amp.shape[1]):
-                        if np.where(_amp[:, l] == float('-inf'))[0] == self.length:
+                        row_flag = np.where(_amp[:, l] == float('-inf'))
+                        if row_flag[0] == self.length:
                             print('  Entire row of -inf detected')
                             return 'bad'
 
