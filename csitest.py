@@ -125,12 +125,14 @@ class MyTest(object):
             self.logger('----Batch process----')
 
             filenames = os.listdir(self.path)
+            self.load_all_references()
 
             for file in filenames:
                 name = file[:-9]
-                self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + name)
+        
                 self.subject = self.npzloader(name, self.path) \
                     if not isinstance(self.subject, pycsi.MyCsi) else self.subject
+                self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
 
                 self.testfunc = eval('myfunc.' + self.select_func +
                                      '(test_title=self.title, reference=self.reference, subject=self.subject)')
@@ -162,5 +164,5 @@ if __name__ == '__main__':
     test0.show_all_methods()
 
     mytest = MyTest(title='aoatof', date='1010', subject=sub, reference=cal, path=npzpath, func_index=2)
-    mytest.run(rearrange=True, autosave=True, notion='_')
+    mytest.run(rearrange=True, autosave=True, notion='_100Hz')
 
