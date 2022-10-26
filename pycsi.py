@@ -489,7 +489,7 @@ class MyCsi(object):
             :return: noise space vectors
             """
             input_csi = np.squeeze(input_csi)
-            value, vector = np.linalg.eigh(input_csi.dot(np.conjugate(input_csi.T)))
+            value, vector = np.linalg.eigh(input_csi.T.dot(np.conjugate(input_csi)))
             descend_order_index = np.argsort(-value)
             vector = vector[:, descend_order_index]
             noise_space = vector[:, ntx:]
@@ -738,7 +738,7 @@ class MyCsi(object):
                     temp_phase = self.data.phase[i]
 
                 csi = recon(temp_amp, temp_phase).reshape(1, -1)  # nrx * nsub columns
-                noise_space = noise(csi.T, ntx)
+                noise_space = noise(csi, ntx)
 
                 for j, aoa in enumerate(input_theta_list):
 
