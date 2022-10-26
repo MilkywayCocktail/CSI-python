@@ -278,6 +278,12 @@ class MyCsi(object):
                 print("  Found", len(np.where(self.amp == float('-inf'))[0]), "-inf values")
 
                 if len(np.where(self.amp == float('-inf'))[0]) != 0:
+                    
+                    _amp = self.amp.reshape((self.length, -1))
+                    for l in range(_amp.shape[1]):
+                        if np.where(_amp[:, l] == float('-inf'))[0] == self.length:
+                            print('  Entire row of -inf detected')
+                            return 'bad'
 
                     for i in range(self.length):
                         invalid_flag = np.where(self.amp[i] == float('-inf'))
@@ -556,7 +562,9 @@ class MyCsi(object):
 
             # Replace -inf values with neighboring packets before computing
 
-            self.data.remove_inf_values()
+            if self.data.remove_inf_values() == 'bad':
+                print(self.name, "sample aborted due to unremovable -inf values")
+                return
 
             spectrum = np.zeros((len(input_theta_list), self.data.length))
 
@@ -630,7 +638,9 @@ class MyCsi(object):
                 raise DataError("phase: " + str(self.data.phase))
 
             # Replace -inf values with neighboring packets before computing
-            self.data.remove_inf_values()
+            if self.data.remove_inf_values() == 'bad':
+                print(self.name, "sample aborted due to unremovable -inf values")
+                return
 
             if resample != 0:
                 self.resample_packets(sampling_rate=resample)
@@ -723,7 +733,9 @@ class MyCsi(object):
                 print(self.name, "apply Smoothing via SpotFi...")
 
             # Replace -inf values with neighboring packets before computing
-            self.data.remove_inf_values()
+            if self.data.remove_inf_values() == 'bad':
+                print(self.name, "sample aborted due to unremovable -inf values")
+                return
 
             spectrum = np.zeros((self.data.length, len(input_theta_list), len(input_time_list)))
 
@@ -805,7 +817,9 @@ class MyCsi(object):
                 raise DataError("phase: " + str(self.data.phase))
 
             # Replace -inf values with neighboring packets before computing
-            self.data.remove_inf_values()
+            if self.data.remove_inf_values() == 'bad':
+                print(self.name, "sample aborted due to unremovable -inf values")
+                return
 
             antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
 
@@ -934,14 +948,13 @@ class MyCsi(object):
 
                 ref_angle = int(key)
 
-                # Rearrange by antenna to match the reference antenna
-                ref_csi = recon(value.data.amp[:, :, [1, 2, 0], :], value.data.phase[:, :, [1, 2, 0], :])
+                ref_csi = recon(value.data.amp, value.data.phase)
                 ref_csi = ref_csi[:, :, reference_antenna, :].conj().reshape(-1, nsub, 1, 1).repeat(3, axis=2)
-                offset = np.mean(ref_csi * ref_csi.conj(), axis=(0, 1)).reshape((1, 1, nrx, 1))
+                phasediff = np.mean(ref_csi * ref_csi.conj(), axis=(0, 1)).reshape((1, 1, nrx, 1))
                 true_diff = np.exp([mjtwopi * distance_antenna * antenna * center_freq * np.sin(ref_angle) / lightspeed
                                    for antenna in range(nrx)]).reshape(-1, 1)
 
-                ipo += offset * true_diff.conj()
+                ipo += phasediff * true_diff.conj()
 
             current_csi = recon(self.data.amp, self.data.phase)
 
