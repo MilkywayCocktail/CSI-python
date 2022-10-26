@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-25
+# Last edit: 2022-10-26
 
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
@@ -488,6 +488,7 @@ class MyCsi(object):
             :param ntx: number of tx antenna, default is 1
             :return: noise space vectors
             """
+            input_csi = np.squeeze(input_csi)
             value, vector = np.linalg.eigh(input_csi.dot(np.conjugate(input_csi.T)))
             descend_order_index = np.argsort(-value)
             vector = vector[:, descend_order_index]
@@ -747,7 +748,7 @@ class MyCsi(object):
                             steering_vector = np.exp([mjtwopi * dist_antenna * np.sin(aoa * torad) *
                                                       no_antenna * sub_freq / lightspeed
                                                       for no_antenna in antenna_list[:2]
-                                                      for sub_freq in subfreq_list[:15]])
+                                                      for sub_freq in subfreq_list[:15]]).reshape(1, -1)
                         else:
                             steering_aoa = np.exp(mjtwopi * dist_antenna * np.sin(aoa * torad) *
                                                   antenna_list * center_freq / lightspeed).reshape(1, -1)
