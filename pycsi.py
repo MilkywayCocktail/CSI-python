@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-26
+# Last edit: 2022-10-27
 
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
@@ -278,10 +278,10 @@ class MyCsi(object):
                 print("  Found", len(np.where(self.amp == float('-inf'))[0]), "-inf values")
 
                 if len(np.where(self.amp == float('-inf'))[0]) != 0:
-                    
+
                     _amp = self.amp.reshape((self.length, -1))
                     for l in range(_amp.shape[1]):
-                        row_flag = np.where(_amp[:, l] == float('-inf'))
+                        row_flag = np.where(np.squeeze(_amp[:, l]) == float('-inf'))
                         if row_flag[0] == self.length:
                             print('  Entire row of -inf detected')
                             return 'bad'
@@ -950,15 +950,16 @@ class MyCsi(object):
                 ref_angle = int(key)
 
                 ref_csi = recon(value.data.amp, value.data.phase)
-                ref_csi = ref_csi[:, :, reference_antenna, :].conj().reshape(-1, nsub, 1, 1).repeat(3, axis=2)
-                phasediff = np.mean(ref_csi * ref_csi.conj(), axis=(0, 1)).reshape((1, 1, nrx, 1))
+                ref_conj = ref_csi[:, :, reference_antenna, :].conj().reshape(-1, nsub, 1, 1).repeat(3, axis=2)
+                ref_diff = np.mean(ref_csi * ref_conj, axis=(0, 1)).reshape((1, 1, nrx, 1))
                 true_diff = np.exp([mjtwopi * distance_antenna * antenna * center_freq * np.sin(ref_angle) / lightspeed
                                    for antenna in range(nrx)]).reshape(-1, 1)
 
-                ipo += phasediff * true_diff.conj()
+                ipo += ref_diff * true_diff.conj()
+
+            ipo = ipo / len(cal_dict.keys())
 
             current_csi = recon(self.data.amp, self.data.phase)
-
             calibrated_csi = current_csi * ipo.conj()
 
             self.data.amp = np.abs(calibrated_csi)
