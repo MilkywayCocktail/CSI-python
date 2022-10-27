@@ -98,6 +98,59 @@ class MyFunc(object):
 
 
 @CountClass
+class _TestPhase(MyFunc):
+
+    def __init__(self, *args, **kwargs):
+        MyFunc.__init__(self, *args, **kwargs)
+
+        self.ref_antenna = np.argmax(self.subject.data.show_antenna_strength())
+        self.packet1 = np.random.randint(self.subject.data.length)
+        self.packet2 = np.random.randint(self.subject.data.length)
+        self.title1 = 'Before'
+        self.title2 = 'After'
+        self.suptitle = 'Calibration of ' + self.subject.name
+
+    def __str__(self):
+        return 'Test Phase After Calibration'
+
+    def mysubplot(self, axis, title, phase):
+
+        axis.set_title(title)
+        axis.plot(phase[self.packet1, :, 0, 0], label='antenna0 #' + str(self.packet1), color='b')
+        axis.plot(phase[self.packet1, :, 1, 0], label='antenna1 #' + str(self.packet1), color='r')
+        axis.plot(phase[self.packet1, :, 2, 0], label='antenna2 #' + str(self.packet1), color='y')
+        axis.plot(phase[self.packet2, :, 0, 0], label='antenna0 #' + str(self.packet2), color='b', linestyle='--')
+        axis.plot(phase[self.packet2, :, 1, 0], label='antenna1 #' + str(self.packet2), color='r', linestyle='--')
+        axis.plot(phase[self.packet2, :, 2, 0], label='antenna2 #' + str(self.packet2), color='y', linestyle='--')
+        axis.set_xlabel('#Subcarrier', loc='right')
+        axis.set_ylabel('Phase / $rad$')
+        axis.legend()
+
+    def func(self):
+
+        self.antennas.remove(int(self.ref_antenna))
+        self.preprocess()
+
+        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
+        phase = np.unwrap(np.angle(csi))
+
+        print(self.subject.name, "test_phase plotting...", time.asctime(time.localtime(time.time())))
+
+        fig, ax = plt.subplots(2, 1)
+        self.mysubplot(ax[0], self.title1, phase)
+
+        self.subject.calibrate_phase(self.ref_antenna, self.reference)
+
+        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
+        phase = np.unwrap(np.angle(csi))
+
+        self.mysubplot(ax[1], self.title2, phase)
+        print(self.subject.name, "test_phase plot complete", time.asctime(time.localtime(time.time())))
+
+        return self.save_show_figure()
+
+
+@CountClass
 class _TestPhaseDiff(MyFunc):
 
     def __init__(self, *args, **kwargs):
@@ -141,7 +194,7 @@ class _TestPhaseDiff(MyFunc):
         self.preprocess()
 
         csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase_diff = np.angle(csi * csi[:, :, self.ref_antenna, :][:, :, np.newaxis, :].conj())
+        phase_diff = np.unwrap(np.angle(csi * csi[:, :, self.ref_antenna, :][:, :, np.newaxis, :].conj()))
 
         print(self.subject.name, "test_phase_diff plotting...", time.asctime(time.localtime(time.time())))
 
@@ -151,7 +204,7 @@ class _TestPhaseDiff(MyFunc):
         self.subject.calibrate_phase(self.ref_antenna, self.reference)
 
         csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase_diff = np.angle(csi * csi[:, :, self.ref_antenna, :][:, :, np.newaxis, :].conj())
+        phase_diff = np.unwrap(np.angle(csi * csi[:, :, self.ref_antenna, :][:, :, np.newaxis, :].conj()))
 
         self.mysubplot(ax[1], self.title2, phase_diff)
         print(self.subject.name, "test_phase_diff plot complete", time.asctime(time.localtime(time.time())))
