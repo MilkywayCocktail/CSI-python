@@ -137,6 +137,7 @@ class _TestPhaseDiff(MyFunc):
 
     def func(self):
 
+        self.antennas.remove(int(self.ref_antenna))
         self.preprocess()
 
         csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
@@ -187,7 +188,6 @@ class _TestResampling(MyFunc):
 
     def func(self):
 
-        self.antennas.remove(int(self.ref_antenna))
         self.preprocess()
 
         print('Length before resampling:', self.subject.data.length)
