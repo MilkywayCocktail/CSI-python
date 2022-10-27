@@ -2,9 +2,9 @@ import numpy as np
 import time
 import os
 import matplotlib.pyplot as plt
+import copy
 import matplotlib.ticker as ticker
 import seaborn as sns
-import pycsi
 
 
 class CountClass(object):
@@ -97,20 +97,58 @@ class MyFunc(object):
             return 'No saving'
 
 
-@CountClass
-class _TestPhase(MyFunc):
-
+class PhaseCompare(MyFunc):
     def __init__(self, *args, **kwargs):
         MyFunc.__init__(self, *args, **kwargs)
         self.ref_antenna = np.argmax(self.subject.data.show_antenna_strength())
         self.packet1 = np.random.randint(self.subject.data.length)
         self.packet2 = np.random.randint(self.subject.data.length)
-        self.title1 = 'Before'
-        self.title2 = 'After'
-        self.suptitle = 'Calibration of ' + self.subject.name
+        self.method = 'calibration'
+        self.title1 = 'Before ' + self.method.title()
+        self.title2 = 'After ' + self.method.title()
+        self.suptitle = self.subject.name
 
     def __str__(self):
-        return 'Test Phase After Calibration'
+        return 'Phase Comparison Method'
+
+    def func(self):
+
+        self.title1 = 'Before ' + self.method.title()
+        self.title2 = 'After ' + self.method.title()
+        self.preprocess()
+
+        print(self.subject.name, "plotting...", time.asctime(time.localtime(time.time())))
+
+        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
+        phase = np.unwrap(np.angle(csi), axis=1)
+
+        fig, ax = plt.subplots(2, 1)
+        self.mysubplot(ax[0], self.title1, phase)
+
+        if self.method == 'sanitization':
+            self.subject.sanitize_phase()
+
+        elif self.method == 'calibration':
+            self.subject.calibrate_phase(self.ref_antenna, self.reference)
+
+        elif self.method == 'calibration + sanitization':
+            self.subject.calibrate_phase(self.ref_antenna, self.reference)
+            self.subject.sanitize_phase()
+
+        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
+        phase = np.unwrap(np.angle(csi), axis=1)
+
+        self.mysubplot(ax[1], self.title2, phase)
+        print(self.subject.name, "plot complete", time.asctime(time.localtime(time.time())))
+
+        return self.save_show_figure()
+
+
+@CountClass
+class _TestPhase(PhaseCompare):
+
+    def __str__(self):
+        return 'Test Phase'
 
     def mysubplot(self, axis, title, phase):
 
@@ -125,45 +163,12 @@ class _TestPhase(MyFunc):
         axis.set_ylabel('Phase / $rad$')
         axis.legend()
 
-    def func(self):
-
-        self.preprocess()
-
-        print(self.subject.name, "test_phase plotting...", time.asctime(time.localtime(time.time())))
-
-        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase = np.unwrap(np.angle(csi), axis=1)
-
-        fig, ax = plt.subplots(2, 1)
-        self.mysubplot(ax[0], self.title1, phase)
-
-        self.subject.calibrate_phase(self.ref_antenna, self.reference)
-
-        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase = np.unwrap(np.angle(csi), axis=1)
-
-        self.mysubplot(ax[1], self.title2, phase)
-        print(self.subject.name, "test_phase plot complete", time.asctime(time.localtime(time.time())))
-
-        return self.save_show_figure()
-
 
 @CountClass
 class _TestPhaseDiff(MyFunc):
 
-    def __init__(self, *args, **kwargs):
-        MyFunc.__init__(self, *args, **kwargs)
-
-        self.ref_antenna = np.argmax(self.subject.data.show_antenna_strength())
-        self.antennas = list(range(self.subject.nrx))
-        self.packet1 = np.random.randint(self.subject.data.length)
-        self.packet2 = np.random.randint(self.subject.data.length)
-        self.title1 = 'Before'
-        self.title2 = 'After'
-        self.suptitle = 'Calibration of ' + self.subject.name
-
     def __str__(self):
-        return 'Test Phase Difference After Calibration'
+        return 'Test Phase Difference'
 
     def mysubplot(self, axis, title, phase):
 
@@ -185,29 +190,6 @@ class _TestPhaseDiff(MyFunc):
         axis.set_xlabel('#Subcarrier', loc='right')
         axis.set_ylabel('Phase Difference / $rad$')
         axis.legend()
-
-    def func(self):
-
-        self.antennas.remove(int(self.ref_antenna))
-        self.preprocess()
-
-        print(self.subject.name, "test_phase_diff plotting...", time.asctime(time.localtime(time.time())))
-
-        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase_diff = np.unwrap(np.angle(csi * csi[:, :, self.ref_antenna, :][:, :, np.newaxis, :].conj()), axis=1)
-
-        fig, ax = plt.subplots(2, 1)
-        self.mysubplot(ax[0], self.title1, phase_diff)
-
-        self.subject.calibrate_phase(self.ref_antenna, self.reference)
-
-        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase_diff = np.unwrap(np.angle(csi * csi[:, :, self.ref_antenna, :][:, :, np.newaxis, :].conj()), axis=1)
-
-        self.mysubplot(ax[1], self.title2, phase_diff)
-        print(self.subject.name, "test_phase_diff plot complete", time.asctime(time.localtime(time.time())))
-
-        return self.save_show_figure()
 
 
 @CountClass
@@ -252,57 +234,6 @@ class _TestResampling(MyFunc):
 
         self. mysubplot(ax[1], "After Resampling", self.subject.data.amp[:, self.subcarrier, self.antenna, 0])
         print(self.subject.name, "test_resampling plot complete", time.asctime(time.localtime(time.time())))
-
-        return self.save_show_figure()
-
-
-@CountClass
-class _TestSanitize(MyFunc):
-
-    def __init__(self, *args, **kwargs):
-        MyFunc.__init__(self, *args, **kwargs)
-
-        self.packet1 = np.random.randint(self.subject.data.length)
-        self.packet2 = np.random.randint(self.subject.data.length)
-        self.suptitle = 'Sanitization of ' + self.subject.name
-
-    def __str__(self):
-        return 'Test Sanitization (SpotFi Algorithm1)'
-
-    def mysubplot(self, axis, title, phase):
-        axis.set_title(title)
-        axis.plot(phase[self.packet1, :, 0, 0], label='antenna0 #' + str(self.packet1), color='b')
-        axis.plot(phase[self.packet1, :, 1, 0], label='antenna1 #' + str(self.packet1), color='r')
-        axis.plot(phase[self.packet1, :, 2, 0], label='antenna2 #' + str(self.packet1), color='y')
-        axis.plot(phase[self.packet2, :, 0, 0], label='antenna0 #' + str(self.packet2), color='b', linestyle='--')
-        axis.plot(phase[self.packet2, :, 1, 0], label='antenna1 #' + str(self.packet2), color='r', linestyle='--')
-        axis.plot(phase[self.packet2, :, 2, 0], label='antenna2 #' + str(self.packet2), color='y', linestyle='--')
-        axis.set_xlabel('#Subcarrier', loc='right')
-        axis.set_ylabel('Phase Difference / $rad$')
-        axis.legend()
-
-    def func(self):
-
-        self.preprocess()
-
-        # self.subject.data.phase -= np.mean(self.subject.data.phase, axis=1).reshape(-1, 1, 3, 1)
-
-        print(self.subject.name, "test_sanitization plotting...", time.asctime(time.localtime(time.time())))
-
-        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase = np.unwrap(np.angle(csi), axis=1)
-
-        fig, ax = plt.subplots(2, 1)
-        self.mysubplot(ax[0], "Before Sanitization", phase)
-
-        self.subject.sanitize_phase()
-        # csi.data.phase -= np.mean(csi.data.phase, axis=1).reshape(-1, 1, 3, 1)
-
-        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase = np.unwrap(np.angle(csi), axis=1)
-
-        self.mysubplot(ax[1], "After Sanitization", phase)
-        print(self.subject.name, "test_sanitization plot complete", time.asctime(time.localtime(time.time())))
 
         return self.save_show_figure()
 
