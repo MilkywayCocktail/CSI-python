@@ -101,6 +101,7 @@ class PhaseCompare(MyFunc):
     def __init__(self, *args, **kwargs):
         MyFunc.__init__(self, *args, **kwargs)
         self.ref_antenna = np.argmax(self.subject.data.show_antenna_strength())
+        self.antennas = list(range(self.subject.nrx))
         self.packet1 = np.random.randint(self.subject.data.length)
         self.packet2 = np.random.randint(self.subject.data.length)
         self.method = 'calibration'
@@ -111,16 +112,22 @@ class PhaseCompare(MyFunc):
     def __str__(self):
         return 'Phase Comparison Method'
 
+    def get_phase(self):
+        return 0
+
+    def antenna_list(self):
+        pass
+
     def func(self):
 
         self.title1 = 'Before ' + self.method.title()
         self.title2 = 'After ' + self.method.title()
+        self.antenna_list()
         self.preprocess()
 
         print(self.subject.name, "plotting...", time.asctime(time.localtime(time.time())))
 
-        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase = np.unwrap(np.angle(csi), axis=1)
+        phase = self.get_phase()
 
         fig, ax = plt.subplots(2, 1)
         self.mysubplot(ax[0], self.title1, phase)
@@ -135,8 +142,7 @@ class PhaseCompare(MyFunc):
             self.subject.calibrate_phase(self.ref_antenna, self.reference)
             self.subject.sanitize_phase()
 
-        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase = np.unwrap(np.angle(csi), axis=1)
+        phase = self.get_phase()
 
         self.mysubplot(ax[1], self.title2, phase)
         print(self.subject.name, "plot complete", time.asctime(time.localtime(time.time())))
@@ -163,9 +169,14 @@ class _TestPhase(PhaseCompare):
         axis.set_ylabel('Phase / $rad$')
         axis.legend()
 
+    def get_phase(self):
+        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
+        phase = np.unwrap(np.angle(csi), axis=1)
+        return phase
+
 
 @CountClass
-class _TestPhaseDiff(MyFunc):
+class _TestPhaseDiff(PhaseCompare):
 
     def __str__(self):
         return 'Test Phase Difference'
@@ -190,6 +201,14 @@ class _TestPhaseDiff(MyFunc):
         axis.set_xlabel('#Subcarrier', loc='right')
         axis.set_ylabel('Phase Difference / $rad$')
         axis.legend()
+
+    def get_phase(self):
+        csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
+        phase_diff = np.unwrap(np.angle(csi * csi[:, :, self.ref_antenna, :][:, :, np.newaxis, :].conj()), axis=1)
+        return phase_diff
+
+    def antenna_list(self):
+        self.antennas.remove(int(self.ref_antenna))
 
 
 @CountClass
