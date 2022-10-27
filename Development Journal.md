@@ -172,3 +172,14 @@ myfunc.py
 
 csitest.py
 - Bugfix: run(), failed to load references
+
+# 1027
+
+pycsi.py
+- Modification: calibrate_phase(), corrected mechanism
+
+myfunc.py
+- Added class: \_TestPhase()
+
+csitest.py
+- Bugfix: run(), failed to iterate among subjects
