@@ -180,6 +180,8 @@ pycsi.py
 
 myfunc.py
 - Added class: \_TestPhase()
+- Added class: PhaseCompare()
+- Deleted class: \_TestSanitize()
 
 csitest.py
 - Bugfix: run(), failed to iterate among subjects
