@@ -280,11 +280,14 @@ class MyCsi(object):
                 if len(np.where(self.amp == float('-inf'))[0]) != 0:
 
                     _amp = self.amp.reshape((self.length, -1))
-                    for l in range(_amp.shape[1]):
-                        row_flag = np.where(np.squeeze(_amp[:, l]) == float('-inf'))
-                        if row_flag[0] == self.length:
-                            print('  Entire row of -inf detected')
-                            return 'bad'
+                    good_package_counter = 0
+                    for k in range(_amp.shape[0]):
+                        flag = any(_amp[k, :] == float('-inf'))
+                        if flag is False:
+                            good_package_counter += 1
+
+                    if good_package_counter < int(self.length * 0.8):
+                        return 'bad'
 
                     for i in range(self.length):
                         invalid_flag = np.where(self.amp[i] == float('-inf'))
@@ -418,7 +421,8 @@ class MyCsi(object):
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.xaxis.set_major_locator(ticker.MultipleLocator(20))
                     ax.xaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    plt.xticks([0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200], [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5])
+                    plt.xticks([0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200],
+                               [-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5])
                     ax.set_xlabel("Velocity / $m/s$")
                     ax.set_ylabel("AoA / $deg$")
                     plt.title(self.name + " AoA-Doppler Spectrum" + str(notion))
@@ -674,7 +678,6 @@ class MyCsi(object):
                                  self.data.timestamps[i * stride]
 
                 for j, velocity in enumerate(input_velocity_list):
-
                     steering_vector = np.exp(mjtwopi * center_freq * delay_list * velocity / lightspeed)
 
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
@@ -751,7 +754,7 @@ class MyCsi(object):
                     temp_phase = self.data.phase[i]
 
                 csi = recon(temp_amp, temp_phase).reshape(1, -1)  # nrx * nsub columns
-                noise_space = noise(csi, ntx)
+                noise_space = noise(csi.T, ntx)
 
                 for j, aoa in enumerate(input_theta_list):
 
@@ -856,10 +859,10 @@ class MyCsi(object):
                 for j, aoa in enumerate(input_theta_list):
 
                     for k, velocity in enumerate(input_velocity_list):
-
                         steering_aoa = np.exp(mjtwopi * dist_antenna * np.sin(aoa * torad) *
                                               antenna_list * center_freq / lightspeed).reshape(1, -1)
-                        steering_doppler = np.exp(mjtwopi * center_freq * delay_list * velocity / lightspeed).reshape(1, -1)
+                        steering_doppler = np.exp(mjtwopi * center_freq * delay_list * velocity / lightspeed).reshape(1,
+                                                                                                                      -1)
 
                         steering_vector = np.dot(steering_doppler.T, steering_aoa).reshape(-1, 1)  # nrx * winlen rows
 
@@ -953,7 +956,7 @@ class MyCsi(object):
                 ref_conj = ref_csi[:, :, reference_antenna, :].conj().reshape(-1, nsub, 1, 1).repeat(3, axis=2)
                 ref_diff = np.mean(ref_csi * ref_conj, axis=(0, 1)).reshape((1, 1, nrx, 1))
                 true_diff = np.exp([mjtwopi * distance_antenna * antenna * center_freq * np.sin(ref_angle) / lightspeed
-                                   for antenna in range(nrx)]).reshape(-1, 1)
+                                    for antenna in range(nrx)]).reshape(-1, 1)
 
                 ipo += ref_diff * true_diff.conj()
 
@@ -1009,9 +1012,9 @@ class MyCsi(object):
 
             elif mode == 'running':
                 average_hc = np.array([[np.convolve(np.squeeze(hc[:, sub, antenna, :]),
-                                        np.ones(window_length) / window_length, mode='same')
+                                                    np.ones(window_length) / window_length, mode='same')
                                         for sub in range(nsub)]
-                                      for antenna in range(nrx)]).swapaxes(0, 2).reshape((-1, nsub, nrx))
+                                       for antenna in range(nrx)]).swapaxes(0, 2).reshape((-1, nsub, nrx))
             elif mode == 'highpass':
                 for packet in range(self.data.length):
                     for antenna in range(nrx):
