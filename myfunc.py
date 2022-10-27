@@ -85,7 +85,7 @@ class MyFunc(object):
             save_path = os.getcwd().replace('\\', '/') + "/visualization/" + self.subject.name[
                                                                              :4] + '/' + self.title + '/'
             if not os.path.exists(save_path):
-                os.mkdir(save_path)
+                os.makedirs(save_path)
             save_name = save_path + self.subject.name[4:] + self.notion + '.png'
             plt.savefig(save_name)
             print(self.subject.name, "saved as", save_name, time.asctime(time.localtime(time.time())))
@@ -105,7 +105,6 @@ class _TestPhaseDiff(MyFunc):
 
         self.ref_antenna = np.argmax(self.subject.data.show_antenna_strength())
         self.antennas = list(range(self.subject.nrx))
-        self.antennas.remove(int(self.ref_antenna))
         self.packet1 = np.random.randint(self.subject.data.length)
         self.packet2 = np.random.randint(self.subject.data.length)
         self.title1 = 'Before'
@@ -188,6 +187,7 @@ class _TestResampling(MyFunc):
 
     def func(self):
 
+        self.antennas.remove(int(self.ref_antenna))
         self.preprocess()
 
         print('Length before resampling:', self.subject.data.length)
@@ -264,6 +264,7 @@ class _TestAoA(MyFunc):
 
         self.threshold = 0
         self.calibrate = True
+        self.smooth = False
         self.num_ticks = 11
 
     def __str__(self):
@@ -272,9 +273,9 @@ class _TestAoA(MyFunc):
     def func(self):
 
         self.preprocess()
-        self.subject.aoa_by_music()
+        self.subject.aoa_by_music(smooth=self.smooth)
 
-        return self.subject.data.view_spectrum(self.threshold, self.num_ticks, self.autosave, self.notion)
+        return self.subject.data.view_spectrum(self.threshold, 0, self.num_ticks, self.autosave, self.notion)
 
 
 @CountClass
@@ -297,7 +298,7 @@ class _TestDoppler(MyFunc):
 
         self.subject.doppler_by_music(resample=self.sampling_rate, window_length=self.window_length, stride=self.stride)
 
-        return self.subject.data.view_spectrum(self.threshold, self.num_ticks, self.autosave, self.notion)
+        return self.subject.data.view_spectrum(self.threshold, 0, self.num_ticks, self.autosave, self.notion)
 
 
 @CountClass
@@ -316,6 +317,7 @@ class _TestAoAToF(MyFunc):
         self.extract = True
         self.resample = True
         self.sampling_rate = 100
+        self.smooth = False
         self.num_ticks = 11
 
     def __str__(self):
@@ -370,7 +372,7 @@ class _TestAoADoppler(MyFunc):
             self.subject.data.amp = self.subject.data.amp[self.start: self.end]
             self.subject.data.phase = self.subject.data.phase[self.start: self.end]
 
-        self.subject.aoa_doppler_by_music(self_cal=self.self_cal)
+        self.subject.aoa_doppler_by_music(self_cal=self.self_cal, smooth=self.smooth)
 
         return_name = []
 
