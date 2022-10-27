@@ -120,7 +120,7 @@ class MyTest(object):
             self.logger(self.testfunc.__dict__)
             self.logger(self.testfunc.func())
 
-        else:
+        elif self.batch_trigger is True and self.path is not None:
             print("- Enabling batch processing -")
             self.logger('----Batch process----')
 
@@ -130,8 +130,7 @@ class MyTest(object):
             for file in filenames:
                 name = file[:-9]
 
-                self.subject = self.npzloader(name, self.path) \
-                    if not isinstance(self.subject, pycsi.MyCsi) else self.subject
+                self.subject = self.npzloader(name, self.path)
                 self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
 
                 self.testfunc = eval('myfunc.' + self.select_func +
@@ -163,6 +162,6 @@ if __name__ == '__main__':
     test0 = MyTest()
     test0.show_all_methods()
 
-    mytest = MyTest(title='phasediff', date='1025', subject=sub, reference=cal, path=npzpath, batch=True,
+    mytest = MyTest(title='phasediff-new', date='1025', subject=sub, reference=cal, path=npzpath, batch=True,
                     func_index=4)
-    mytest.run(rearrange=False, calibrate=False, sanitize=False, extract=False, autosave=True, notion='_raw')
+    mytest.run(rearrange=False, ref_antenna=0, calibrate=False, sanitize=False, extract=False, autosave=True, notion='_5cal_an0')
