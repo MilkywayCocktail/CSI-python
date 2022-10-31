@@ -1,5 +1,5 @@
 # Draft by CAO
-# Last edit: 2022-10-27
+# Last edit: 2022-10-31
 
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
@@ -549,13 +549,17 @@ class MyCsi(object):
 
         try:
             if self.data.amp is None:
-                raise DataError("amplitude: " + str(self.data.amp))
+                raise DataError("amplitude: " + str(self.data.amp) + "\nPlease load data")
 
             if self.data.phase is None:
-                raise DataError("phase: " + str(self.data.phase))
+                raise DataError("phase: " + str(self.data.phase) + "\nPlease load data")
 
             if smooth is not True and smooth is not False:
                 raise ArgError("smooth:" + str(smooth))
+
+            # Replace -inf values with neighboring packets before computing
+            if self.data.remove_inf_values() == 'bad':
+                raise DataError("values: too many -inf values\nSample aborted")
 
             # Subcarriers from -58 to 58, step = 4
             subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
@@ -564,12 +568,6 @@ class MyCsi(object):
 
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
-
-            # Replace -inf values with neighboring packets before computing
-
-            if self.data.remove_inf_values() == 'bad':
-                print(self.name, "sample aborted due to unremovable -inf values")
-                return
 
             spectrum = np.zeros((len(input_theta_list), self.data.length))
 
@@ -607,19 +605,17 @@ class MyCsi(object):
             print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
-            print(e, "\nPlease load data")
+            print(e)
         except ArgError as e:
             print(e, "\nPlease specify smooth=True or False")
 
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05),
-                         resample=0,
                          window_length=500,
                          stride=500):
         """
         Computes Doppler spectrum by MUSIC.\n
         Involves self-calibration, windowed dynamic component extraction and resampling (if specified).\n
         :param input_velocity_list: list of velocities. Default = -5~5
-        :param resample: specify a resampling rate (in Hz) if you want, default is 0 (no resampling)
         :param window_length: window length for each step
         :param stride: stride for each step
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
@@ -637,42 +633,32 @@ class MyCsi(object):
 
         try:
             if self.data.amp is None:
-                raise DataError("amplitude: " + str(self.data.amp))
+                raise DataError("amplitude: " + str(self.data.amp) + "\nPlease load data")
 
             if self.data.phase is None:
-                raise DataError("phase: " + str(self.data.phase))
+                raise DataError("phase: " + str(self.data.phase)+ "\nPlease load data")
 
             # Replace -inf values with neighboring packets before computing
             if self.data.remove_inf_values() == 'bad':
-                print(self.name, "sample aborted due to unremovable -inf values")
-                return
+                raise DataError("values: too many -inf values\nSample aborted")
 
-            if resample != 0:
-                self.resample_packets(sampling_rate=resample)
-                delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) * 1. / resample
-            else:
-                delay_list = np.zeros(window_length)
+            # Each window has ts of packets (1 / sampling_rate * window_length = t)
+            delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) / self.sampling_rate
 
-            # Each window has 0.1s of packets (1 / resample * window_length = 0.1)
+            csi = recon(self.data.amp, self.data.phase)
 
-            # Self-calibration via conjugate multiplication
-            strengths = self.data.show_antenna_strength()
-            ref_antenna = np.argmax(strengths)
-            pick_antenna = np.argmin(strengths)
-
-            csi = recon(self.data.amp, self.data.phase) * np.conjugate(
-                recon(self.data.amp[:, :, ref_antenna, 0],
-                      self.data.phase[:, :, ref_antenna, 0])).reshape(-1, nsub, 1).repeat(3, axis=2)
+            pick_antenna = np.argmin(self.data.show_antenna_strength())
 
             spectrum = np.zeros((len(input_velocity_list), (self.data.length - window_length) // stride))
 
+            # Using window mean
             for i in range((self.data.length - window_length) // stride):
 
                 csi_windowed = csi[i * stride: i * stride + window_length, :, :]
                 csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub, nrx)
                 noise_space = noise(csi_dynamic[:, :, pick_antenna], ntx)
 
-                if resample == 0:
+                if self.sampling_rate == 3965:
                     # Using original timestamps (possibly uneven intervals)
                     delay_list = self.data.timestamps[i * stride: i * stride + window_length] - \
                                  self.data.timestamps[i * stride]
@@ -691,7 +677,7 @@ class MyCsi(object):
             print(self.name, "Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
-            print(e, "\nPlease load data")
+            print(e)
 
     def aoa_tof_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
                          input_time_list=np.arange(0, 8.e-8, 5.e-10),
@@ -720,13 +706,17 @@ class MyCsi(object):
 
         try:
             if self.data.amp is None:
-                raise DataError("amplitude: " + str(self.data.amp))
+                raise DataError("amplitude: " + str(self.data.amp) + "\nPlease load data")
 
             if self.data.phase is None:
-                raise DataError("phase: " + str(self.data.phase))
+                raise DataError("phase: " + str(self.data.phase) + "\nPlease load data")
 
             if smooth is not True and smooth is not False:
                 raise ArgError("smooth:" + str(smooth))
+
+            # Replace -inf values with neighboring packets before computing
+            if self.data.remove_inf_values() == 'bad':
+                raise DataError("values: too many -inf values\nSample aborted")
 
             # Subcarriers from -58 to 58, step = 4
             subcarrier_list = np.arange(-58, 62, 4)
@@ -736,11 +726,6 @@ class MyCsi(object):
 
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
-
-            # Replace -inf values with neighboring packets before computing
-            if self.data.remove_inf_values() == 'bad':
-                print(self.name, "sample aborted due to unremovable -inf values")
-                return
 
             spectrum = np.zeros((self.data.length, len(input_theta_list), len(input_time_list)))
 
@@ -755,7 +740,7 @@ class MyCsi(object):
                     temp_phase = self.data.phase[i]
 
                 csi = recon(temp_amp, temp_phase).reshape(1, -1)  # nrx * nsub columns
-                noise_space = noise(csi, ntx)
+                noise_space = noise(csi.T, ntx)
 
                 for j, aoa in enumerate(input_theta_list):
 
@@ -780,22 +765,18 @@ class MyCsi(object):
             print(self.name, "AoA-ToF by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
-            print(e, "\nPlease load data")
+            print(e)
         except ArgError as e:
             print(e, "\nPlease specify smooth=True or False")
 
     def aoa_doppler_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
                              input_velocity_list=np.arange(-5, 5.05, 0.05),
-                             self_cal=True,
-                             resample=0,
                              window_length=500,
                              stride=500):
         """
         Computes AoA-Doppler spectrum by MUSIC.\n
         :param input_theta_list:  list of angels, default = -90~90
         :param input_velocity_list: list of velocities. Default = -5~5
-        :param self_cal: whether self-calibrate phase. Default is True
-        :param resample: specify a resampling rate (in Hz) if you want, default is 0 (no resampling)
         :param window_length: window length for each step
         :param stride: stride for each step
         :return:  AoA-Doppler spectrum by MUSIC stored in self.data.spectrum
@@ -816,39 +797,26 @@ class MyCsi(object):
 
         try:
             if self.data.amp is None:
-                raise DataError("amplitude: " + str(self.data.amp))
+                raise DataError("amplitude: " + str(self.data.amp) + "\nPlease load data")
 
             if self.data.phase is None:
-                raise DataError("phase: " + str(self.data.phase))
+                raise DataError("phase: " + str(self.data.phase) + "\nPlease load data")
 
             # Replace -inf values with neighboring packets before computing
             if self.data.remove_inf_values() == 'bad':
-                print(self.name, "sample aborted due to unremovable -inf values")
-                return
+                raise DataError("values: too many -inf values\nSample aborted")
 
             antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
 
-            # Each window has 0.1s of packets (1 / resample * window_length = 0.1)
-            if resample != 0:
-                self.resample_packets(sampling_rate=resample)
-                delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) * 1. / resample
-            else:
-                delay_list = np.zeros(window_length)
+            # Each window has ts of packets (1 / sampling_rate * window_length = t)
+            delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) / self.sampling_rate
 
-            # Self-calibration via conjugate multiplication
-            strengths = self.data.show_antenna_strength()
-            ref_antenna = np.argmax(strengths)
-
-            if self_cal is True:
-                csi = np.squeeze(recon(self.data.amp, self.data.phase)) * np.conjugate(
-                    recon(self.data.amp[:, :, ref_antenna, 0],
-                          self.data.phase[:, :, ref_antenna, 0])).reshape(-1, nsub, 1).repeat(3, axis=2)
-            else:
-                csi = np.squeeze(recon(self.data.amp, self.data.phase))
+            csi = np.squeeze(recon(self.data.amp, self.data.phase))
 
             spectrum = np.zeros(((self.data.length - window_length) // stride, len(input_theta_list),
                                  len(input_velocity_list)))
 
+            # Using window mean
             for i in range((self.data.length - window_length) // stride):
 
                 csi_windowed = csi[i * stride: i * stride + window_length, :, :]
@@ -856,6 +824,11 @@ class MyCsi(object):
 
                 csi_dynamic = csi_dynamic.swapaxes(1, 2).reshape(window_length * nrx, nsub)
                 noise_space = noise(csi_dynamic, ntx)
+
+                if self.sampling_rate == 3965:
+                    # Using original timestamps (possibly uneven intervals)
+                    delay_list = self.data.timestamps[i * stride: i * stride + window_length] - \
+                                 self.data.timestamps[i * stride]
 
                 for j, aoa in enumerate(input_theta_list):
 
@@ -875,9 +848,30 @@ class MyCsi(object):
             print(self.name, "AoA-Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
-            print(e, "\nPlease load data")
+            print(e)
         except ArgError as e:
             print(e, "\nPlease specify smooth=True or False")
+
+    def self_calibrate(self, ref_antenna=None):
+        """
+        Self-calibrate using given antenna or the strongest antenna. Default is the strongest antenna.\n
+        :param: ref_antenna: If not specified, use the strongest antenna
+        :return: self-calibrated amplitude and phase
+        """
+        recon = self.commonfunc.reconstruct_csi
+        nsub = self.nsub
+
+        if ref_antenna is None:
+            strengths = self.data.show_antenna_strength()
+            ref_antenna = np.argmax(strengths)
+
+        _csi = recon(self.data.amp, self.data.phase) * recon(
+            self.data.amp, self.data.phase)[:, :, ref_antenna, :][:, :, np.newaxis, :].conj()
+
+        self.data.amp = np.abs(_csi)
+        self.data.phase = np.angle(_csi)
+
+        return _csi
 
     def sanitize_phase(self):
         """
@@ -923,6 +917,7 @@ class MyCsi(object):
         nsub = self.nsub
         mjtwopi = self.mjtwopi
         distance_antenna = self.dist_antenna
+        torad = self.torad
         lightspeed = self.lightspeed
         center_freq = self.center_freq
         recon = self.commonfunc.reconstruct_csi
@@ -940,7 +935,7 @@ class MyCsi(object):
             if cal_dict is None:
                 raise DataError("reference: " + str(cal_dict))
 
-            ipo = 0 + 0.j
+            ipo = []
             # cal_dict: "{'xx': MyCsi}"
 
             for key, value in cal_dict.items():
@@ -951,20 +946,21 @@ class MyCsi(object):
                 if value.data.phase is None:
                     raise DataError("reference phase: " + str(value.data.phase))
 
-                ref_angle = int(key)
+                ref_angle = eval(key)
 
                 ref_csi = recon(value.data.amp, value.data.phase)
-                ref_conj = ref_csi[:, :, reference_antenna, :].conj().reshape(-1, nsub, 1, 1).repeat(3, axis=2)
-                ref_diff = np.mean(ref_csi * ref_conj, axis=(0, 1)).reshape((1, 1, nrx, 1))
-                true_diff = np.exp([mjtwopi * distance_antenna * antenna * center_freq * np.sin(ref_angle) / lightspeed
-                                   for antenna in range(nrx)]).reshape(-1, 1)
+                ref_diff = np.mean(ref_csi * ref_csi[:, :, reference_antenna, :][:, :, np.newaxis, :].conj(),
+                                   axis=(0, 1))
+                true_diff = np.exp([mjtwopi * distance_antenna * antenna * center_freq * np.sin(
+                    ref_angle * torad) / lightspeed for antenna in range(nrx)]).reshape(-1, 1)
 
-                ipo += ref_diff * true_diff.conj()
+                ipo.append(ref_diff.reshape(-1, 1) * true_diff.conj())
 
-            ipo = ipo / len(cal_dict.keys())
+            ipo = np.squeeze(np.mean(ipo, axis=0))
+            print(ipo)
 
             current_csi = recon(self.data.amp, self.data.phase)
-            calibrated_csi = current_csi * ipo.conj()
+            calibrated_csi = current_csi * ipo[np.newaxis, np.newaxis, :, np.newaxis].conj()
 
             self.data.amp = np.abs(calibrated_csi)
             self.data.phase = np.angle(calibrated_csi)
@@ -1091,7 +1087,7 @@ if __name__ == '__main__':
 
     # Raw CSI naming: csi-XXXX<date>-Y<A or B>-ZZ<#exp>-.dat
 
-    filepath = "data/0919/"
+    filepath = "data/1030/"
     filenames = os.listdir(filepath)
     for file in filenames:
         name = file[3:-4]
