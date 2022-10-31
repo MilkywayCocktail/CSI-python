@@ -1,9 +1,9 @@
 import cv2
 import os
 
-impath = 'visualization/1010/aoatof-1raw'
+impath = '../visualization/1010/aoatof-1raw'
 
-videopath = 'visualization/1010/video'
+videopath = '../visualization/1010/video'
 
 if not os.path.exists(videopath):
     os.makedirs(videopath)

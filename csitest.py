@@ -151,7 +151,7 @@ if __name__ == '__main__':
 
     sub = '1025A03'
 
-    npzpath = 'npsave/1025/csi/'
+    npzpath = '../npsave/1025/csi/'
 
     cal = {'180': "1025A18",
            '-30': "1025A33",

@@ -1087,7 +1087,7 @@ if __name__ == '__main__':
 
     # Raw CSI naming: csi-XXXX<date>-Y<A or B>-ZZ<#exp>-.dat
 
-    filepath = "data/1030/"
+    filepath = "../data/1030/"
     filenames = os.listdir(filepath)
     for file in filenames:
         name = file[3:-4]
