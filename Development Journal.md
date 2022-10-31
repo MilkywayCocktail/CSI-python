@@ -185,3 +185,8 @@ myfunc.py
 
 csitest.py
 - Bugfix: run(), failed to iterate among subjects
+
+# 1028
+
+pycsi.py
+- Modification: calibrate_phase, modified operation (Beta)
