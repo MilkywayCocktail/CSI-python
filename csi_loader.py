@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+
+# Modified dat2npy to accept save_path
+
 from __future__ import absolute_import
 from __future__ import unicode_literals
 from __future__ import print_function
@@ -258,7 +261,7 @@ def unwrap_clocktime(timelist, clock_maxval=2. ** 32):
     return timelist
 
 
-def dat2npy(filename):
+def dat2npy(filename, save_path):
     now = datetime.datetime.now()
     if csi_parser_numba is not None:
         timelist, csilist, rssilist, permlist, bfee_countlist, noiselist, agclist, fake_rate_n_flagslist, skip_list = \
@@ -321,7 +324,11 @@ def dat2npy(filename):
     uint_agclist = np.array(agclist).astype(np.uint8)
     assert np.all(uint_agclist == agclist), "agc list may overflow or underflow"
 
-    np.save(filename.replace(".dat", ""),
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    save_name = save_path + os.path.basename(filename)[3:-4] + "-csio"
+    np.save(save_name,
             ((real_csilist, imag_csilist), uint_rssilist, int_noiselist, uint_agclist, timelist, datetimelist))
     # utils.save_by_joblib(
     #     (real_csilist, imag_csilist, uint_rssilist, int_noiselist, uint_agclist, timelist, datetimelist),
