@@ -164,7 +164,7 @@ class MyCsi(object):
             print(e, "\nPlease load data")
 
         else:
-            save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/csi/'
+            save_path = "../npsave/" + self.name[:4] + '/csi/'
 
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
@@ -195,7 +195,7 @@ class MyCsi(object):
             print(e, "\nPlease compute spectrum")
 
         else:
-            save_path = os.getcwd().replace('\\', '/') + "/npsave/" + self.name[:4] + '/spectrum/'
+            save_path = "../npsave/" + self.name[:4] + '/spectrum/'
 
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
@@ -1062,7 +1062,7 @@ class MyCsi(object):
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
 
-            if sampling_rate > self.data.sampling_rate or not isinstance(sampling_rate, int):
+            if not isinstance(sampling_rate, int):
                 raise ArgError("sampling_rate: " + str(sampling_rate))
 
             new_interval = 1. / sampling_rate

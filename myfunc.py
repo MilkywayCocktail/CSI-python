@@ -21,14 +21,15 @@ class CountClass(object):
 
 class MyFunc(object):
 
-    def __init__(self, data_date=None, test_title=None, rearrange=False, reference=None, subject=None):
+    def __init__(self, data_date=None, test_title=None, reference=None, subject=None):
 
         self.date = data_date
         self.title = str(test_title)
-        self.rearrange = rearrange
+        self.rearrange = False
+        self.self_cal = False
         self.calibrate = False
-        self.extract = False
         self.sanitize = False
+        self.extract = False
         self.resample = False
         self.sampling_rate = 0
         self.reference = reference
@@ -42,11 +43,14 @@ class MyFunc(object):
 
     def preprocess(self):
         if self.rearrange is True:
-            print("  Apply antenna order rearrangement...", time.asctime(time.localtime(time.time())))
+
             self.subject.data.rearrange_antenna()
 
             for value in self.reference.values():
                 value.data.rearrange_antenna()
+
+        if self.self_cal is True:
+            self.subject.self_calibrate()
 
         if self.calibrate is True:
             self.subject.calibrate_phase(cal_dict=self.reference)
@@ -60,7 +64,7 @@ class MyFunc(object):
         if self.resample is False:
             self.sampling_rate = 0
 
-        if self.resample is True and 0 < self.sampling_rate < 3965:
+        if self.resample is True and self.sampling_rate > 0:
 
             if self.subject.resample_packets(sampling_rate=self.sampling_rate) == 'bad':
                 return 'Subject skipped due to resampling error'
@@ -82,8 +86,7 @@ class MyFunc(object):
         plt.suptitle(self.suptitle)
 
         if self.autosave is True:
-            save_path = os.getcwd().replace('\\', '/') + "/visualization/" + self.subject.name[
-                                                                             :4] + '/' + self.title + '/'
+            save_path = "../visualization/" + self.subject.name[:4] + '/' + self.title + '/'
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
             save_name = save_path + self.subject.name[4:] + self.notion + '.png'
@@ -102,11 +105,12 @@ class PhaseCompare(MyFunc):
         MyFunc.__init__(self, *args, **kwargs)
         self.ref_antenna = np.argmax(self.subject.data.show_antenna_strength())
         self.antennas = list(range(self.subject.nrx))
+        self.recursive = False
         self.packet1 = np.random.randint(self.subject.data.length)
         self.packet2 = np.random.randint(self.subject.data.length)
         self.method = 'calibration'
-        self.title1 = 'Before ' + self.method.title()
-        self.title2 = 'After ' + self.method.title()
+        self.title1 = 'Before'
+        self.title2 = 'After'
         self.suptitle = self.subject.name
 
     def __str__(self):
@@ -125,29 +129,46 @@ class PhaseCompare(MyFunc):
         self.antenna_list()
         self.preprocess()
 
-        print(self.subject.name, "plotting...", time.asctime(time.localtime(time.time())))
+        count = self.subject.data.length if self.recursive is True else 1
 
-        phase = self.get_phase()
+        for i in range(count):
 
-        fig, ax = plt.subplots(2, 1)
-        self.mysubplot(ax[0], self.title1, phase)
+            if count == 1:
+                self.suptitle = self.subject.name
+                self.packet1 = np.random.randint(self.subject.data.length)
+                self.packet2 = np.random.randint(self.subject.data.length)
+            else:
+                self.suptitle = self.subject.name + "_" + str(i)
+                self.packet1 = i
+                self.packet2 = i
 
-        if self.method == 'sanitization':
-            self.subject.sanitize_phase()
+            print(self.subject.name, i, "of", self.subject.data.length, "plotting...",
+                  time.asctime(time.localtime(time.time())))
 
-        elif self.method == 'calibration':
-            self.subject.calibrate_phase(self.ref_antenna, self.reference)
+            phase = self.get_phase()
 
-        elif self.method == 'calibration + sanitization':
-            self.subject.calibrate_phase(self.ref_antenna, self.reference)
-            self.subject.sanitize_phase()
+            fig, ax = plt.subplots(2, 1)
+            self.mysubplot(ax[0], self.title1, phase)
 
-        phase = self.get_phase()
+            if self.method == 'sanitization':
+                self.subject.sanitize_phase()
 
-        self.mysubplot(ax[1], self.title2, phase)
-        print(self.subject.name, "plot complete", time.asctime(time.localtime(time.time())))
+            elif self.method == 'calibration':
+                self.subject.calibrate_phase(self.ref_antenna, self.reference)
 
-        return self.save_show_figure()
+            elif self.method == 'calibration + sanitization':
+                self.subject.calibrate_phase(self.ref_antenna, self.reference)
+                self.subject.sanitize_phase()
+
+            phase = self.get_phase()
+
+            self.mysubplot(ax[1], self.title2, phase)
+            print(self.subject.name, i, "of", self.subject.data.length, "plot complete",
+                  time.asctime(time.localtime(time.time())))
+
+            r = self.save_show_figure()
+
+        return r
 
 
 @CountClass
@@ -285,6 +306,8 @@ class _TestDoppler(MyFunc):
     def __init__(self, *args, **kwargs):
         MyFunc.__init__(self, *args, **kwargs)
 
+        self.resample = True
+        self.sampling_rate = 100
         self.threshold = 0
         self.window_length = 500
         self.stride = 500
@@ -355,7 +378,7 @@ class _TestAoADoppler(MyFunc):
         self.threshold = 0
         self.start = 0
         self.end = self.subject.data.length
-        self.extract = True
+        self.self_cal = True
         self.resample = True
         self.sampling_rate = 100
         self.num_ticks = 11
@@ -373,7 +396,7 @@ class _TestAoADoppler(MyFunc):
             self.subject.data.amp = self.subject.data.amp[self.start: self.end]
             self.subject.data.phase = self.subject.data.phase[self.start: self.end]
 
-        self.subject.aoa_doppler_by_music(self_cal=self.self_cal, smooth=self.smooth)
+        self.subject.aoa_doppler_by_music()
 
         return_name = []
 

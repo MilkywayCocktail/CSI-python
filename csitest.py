@@ -149,7 +149,7 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = '1025A03'
+    sub = '1025A56'
 
     npzpath = '../npsave/1025/csi/'
 
@@ -162,6 +162,7 @@ if __name__ == '__main__':
     test0 = MyTest()
     test0.show_all_methods()
 
-    mytest = MyTest(title='phasediff-new', date='1025', subject=sub, reference=cal, path=npzpath, batch=True,
-                    func_index=4)
-    mytest.run(rearrange=False, ref_antenna=0, calibrate=False, sanitize=False, extract=False, autosave=True, notion='_5cal_an0')
+    mytest = MyTest(title='phasediff-cal-san', date='1025', subject=sub, reference=cal, path=npzpath, batch=False,
+                    func_index=5)
+    mytest.run(ref_antenna=0, recursive=False, resample=True, sampling_rate=100, autosave=True,
+               method='calibration + sanitization', notion='_5cal_an0')
