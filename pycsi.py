@@ -61,7 +61,6 @@ class MyCsi(object):
         self.nrx = 3
         self.ntx = 1
         self.nsub = 30
-        self.sampling_rate = 3965  # Hz (averaged)
 
     def __str__(self):
         return 'MyCsi-' + self.name
@@ -107,7 +106,21 @@ class MyCsi(object):
                 self.data.phase = csi_data['csi_phase']
                 self.data.length = len(csi_data['csi_timestamps'])
                 self.data.timestamps = csi_data['csi_timestamps']
+                self.data.sampling_rate = self.data.timestamps / self.data.length
                 print(self.name, "npz load complete", time.asctime(time.localtime(time.time())))
+
+    def load_lists(self, amp, phase, timelist):
+        """
+        Loads separate items into curren MyCsi instance.\n
+        :param amp: input amplitude
+        :param phase: input phase
+        :param timelist: input timestamps
+        :return: amplitude, phase, timestamps
+        """
+
+        self.data.amp = amp
+        self.data.phase = phase
+        self.data.timestamps = timelist
 
     def load_spectrum(self, input_path=None):
         """
@@ -199,6 +212,7 @@ class MyCsi(object):
             self.amp = None
             self.phase = None
             self.timestamps = None
+            self.sampling_rate = None
             self.length = None
             self.spectrum = None
             self.xlabels = None
@@ -254,7 +268,7 @@ class MyCsi(object):
                 print(e, "\nPlease load data")
 
             else:
-
+                print(self.name, "Apply antenna order rearrangement...", time.asctime(time.localtime(time.time())))
                 self.amp = self.amp[:, :, [1, 2, 0], :]
                 self.phase = self.phase[:, :, [1, 2, 0], :]
 
@@ -611,13 +625,15 @@ class MyCsi(object):
 
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05),
                          window_length=500,
-                         stride=500):
+                         stride=500,
+                         raw_timestamps = False):
         """
         Computes Doppler spectrum by MUSIC.\n
         Involves self-calibration, windowed dynamic component extraction and resampling (if specified).\n
         :param input_velocity_list: list of velocities. Default = -5~5
         :param window_length: window length for each step
         :param stride: stride for each step
+        :param raw_timestamps: whether use original timestamps. Default is False
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
         lightspeed = self.lightspeed
@@ -643,7 +659,7 @@ class MyCsi(object):
                 raise DataError("values: too many -inf values\nSample aborted")
 
             # Each window has ts of packets (1 / sampling_rate * window_length = t)
-            delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) / self.sampling_rate
+            delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) / self.data.sampling_rate
 
             csi = recon(self.data.amp, self.data.phase)
 
@@ -651,14 +667,14 @@ class MyCsi(object):
 
             spectrum = np.zeros((len(input_velocity_list), (self.data.length - window_length) // stride))
 
-            # Using window mean
+            # Using windowed dynamic extraction
             for i in range((self.data.length - window_length) // stride):
 
                 csi_windowed = csi[i * stride: i * stride + window_length, :, :]
                 csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub, nrx)
                 noise_space = noise(csi_dynamic[:, :, pick_antenna], ntx)
 
-                if self.sampling_rate == 3965:
+                if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
                     delay_list = self.data.timestamps[i * stride: i * stride + window_length] - \
                                  self.data.timestamps[i * stride]
@@ -772,13 +788,15 @@ class MyCsi(object):
     def aoa_doppler_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
                              input_velocity_list=np.arange(-5, 5.05, 0.05),
                              window_length=500,
-                             stride=500):
+                             stride=500,
+                             raw_timestamps=False):
         """
         Computes AoA-Doppler spectrum by MUSIC.\n
         :param input_theta_list:  list of angels, default = -90~90
         :param input_velocity_list: list of velocities. Default = -5~5
         :param window_length: window length for each step
         :param stride: stride for each step
+        :param raw_timestamps: whether use original timestamps. Default is False
         :return:  AoA-Doppler spectrum by MUSIC stored in self.data.spectrum
         """
 
@@ -809,14 +827,14 @@ class MyCsi(object):
             antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
 
             # Each window has ts of packets (1 / sampling_rate * window_length = t)
-            delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) / self.sampling_rate
+            delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) / self.data.sampling_rate
 
             csi = np.squeeze(recon(self.data.amp, self.data.phase))
 
             spectrum = np.zeros(((self.data.length - window_length) // stride, len(input_theta_list),
                                  len(input_velocity_list)))
 
-            # Using window mean
+            # Using windowed dynamic extraction
             for i in range((self.data.length - window_length) // stride):
 
                 csi_windowed = csi[i * stride: i * stride + window_length, :, :]
@@ -825,7 +843,7 @@ class MyCsi(object):
                 csi_dynamic = csi_dynamic.swapaxes(1, 2).reshape(window_length * nrx, nsub)
                 noise_space = noise(csi_dynamic, ntx)
 
-                if self.sampling_rate == 3965:
+                if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
                     delay_list = self.data.timestamps[i * stride: i * stride + window_length] - \
                                  self.data.timestamps[i * stride]
@@ -981,7 +999,7 @@ class MyCsi(object):
         nrx = self.nrx
         ntx = self.ntx
         nsub = self.nsub
-        sampling_rate = self.sampling_rate
+        sampling_rate = self.data.sampling_rate
         recon = self.commonfunc.reconstruct_csi
 
         print(self.name, "apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
@@ -1044,7 +1062,7 @@ class MyCsi(object):
             if self.data.amp is None or self.data.phase is None:
                 raise DataError("csi data")
 
-            if sampling_rate > 3965 or not isinstance(sampling_rate, int):
+            if sampling_rate > self.data.sampling_rate or not isinstance(sampling_rate, int):
                 raise ArgError("sampling_rate: " + str(sampling_rate))
 
             new_interval = 1. / sampling_rate
@@ -1073,7 +1091,7 @@ class MyCsi(object):
             self.data.phase = self.data.phase[resample_indicies]
             self.data.timestamps = self.data.timestamps[resample_indicies]
             self.data.length = new_length
-            self.sampling_rate = sampling_rate
+            self.data.sampling_rate = sampling_rate
 
         except DataError as e:
             print(e, "\nPlease load data")
