@@ -2,17 +2,19 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 
+
 class GroundTruth:
 
     def __init__(self, category, length=10000):
         self.length = length
         self.category = category
         self.x = np.arange(self.length)
-        self.y = np.nan * self.length
+        self.y = [np.nan] * self.length
 
     def random_points(self, num_points=3):
+
         try:
-            x = random.sample(np.arange(self.length), num_points)
+            x = random.sample(self.x.tolist(), num_points)
             if self.category == 'aoa':
                 y = random.choices(np.arange(-180, 180, 1), k=num_points)
             elif self.category == 'tof':
@@ -20,7 +22,9 @@ class GroundTruth:
             elif self.category == 'doppler':
                 y = random.choices(np.arange(-5, 5, 0.05), k=num_points)
 
-            self.y[x] = y
+            for (index, value) in zip(x, y):
+                self.y[index] = value
+
             print("Generated", self.category, "with", num_points, "points!")
 
         except:
@@ -59,26 +63,30 @@ class GroundTruth:
 
     def interpolate(self):
         try:
-            curve = np.polyfit(self.x, self.y, 3)
-            yvals = np.polyval(curve, self.x)
+            x = self.x[~np.isnan(self.y)]
+            y = np.ma.masked_array(self.y, mask=np.isnan(self.y))
+            curve = np.polyfit(x, y[x], 3)
+            self.y = np.polyval(curve, self.x)
 
             print("Interpolation completed!")
-        except
+        except:
             print("Interpolation failed!")
 
     def show(self):
         try:
             if self.category == 'aoa':
-                plt.ylim((-180, 180))
+                plt.ylim((-181, 181))
+                plt.ylabel("AoA / $deg$")
             elif self.category == 'tof':
-                plt.ylim((0, 1.e-7))
+                plt.ylim((-5.e-8, 15.e-8))
+                plt.ylabel("ToF / $s$")
             elif self.category == 'doppler':
-                plt.ylim((-5, 5))
+                plt.ylim((-5.05, 5.05))
+                plt.ylabel("Doppler Velocity / $m/s$")
 
             plt.plot(self.x, self.y)
             plt.title(str(self.category))
             plt.xlabel("#packet")
-            plt.ylabel("Value")
             plt.show()
         except:
             print("Plot failed!")
@@ -153,6 +161,7 @@ class DataSimulator:
 
 if __name__ == '__main__':
 
-    gt = GroundTruth('aoa')
-    gt.random_points(10)
+    gt = GroundTruth('doppler')
+    gt.random_points(30)
+    gt.interpolate()
     gt.show()
