@@ -2,14 +2,19 @@ import numpy as np
 import pycsi
 import csitest
 import os
-import matplotlib.pyplot as plt
+import csi_loader
 
-loader = csitest.MyTest.npzloader
+npzpath = '../npsave/1030/csi/'
 
-npzpath = 'npsave/1030/csi/'
+n = '1030A02'
 
-a = '1030A00'
+#csi_loader.dat2npy('../data/1030/csi1030A02.dat', npzpath)
 
-csi = loader(a, npzpath)
+file = npzpath + n + '-csio.npy'
+
+a, b, c, d = csi_loader.load_npy(file)
+
+
+csi = pycsi.MyCsi(n, file)
+csi.load_lists(np.abs(a).swapaxes(1,3), np.angle(a).swapaxes(1,3), b)
 csi.data.show_shape()
-csi.data.view_all_rx()

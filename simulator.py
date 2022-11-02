@@ -1,3 +1,4 @@
+import pycsi
 import numpy as np
 import random
 import matplotlib.pyplot as plt
@@ -67,6 +68,15 @@ class GroundTruth:
             y = np.ma.masked_array(self.y, mask=np.isnan(self.y))
             curve = np.polyfit(x, y[x], 3)
             self.y = np.polyval(curve, self.x)
+            if self.category == 'aoa':
+                self.y[self.y > 180] = 180
+                self.y[self.y < -180] = -180
+            elif self.category == 'tof':
+                self.y[self.y > 1.e-7] = 1.e-7
+                self.y[self.y < 0] = 0
+            elif self.category == 'doppler':
+                self.y[self.y > 5] = 5
+                self.y[self.y < -5] = -5
 
             print("Interpolation completed!")
         except:
@@ -85,15 +95,16 @@ class GroundTruth:
                 plt.ylabel("Doppler Velocity / $m/s$")
 
             plt.plot(self.x, self.y)
-            plt.title(str(self.category))
+            plt.title("Ground Truth of " + str(self.category))
             plt.xlabel("#packet")
             plt.show()
         except:
             print("Plot failed!")
 
+
 class DataSimulator:
 
-    def __init__(self):
+    def __init__(self, length=10000, sampling_rate=3000):
         self.nrx = 3
         self.ntx = 1
         self.nsub = 30
@@ -102,8 +113,9 @@ class DataSimulator:
         self.dist_antenna = 0.0264
         self.bandwidth = 40e+06
         self.delta_subfreq = 3.125e+05
-        self.sampling_rate = 3000
-        self.length = 10000
+        self.length = length
+        self.sampling_rate = sampling_rate
+        self.timestamps = np.arange(0, self.length, self.sampling_rate).tolist()
         self.amp = None
         self.phase = None
         self.timestamps = None
@@ -132,19 +144,32 @@ class DataSimulator:
         except:
             print("Failed to add noise.")
 
-
     def apply_aoa(self, ground_truth):
-        try:
-            antenna_list = np.arange(0, self.nrx, 1.).reshape(-1, 1)
-            frame = np.exp(-2.j * np.pi * antenna_list * self.dist_antenna *
-                           np.sin(ground_truth * np.pi / 180) * self.center_freq / self.lightspeed)
-            csi = frame[np.newaxis, :, np.newaxis].repeat(
-                self.length, axis=0).repeat(self.nsub, axis=1).repeat(self.ntx, axis=3)
+
+        antenna_list = np.arange(0, self.nrx, 1.).reshape(-1, 1)
+
+        if ground_truth.length != self.length:
+            print("Length of ground truth", ground_truth.length, "does not match length", self.length, "!")
+
+        else:
+            if isinstance(ground_truth, GroundTruth):
+                csi = np.ones((self.length, self.nsub, self.nrx, self.ntx)) * (0 + 0.j)
+                for i, gt in enumerate(ground_truth.y):
+                    frame = np.exp(-2.j * np.pi * antenna_list * self.dist_antenna *
+                                   np.sin(gt * np.pi / 180) * self.center_freq / self.lightspeed)
+                    csi[i] = frame[np.newaxis, :].repeat(self.nsub, axis=0).repeat(self.ntx, axis=2)
+
+            else:
+                frame = np.exp(-2.j * np.pi * antenna_list * self.dist_antenna *
+                               np.sin(ground_truth * np.pi / 180) * self.center_freq / self.lightspeed)
+                csi = frame[np.newaxis, :, np.newaxis].repeat(
+                    self.length, axis=0).repeat(self.nsub, axis=1).repeat(self.ntx, axis=3)
+
             self.amp += np.abs(csi)
             self.phase += np.angle(csi)
-            print("AoA added! GT=", ground_truth)
-        except:
-            print("Failed to add AoA.")
+
+        print("AoA added!")
+        #print("Failed to add AoA.")
 
     def apply_tof(self, ground_truth):
         try:
@@ -158,10 +183,41 @@ class DataSimulator:
         except:
             print("Failed to add ToF.")
 
+    def apply_doppler(self, ground_truth):
+        try:
+            subcarrier_list = np.arange(-58, 62, 4)
+            frame = np.exp([-2.j * self.delta_subfreq * subcarrier_list * ground_truth]).reshape(1, -1)
+            csi = frame[np.newaxis, :, np.newaxis].repeat(
+                self.length, axis=0).repeat(self.nrx, axis=2).repeat(self.ntx, axis=3)
+            self.amp += np.abs(csi)
+            self.phase += np.angle(csi)
+            print("ToF added! GT=", ground_truth)
+        except:
+            print("Failed to add ToF.")
+
+    def derive_MyCsi(self, name):
+
+        _csi = pycsi.MyCsi(name)
+        _csi.load_lists(amp=self.amp, phase=self.phase, timelist=self.timestamps)
+        return _csi
+
 
 if __name__ == '__main__':
 
-    gt = GroundTruth('doppler')
-    gt.random_points(30)
-    gt.interpolate()
+    gt = GroundTruth('aoa')
+    gt.set_constant(-45, rd=False)
     gt.show()
+
+    gt2 = GroundTruth('aoa')
+    gt2.random_points(10)
+    gt2.interpolate()
+    gt2.show()
+
+    data = DataSimulator()
+    data.add_baseband()
+
+    data.apply_aoa(gt2)
+
+    simu = data.derive_MyCsi('MySimu')
+    simu.aoa_by_music()
+    simu.data.view_spectrum()

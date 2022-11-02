@@ -15,7 +15,7 @@ frames = sorted(os.listdir(impath), key=lambda x: eval(x[21:-4]))
 img = cv2.imread(os.path.join(impath, frames[0]))
 imgsize = (img.shape[1], img.shape[0])
 
-videoname = '1010A01_aoatof_1raw'
+videoname = '1010A30'
 videopath = os.path.join(videopath, videoname + '.avi')
 
 fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')

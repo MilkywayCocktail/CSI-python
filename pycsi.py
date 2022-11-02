@@ -95,8 +95,9 @@ class MyCsi(object):
 
                 self.data.amp = csi_amp
                 self.data.phase = csi_phase
-                self.data.timestamps = csi_data.timestamps
                 self.data.length = no_frames
+                self.data.timestamps = csi_data.timestamps
+                self.data.sampling_rate = self.data.length / self.data.timestamps[-1]
                 print(self.name, "raw load complete", time.asctime(time.localtime(time.time())))
 
             elif self.path[-3:] == "npz":
@@ -106,7 +107,7 @@ class MyCsi(object):
                 self.data.phase = csi_data['csi_phase']
                 self.data.length = len(csi_data['csi_timestamps'])
                 self.data.timestamps = csi_data['csi_timestamps']
-                self.data.sampling_rate = self.data.timestamps / self.data.length
+                self.data.sampling_rate = self.data.length / self.data.timestamps[-1]
                 print(self.name, "npz load complete", time.asctime(time.localtime(time.time())))
 
     def load_lists(self, amp, phase, timelist):
@@ -115,12 +116,14 @@ class MyCsi(object):
         :param amp: input amplitude
         :param phase: input phase
         :param timelist: input timestamps
-        :return: amplitude, phase, timestamps
+        :return: amplitude, phase, timestamps, length, sampling_rate
         """
 
         self.data.amp = amp
         self.data.phase = phase
         self.data.timestamps = timelist
+        self.data.length = len(self.data.amp)
+        self.data.sampling_rate = self.data.length / self.data.timestamps[-1]
 
     def load_spectrum(self, input_path=None):
         """
