@@ -202,7 +202,7 @@ pycsi.py
 # 1101
 
 pycsi.py
-- Added function: load_npy()
+- Added function: load_list()
 - Added parameter: self.data.sampling_rate
 - Added parameter: raw_timestamps to doppler_by_music(), aoa_doppler_by_music()
 - Modification: save_data(), save_spectrum(), changed save path
