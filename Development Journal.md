@@ -198,3 +198,15 @@ pycsi.py
 - Modification: aoa_by_music(), doppler_by_music(), aoa_tof_by_music(), aoa_doppler_by_music(), added -inf exception
 - Modification: doppler_by_music(), removed self-calibrate and resampling
 - Modification: doppler_by_music(), aoa_doppler_by_music(), modified delay_list
+
+# 1101
+
+pycsi.py
+- Added function: load_list()
+- Added parameter: self.data.sampling_rate
+- Added parameter: raw_timestamps to doppler_by_music(), aoa_doppler_by_music()
+- Modification: save_data(), save_spectrum(), changed save path
+
+myfunc.py
+- Modification: save_show_figure(), changed save path
+- Modification: PhaseCompare(), added recursive plotting support
