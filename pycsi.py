@@ -397,9 +397,9 @@ class MyCsi(object):
                     ax = sns.heatmap(spectrum)
                     label0, label1 = replace(self.timestamps, self.length, num_ticks)
 
-                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
-                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
+                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-240, -180, -120, -60, 0, 60, 120, 180]))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(60))
+                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(20))
                     plt.xticks(label0, label1)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
@@ -543,7 +543,7 @@ class MyCsi(object):
 
             return indices, labels
 
-    def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
+    def aoa_by_music(self, input_theta_list=np.arange(-180, 181, 1.), smooth=False):
         """
         Computes AoA spectrum by MUSIC.\n
         :param input_theta_list: list of angels, default = -90~90
