@@ -336,7 +336,7 @@ def dat2npy(filename, save_path):
 
 
 def load_npy(filename):
-    csilist, rssilist, noiselist, agclist, timelist, datetimelist = np.load(filename)
+    csilist, rssilist, noiselist, agclist, timelist, datetimelist = np.load(filename, allow_pickle=True)
     print("loaded")
     csilist = csilist[0] + 1.j * csilist[1]
     csilist = _get_scaled_csilist(csilist, rssilist, noiselist, agclist)

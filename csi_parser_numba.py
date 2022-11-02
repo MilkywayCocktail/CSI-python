@@ -229,7 +229,6 @@ def _read_bfee_multi(byte_list):
     return [_read_bfee(byte) for byte in byte_list]
 
 
-@jit
 def _read_bytes(filename):
     # Open file
     f = open(filename, 'rb')
