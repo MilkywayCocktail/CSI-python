@@ -1,50 +1,81 @@
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 
 class GroundTruth:
 
-    def __init__(self, length, category):
+    def __init__(self, category, length=10000):
         self.length = length
         self.category = category
-        self.ground_truth = np.zeros(self.length)
+        self.x = np.arange(self.length)
+        self.y = np.nan * self.length
 
-    def random_points(self, num_points=3, constant=False):
+    def random_points(self, num_points=3):
         try:
-            x = np.random.choice(self.length, num_points, replace=False)
+            x = random.sample(np.arange(self.length), num_points)
             if self.category == 'aoa':
-                y = np.random.choice(360, num_points)
+                y = random.choices(np.arange(-180, 180, 1), k=num_points)
             elif self.category == 'tof':
-                y = np.random.choice(1, num_points) * 1.e-7
+                y = random.choices(np.arange(0, 1.e-7, 5.e-10), k=num_points)
             elif self.category == 'doppler':
-                y = np.random.choice(10., num_points) - 5
+                y = random.choices(np.arange(-5, 5, 0.05), k=num_points)
 
-            if constant is True:
-                self.ground_truth = np.ones(self.length) * y[0]
-                print("Generated", self.category, "with constant value!")
-            else:
-                self.ground_truth[x] = y
-                print("Generated", self.category, "with", num_points, "points!")
+            self.y[x] = y
+            print("Generated", self.category, "with", num_points, "points!")
+
         except:
             print("Ground truth generation failed!")
 
-    def set_points(self, *args):
+    def set_points(self, pointlist):
         try:
             count = 0
-            for x, y  in args:
-                self.ground_truth[x] = y
+            for x, y in pointlist:
+                if self.category == 'aoa':
+                    y = y % 360
+                self.y[x] = y
                 count += 1
             print("Set", count, "points!")
         except:
             print("Point set failed!")
 
+    def set_constant(self, value, rd=True):
+        try:
+            if rd is True:
+                if self.category == 'aoa':
+                    y = random.choice(np.arange(-180, 180, 1))
+                elif self.category == 'tof':
+                    y = random.choice(np.arange(0, 1.e-7, 5.e-10))
+                elif self.category == 'doppler':
+                    y = random.choice(np.arange(-5, 5, 0.05))
+
+                self.y = np.ones(self.length) * y
+
+            else:
+                self.y = np.ones(self.length) * value
+
+            print("Generated", self.category, "with constant value!")
+        except:
+            print("Constant value set failed!")
+
     def interpolate(self):
         try:
-            f = interpolate.interp1d(np.arange(self.length), self.ground_truth, 'linear')
-            self.ground_truth = f()
+            curve = np.polyfit(self.x, self.y, 3)
+            yvals = np.polyval(curve, self.x)
+
+            print("Interpolation completed!")
+        except
+            print("Interpolation failed!")
 
     def show(self):
         try:
-            plt.plot(np.arange(self.length), self.ground_truth)
+            if self.category == 'aoa':
+                plt.ylim((-180, 180))
+            elif self.category == 'tof':
+                plt.ylim((0, 1.e-7))
+            elif self.category == 'doppler':
+                plt.ylim((-5, 5))
+
+            plt.plot(self.x, self.y)
             plt.title(str(self.category))
             plt.xlabel("#packet")
             plt.ylabel("Value")
@@ -119,3 +150,9 @@ class DataSimulator:
         except:
             print("Failed to add ToF.")
 
+
+if __name__ == '__main__':
+
+    gt = GroundTruth('aoa')
+    gt.random_points(10)
+    gt.show()
