@@ -424,7 +424,8 @@ class MyCsi(object):
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
                     ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
-                    plt.xticks([0, 20, 40, 60, 80, 100, 120, 140, 160], [0, 10, 20, 30, 40, 50, 60, 70, 80])
+                    plt.xticks([0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200],
+                               [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("ToF / $ns$")
                     ax.set_ylabel("AoA / $deg$")
@@ -699,7 +700,7 @@ class MyCsi(object):
             print(e)
 
     def aoa_tof_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
-                         input_time_list=np.arange(0, 8.e-8, 5.e-10),
+                         input_time_list=np.arange(0, 1.e-7, 5.e-10),
                          smooth=False):
         """
         Computes AoA-ToF spectrum by MUSIC.\n

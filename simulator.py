@@ -6,23 +6,32 @@ import matplotlib.pyplot as plt
 
 class GroundTruth:
 
-    def __init__(self, category, length=10000):
+    def __init__(self, length=10000):
         self.length = length
-        self.category = category
-        self.x = np.arange(self.length)
+        self.x = np.arange(self.length).tolist()
         self.y = [np.nan] * self.length
+        self.category = None
+        self.span = None
+        self.ylim = None
+        self.ylabel = None
+
+    @property
+    def aoa(self):
+        return _GTAoA(length=self.length)
+
+    @property
+    def tof(self):
+        return _GTToF(length=self.length)
+
+    @property
+    def doppler(self):
+        return _GTDoppler(length=self.length)
 
     def random_points(self, num_points=3):
 
         try:
-            x = random.sample(self.x.tolist(), num_points)
-            if self.category == 'aoa':
-                y = random.choices(np.arange(-180, 180, 1), k=num_points)
-            elif self.category == 'tof':
-                y = random.choices(np.arange(0, 1.e-7, 5.e-10), k=num_points)
-            elif self.category == 'doppler':
-                y = random.choices(np.arange(-5, 5, 0.05), k=num_points)
-
+            x = random.sample(self.x, num_points)
+            y = random.choices(self.span, k=num_points)
             for (index, value) in zip(x, y):
                 self.y[index] = value
 
@@ -36,7 +45,7 @@ class GroundTruth:
             count = 0
             for x, y in pointlist:
                 if self.category == 'aoa':
-                    y = y % 360
+                    y = (y + 180) % 360 - 180
                 self.y[x] = y
                 count += 1
             print("Set", count, "points!")
@@ -46,13 +55,7 @@ class GroundTruth:
     def set_constant(self, value, rd=True):
         try:
             if rd is True:
-                if self.category == 'aoa':
-                    y = random.choice(np.arange(-180, 180, 1))
-                elif self.category == 'tof':
-                    y = random.choice(np.arange(0, 1.e-7, 5.e-10))
-                elif self.category == 'doppler':
-                    y = random.choice(np.arange(-5, 5, 0.05))
-
+                y = random.choice(self.span)
                 self.y = np.ones(self.length) * y
 
             else:
@@ -68,15 +71,9 @@ class GroundTruth:
             y = np.ma.masked_array(self.y, mask=np.isnan(self.y))
             curve = np.polyfit(x, y[x], 3)
             self.y = np.polyval(curve, self.x)
-            if self.category == 'aoa':
-                self.y[self.y > 180] = 180
-                self.y[self.y < -180] = -180
-            elif self.category == 'tof':
-                self.y[self.y > 1.e-7] = 1.e-7
-                self.y[self.y < 0] = 0
-            elif self.category == 'doppler':
-                self.y[self.y > 5] = 5
-                self.y[self.y < -5] = -5
+
+            self.y[self.y > self.span[-1]] = self.span[-1]
+            self.y[self.y < self.span[0]] = self.span[0]
 
             print("Interpolation completed!")
         except:
@@ -84,22 +81,44 @@ class GroundTruth:
 
     def show(self):
         try:
-            if self.category == 'aoa':
-                plt.ylim((-181, 181))
-                plt.ylabel("AoA / $deg$")
-            elif self.category == 'tof':
-                plt.ylim((-5.e-8, 15.e-8))
-                plt.ylabel("ToF / $s$")
-            elif self.category == 'doppler':
-                plt.ylim((-5.05, 5.05))
-                plt.ylabel("Doppler Velocity / $m/s$")
 
             plt.plot(self.x, self.y)
-            plt.title("Ground Truth of " + str(self.category))
+            plt.ylim(self.ylim)
+            plt.ylabel(self.ylabel)
             plt.xlabel("#packet")
+            plt.title("Ground Truth of " + str(self.category))
             plt.show()
         except:
             print("Plot failed!")
+
+
+class _GTDoppler(GroundTruth):
+    def __init__(self, *args, **kwargs):
+        GroundTruth.__init__(self, *args, **kwargs)
+        self.category = 'Doppler'
+        self.span = np.arange(-5, 5.05, 0.05)
+        self.ylim = (-5.05, 5.05)
+        self.ylabel = "Doppler Velocity / $m/s$"
+
+
+class _GTAoA(GroundTruth):
+
+    def __init__(self, *args, **kwargs):
+        GroundTruth.__init__(self, *args, **kwargs)
+        self.category = 'AoA'
+        self.span = np.arange(-180, 181, 1)
+        self.ylim = (-181, 181)
+        self.ylabel = "AoA / $deg$"
+
+
+class _GTToF(GroundTruth):
+
+    def __init__(self, *args, **kwargs):
+        GroundTruth.__init__(self, *args, **kwargs)
+        self.category = 'ToF'
+        self.span = np.arange(0, 1.e-7, 5.e-10)
+        self.ylim = (-5.e-8, 15.e-8)
+        self.ylabel = ("ToF / $s$")
 
 
 class DataSimulator:
@@ -123,6 +142,9 @@ class DataSimulator:
     def set_params(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def phase_add(self, phases):
+        self.phase = np.rad2deg(np.angle(np.exp(1.j * phases) * np.exp(1.j * self.phase)))
 
     def add_baseband(self):
         try:
@@ -166,7 +188,7 @@ class DataSimulator:
                     self.length, axis=0).repeat(self.nsub, axis=1).repeat(self.ntx, axis=3)
 
             self.amp += np.abs(csi)
-            self.phase += np.angle(csi)
+            self.phase_add(csi)
 
         print("AoA added!")
         #print("Failed to add AoA.")
@@ -178,7 +200,7 @@ class DataSimulator:
             csi = frame[np.newaxis, :, np.newaxis].repeat(
                 self.length, axis=0).repeat(self.nrx, axis=2).repeat(self.ntx, axis=3)
             self.amp += np.abs(csi)
-            self.phase += np.angle(csi)
+            self.phase_add(csi)
             print("ToF added! GT=", ground_truth)
         except:
             print("Failed to add ToF.")
@@ -190,7 +212,7 @@ class DataSimulator:
             csi = frame[np.newaxis, :, np.newaxis].repeat(
                 self.length, axis=0).repeat(self.nrx, axis=2).repeat(self.ntx, axis=3)
             self.amp += np.abs(csi)
-            self.phase += np.angle(csi)
+            self.phase_add(csi)
             print("ToF added! GT=", ground_truth)
         except:
             print("Failed to add ToF.")
@@ -204,11 +226,11 @@ class DataSimulator:
 
 if __name__ == '__main__':
 
-    gt = GroundTruth('aoa')
+    gt = GroundTruth().aoa
     gt.set_constant(-45, rd=False)
     gt.show()
 
-    gt2 = GroundTruth('aoa')
+    gt2 = GroundTruth().aoa
     gt2.random_points(10)
     gt2.interpolate()
     gt2.show()
