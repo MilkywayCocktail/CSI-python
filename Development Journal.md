@@ -210,3 +210,18 @@ pycsi.py
 myfunc.py
 - Modification: save_show_figure(), changed save path
 - Modification: PhaseCompare(), added recursive plotting support
+
+# 1102
+
+simulator.py
+- Started drafting
+
+# 1104
+
+pycsi.py
+- Modification: aoa_by_music(), modified steering vector (Beta)
+- Added method: tof_by_music()
+- Added method: view_phase_diff()
+
+simulator.py
+- Modification: apply_aoa(), apply_tof, apply_doppler(), merged into apply_gt()
