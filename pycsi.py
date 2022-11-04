@@ -670,7 +670,7 @@ class MyCsi(object):
                                                   for sub_freq in subfreq_list[:15]])
                     else:
                         steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(aoa * torad) *
-                                                 antenna_list / lightspeed)
+                                                 antenna_list * center_freq / lightspeed)
 
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
