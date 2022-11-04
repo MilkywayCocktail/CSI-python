@@ -49,8 +49,6 @@ class MyCsi(object):
     def __init__(self, input_name='', path=None):
         self.name = str(input_name)
         self.path = path
-        self.data = self._Data(input_name)
-        self.commonfunc = self._CommonFunctions
 
         self.lightspeed = 299792458
         self.center_freq = 5.67e+09  # 5.67GHz
@@ -61,6 +59,9 @@ class MyCsi(object):
         self.nrx = 3
         self.ntx = 1
         self.nsub = 30
+
+        self.commonfunc = self._CommonFunctions
+        self.data = self._Data(input_name, self.nrx)
 
     def __str__(self):
         return 'MyCsi-' + self.name
@@ -210,8 +211,9 @@ class MyCsi(object):
             print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
 
     class _Data:
-        def __init__(self, input_name):
+        def __init__(self, input_name, input_nrx):
             self.name = input_name
+            self.nrx = input_nrx
             self.amp = None
             self.phase = None
             self.timestamps = None
@@ -327,6 +329,51 @@ class MyCsi(object):
                             self.amp[i] = self.amp[j]
                             self.phase[i] = self.phase[j]
 
+        def view_phase_diff(self, packet1=None, packet2=None, ref_antenna=None,
+                            autosave=False, notion='', folder_name=''):
+
+            if ref_antenna is None:
+                ref_antenna = np.argmax(self.show_antenna_strength())
+            if packet1 is None:
+                packet1 = np.random.randint(self.length)
+            if packet2 is None:
+                packet2 = np.random.randint(self.length)
+
+            antennas = list(range(self.nrx))
+            antennas.remove(int(ref_antenna))
+            recon = self.commonfunc.reconstruct_csi
+            csi = recon(self.amp, self.phase)
+            phase_diff = np.unwrap(np.angle(csi * csi[:, :, ref_antenna, :][:, :, np.newaxis, :].conj()), axis=1)
+
+            plt.title("Phase Difference of " + str(self.name))
+            plt.plot(phase_diff[packet1, :, antennas[0], 0],
+                     label='antenna' + str(antennas[0]) + '-' + str(ref_antenna) + ' #' + str(packet1), color='b')
+            plt.plot(phase_diff[packet1, :, antennas[1], 0],
+                     label='antenna' + str(antennas[1]) + '-' + str(ref_antenna) + ' #' + str(packet1), color='r')
+            plt.plot(phase_diff[packet2, :, antennas[0], 0],
+                     label='antenna' + str(antennas[0]) + '-' + str(ref_antenna) + ' #' + str(packet2), color='b',
+                     linestyle='--')
+            plt.plot(phase_diff[packet2, :, antennas[1], 0],
+                     label='antenna' + str(antennas[1]) + '-' + str(ref_antenna) + ' #' + str(packet2), color='r',
+                     linestyle='--')
+            plt.xlabel('#Subcarrier', loc='right')
+            plt.ylabel('PhaseDiff / $rad$')
+            plt.legend()
+
+            if autosave is True:
+                save_path = "../visualization/" + self.name[:4] + '/' + folder_name + '/'
+                if not os.path.exists(save_path):
+                    os.makedirs(save_path)
+                save_name = save_path + self.name[4:] + notion + '.png'
+                plt.savefig(save_name)
+                print(self.name, "saved as", save_name, time.asctime(time.localtime(time.time())))
+                plt.close()
+                return save_name
+
+            else:
+                plt.show()
+                return 'No saving'
+
         def view_all_rx(self, metric="amplitude"):
             """
             Plots csi amplitude OR phase for all antennas.\n
@@ -405,6 +452,17 @@ class MyCsi(object):
                     ax.set_xlabel("Time / $s$")
                     ax.set_ylabel("AoA / $deg$")
                     plt.title(self.name + " AoA Spectrum" + str(notion))
+
+                elif self.algorithm == '_tof':
+                    ax = sns.heatmap(spectrum)
+                    label0, label1 = replace(self.timestamps, self.length, num_ticks)
+
+                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]))
+                    plt.xticks(label0, label1)
+                    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+                    ax.set_xlabel("Time / $s$")
+                    ax.set_ylabel("ToF / $ns$")
+                    plt.title(self.name + " ToF Spectrum" + str(notion))
 
                 elif self.algorithm == '_doppler':
                     ax = sns.heatmap(spectrum)
@@ -517,7 +575,8 @@ class MyCsi(object):
             :param ntx: number of tx antenna, default is 1
             :return: noise space vectors
             """
-            input_csi = np.squeeze(input_csi)
+            if len(input_csi.shape) > 2:
+                input_csi = np.squeeze(input_csi)
             value, vector = np.linalg.eigh(input_csi.T.dot(np.conjugate(input_csi)))
             descend_order_index = np.argsort(-value)
             vector = vector[:, descend_order_index]
@@ -572,7 +631,7 @@ class MyCsi(object):
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase) + "\nPlease load data")
 
-            if smooth is not True and smooth is not False:
+            if smooth not in (True, False):
                 raise ArgError("smooth:" + str(smooth))
 
             # Replace -inf values with neighboring packets before computing
@@ -582,7 +641,7 @@ class MyCsi(object):
             # Subcarriers from -58 to 58, step = 4
             subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
                                      4 * delta_subfreq)
-            antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
+            antenna_list = np.arange(0, nrx, 1.)
 
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
@@ -602,8 +661,6 @@ class MyCsi(object):
                 csi = np.squeeze(recon(temp_amp, temp_phase))
                 noise_space = noise(csi, ntx)
 
-                # print(value[descend_order_index])
-
                 for j, aoa in enumerate(input_theta_list):
 
                     if smooth is True:
@@ -613,7 +670,7 @@ class MyCsi(object):
                                                   for sub_freq in subfreq_list[:15]])
                     else:
                         steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(aoa * torad) *
-                                                 antenna_list * center_freq / lightspeed)
+                                                 antenna_list / lightspeed)
 
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
@@ -626,6 +683,53 @@ class MyCsi(object):
             print(e)
         except ArgError as e:
             print(e, "\nPlease specify smooth=True or False")
+
+    def tof_by_music(self, input_dt_list=np.arange(0, 1.e-7, 5.e-10)):
+
+        mjtwopi = self.mjtwopi
+        delta_subfreq = self.delta_subfreq
+        center_freq = self.center_freq
+        ntx = self.ntx
+        recon = self.commonfunc.reconstruct_csi
+        noise = self.commonfunc.noise_space
+
+        print(self.name, "ToF by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
+
+        try:
+            if self.data.amp is None:
+                raise DataError("amplitude: " + str(self.data.amp) + "\nPlease load data")
+
+            if self.data.phase is None:
+                raise DataError("phase: " + str(self.data.phase) + "\nPlease load data")
+
+            # Replace -inf values with neighboring packets before computing
+            if self.data.remove_inf_values() == 'bad':
+                raise DataError("values: too many -inf values\nSample aborted")
+
+            subcarrier_list = np.arange(-58, 62, 4)
+            subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
+                                     4 * delta_subfreq)
+
+            spectrum = np.zeros((len(input_dt_list), self.data.length))
+
+            for i in range(self.data.length):
+
+                csi = np.squeeze(recon(self.data.amp[i], self.data.phase[i]))
+                noise_space = noise(csi.T, ntx)
+
+                for j, tof in enumerate(input_dt_list):
+
+                    steering_vector = np.exp([mjtwopi * subfreq_list * tof]).reshape(-1, 1)
+
+                    a_en = np.conjugate(steering_vector.T).dot(noise_space)
+                    spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
+
+            self.data.spectrum = np.log(spectrum)
+            self.data.algorithm = '_tof'
+            print(self.name, "ToF by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
+
+        except DataError as e:
+            print(e)
 
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05),
                          window_length=500,
@@ -665,7 +769,7 @@ class MyCsi(object):
             # Each window has ts of packets (1 / sampling_rate * window_length = t)
             delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) / self.data.sampling_rate
 
-            csi = recon(self.data.amp, self.data.phase)
+            csi = np.squeeze(recon(self.data.amp, self.data.phase))
 
             pick_antenna = np.argmin(self.data.show_antenna_strength())
 
@@ -700,12 +804,12 @@ class MyCsi(object):
             print(e)
 
     def aoa_tof_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
-                         input_time_list=np.arange(0, 1.e-7, 5.e-10),
+                         input_dt_list=np.arange(0, 1.e-7, 5.e-10),
                          smooth=False):
         """
         Computes AoA-ToF spectrum by MUSIC.\n
         :param input_theta_list:  list of angels, default = -90~90
-        :param input_time_list: list of time measurements, default = 0~8e-8
+        :param input_dt_list: list of time measurements, default = 0~8e-8
         :param smooth:  whether apply SpotFi smoothing or not, default = False
         :return:  AoA-ToF spectrum by MUSIC stored in self.data.spectrum
         """
@@ -731,7 +835,7 @@ class MyCsi(object):
             if self.data.phase is None:
                 raise DataError("phase: " + str(self.data.phase) + "\nPlease load data")
 
-            if smooth is not True and smooth is not False:
+            if smooth not in (True, False):
                 raise ArgError("smooth:" + str(smooth))
 
             # Replace -inf values with neighboring packets before computing
@@ -747,7 +851,7 @@ class MyCsi(object):
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
 
-            spectrum = np.zeros((self.data.length, len(input_theta_list), len(input_time_list)))
+            spectrum = np.zeros((self.data.length, len(input_theta_list), len(input_dt_list)))
 
             for i in range(self.data.length):
 
@@ -759,12 +863,12 @@ class MyCsi(object):
                     temp_amp = self.data.amp[i]
                     temp_phase = self.data.phase[i]
 
-                csi = recon(temp_amp, temp_phase).reshape(1, -1)  # nrx * nsub columns
+                csi = np.squeeze(recon(temp_amp, temp_phase).reshape(1, -1))  # nrx * nsub columns
                 noise_space = noise(csi.T, ntx)
 
                 for j, aoa in enumerate(input_theta_list):
 
-                    for k, tof in enumerate(input_time_list):
+                    for k, tof in enumerate(input_dt_list):
 
                         if smooth is True:
                             steering_vector = np.exp([mjtwopi * dist_antenna * np.sin(aoa * torad) *

@@ -8,7 +8,7 @@ class GroundTruth:
 
     def __init__(self, length=10000):
         self.length = length
-        self.x = np.arange(self.length).tolist()
+        self.x = np.arange(self.length)
         self.y = [np.nan] * self.length
         self.category = None
         self.span = None
@@ -30,9 +30,10 @@ class GroundTruth:
     def random_points(self, num_points=3):
 
         try:
-            x = random.sample(self.x, num_points)
+            x = random.sample(self.x.tolist(), num_points)
             y = random.choices(self.span, k=num_points)
             for (index, value) in zip(x, y):
+                print(index, value)
                 self.y[index] = value
 
             print("Generated", self.category, "with", num_points, "points!")
@@ -66,18 +67,18 @@ class GroundTruth:
             print("Constant value set failed!")
 
     def interpolate(self):
-        try:
-            x = self.x[~np.isnan(self.y)]
-            y = np.ma.masked_array(self.y, mask=np.isnan(self.y))
-            curve = np.polyfit(x, y[x], 3)
-            self.y = np.polyval(curve, self.x)
 
-            self.y[self.y > self.span[-1]] = self.span[-1]
-            self.y[self.y < self.span[0]] = self.span[0]
+        x = self.x[~np.isnan(self.y)]
+        y = np.ma.masked_array(self.y, mask=np.isnan(self.y))
+        curve = np.polyfit(x, y[x], 3)
+        self.y = np.polyval(curve, self.x)
 
-            print("Interpolation completed!")
-        except:
-            print("Interpolation failed!")
+        self.y[self.y > self.span[-1]] = self.span[-1]
+        self.y[self.y < self.span[0]] = self.span[0]
+
+        print("Interpolation completed!")
+
+        print("Interpolation failed!")
 
     def show(self):
         try:
@@ -90,15 +91,6 @@ class GroundTruth:
             plt.show()
         except:
             print("Plot failed!")
-
-
-class _GTDoppler(GroundTruth):
-    def __init__(self, *args, **kwargs):
-        GroundTruth.__init__(self, *args, **kwargs)
-        self.category = 'Doppler'
-        self.span = np.arange(-5, 5.05, 0.05)
-        self.ylim = (-5.05, 5.05)
-        self.ylabel = "Doppler Velocity / $m/s$"
 
 
 class _GTAoA(GroundTruth):
@@ -121,6 +113,15 @@ class _GTToF(GroundTruth):
         self.ylabel = ("ToF / $s$")
 
 
+class _GTDoppler(GroundTruth):
+    def __init__(self, *args, **kwargs):
+        GroundTruth.__init__(self, *args, **kwargs)
+        self.category = 'Doppler'
+        self.span = np.arange(-5, 5.05, 0.05)
+        self.ylim = (-5.05, 5.05)
+        self.ylabel = "Doppler Velocity / $m/s$"
+
+
 class DataSimulator:
 
     def __init__(self, length=10000, sampling_rate=3000):
@@ -134,7 +135,6 @@ class DataSimulator:
         self.delta_subfreq = 3.125e+05
         self.length = length
         self.sampling_rate = sampling_rate
-        self.timestamps = np.arange(0, self.length, self.sampling_rate).tolist()
         self.amp = None
         self.phase = None
         self.timestamps = None
@@ -166,56 +166,48 @@ class DataSimulator:
         except:
             print("Failed to add noise.")
 
-    def apply_aoa(self, ground_truth):
+    def apply_gt(self, ground_truth):
 
-        antenna_list = np.arange(0, self.nrx, 1.).reshape(-1, 1)
+        def apply_AoA():
 
-        if ground_truth.length != self.length:
+            antenna_list = np.arange(0, self.nrx, 1.).reshape(1, -1)
+            for i, gt in enumerate(ground_truth.y):
+                frame = np.squeeze(np.exp((-2.j * np.pi * self.dist_antenna * np.sin(
+                    gt * np.pi / 180) * subfreq_list / self.lightspeed).dot(antenna_list)))
+                csi[i] = frame[:, :, np.newaxis].repeat(self.ntx, axis=2)
+
+            return csi
+
+        def apply_ToF():
+            for i, gt in enumerate(ground_truth.y):
+                frame = np.squeeze(np.exp([-2.j * np.pi * subfreq_list * gt]))
+                csi[i] = frame[:, np.newaxis, np.newaxis].repeat(self.nrx, axis=1).repeat(self.ntx, axis=2)
+
+            return csi
+
+        def apply_Doppler():
+            for i, gt in enumerate(ground_truth.y):
+                frame = np.squeeze(np.exp([-2.j * np.pi * subfreq_list * gt * self.timestamps[i] / self.lightspeed]))
+                csi[i] = frame[:, np.newaxis, np.newaxis].repeat(self.nrx, axis=1).repeat(self.ntx, axis=2)
+
+            return csi
+
+        subfreq_list = np.arange(self.center_freq - 58 * self.delta_subfreq,
+                                 self.center_freq + 62 * self.delta_subfreq,
+                                 4 * self.delta_subfreq).reshape(-1, 1)
+        csi = np.ones((self.length, self.nsub, self.nrx, self.ntx)) * (0 + 0.j)
+
+        if not isinstance(ground_truth, GroundTruth):
+            print("Please first generate the ground truth!")
+
+        elif isinstance(ground_truth, GroundTruth) and ground_truth.length != self.length:
             print("Length of ground truth", ground_truth.length, "does not match length", self.length, "!")
 
         else:
-            if isinstance(ground_truth, GroundTruth):
-                csi = np.ones((self.length, self.nsub, self.nrx, self.ntx)) * (0 + 0.j)
-                for i, gt in enumerate(ground_truth.y):
-                    frame = np.exp(-2.j * np.pi * antenna_list * self.dist_antenna *
-                                   np.sin(gt * np.pi / 180) * self.center_freq / self.lightspeed)
-                    csi[i] = frame[np.newaxis, :].repeat(self.nsub, axis=0).repeat(self.ntx, axis=2)
-
-            else:
-                frame = np.exp(-2.j * np.pi * antenna_list * self.dist_antenna *
-                               np.sin(ground_truth * np.pi / 180) * self.center_freq / self.lightspeed)
-                csi = frame[np.newaxis, :, np.newaxis].repeat(
-                    self.length, axis=0).repeat(self.nsub, axis=1).repeat(self.ntx, axis=3)
-
+            csi = eval('apply_' + ground_truth.category + '()')
+            print(csi.shape)
             self.amp += np.abs(csi)
             self.phase_add(csi)
-
-        print("AoA added!")
-        #print("Failed to add AoA.")
-
-    def apply_tof(self, ground_truth):
-        try:
-            subcarrier_list = np.arange(-58, 62, 4)
-            frame = np.exp([-2.j * self.delta_subfreq * subcarrier_list * ground_truth]).reshape(1, -1)
-            csi = frame[np.newaxis, :, np.newaxis].repeat(
-                self.length, axis=0).repeat(self.nrx, axis=2).repeat(self.ntx, axis=3)
-            self.amp += np.abs(csi)
-            self.phase_add(csi)
-            print("ToF added! GT=", ground_truth)
-        except:
-            print("Failed to add ToF.")
-
-    def apply_doppler(self, ground_truth):
-        try:
-            subcarrier_list = np.arange(-58, 62, 4)
-            frame = np.exp([-2.j * self.delta_subfreq * subcarrier_list * ground_truth]).reshape(1, -1)
-            csi = frame[np.newaxis, :, np.newaxis].repeat(
-                self.length, axis=0).repeat(self.nrx, axis=2).repeat(self.ntx, axis=3)
-            self.amp += np.abs(csi)
-            self.phase_add(csi)
-            print("ToF added! GT=", ground_truth)
-        except:
-            print("Failed to add ToF.")
 
     def derive_MyCsi(self, name):
 
@@ -226,10 +218,6 @@ class DataSimulator:
 
 if __name__ == '__main__':
 
-    gt = GroundTruth().aoa
-    gt.set_constant(-45, rd=False)
-    gt.show()
-
     gt2 = GroundTruth().aoa
     gt2.random_points(10)
     gt2.interpolate()
@@ -237,9 +225,9 @@ if __name__ == '__main__':
 
     data = DataSimulator()
     data.add_baseband()
-
-    data.apply_aoa(gt2)
+    data.apply_gt(gt2)
 
     simu = data.derive_MyCsi('MySimu')
+    simu.data.view_phase_diff()
     simu.aoa_by_music()
     simu.data.view_spectrum()
