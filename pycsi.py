@@ -511,8 +511,7 @@ class MyCsi(object):
                     return "No saving"
 
                 elif autosave is True:
-                    save_path = os.getcwd().replace('\\', '/') + "/visualization/" + self.name[:4] + '/' + str(
-                        folder_name) + '/'
+                    save_path = "../visualization/" + self.name[:4] + '/' + str(folder_name) + '/'
 
                     if not os.path.exists(save_path):
                         os.mkdir(save_path)
