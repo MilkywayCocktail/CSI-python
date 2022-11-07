@@ -218,24 +218,24 @@ class DataSimulator:
 
 if __name__ == '__main__':
 
-    gt1 = GroundTruth(length=100).aoa
+    gt1 = GroundTruth(length=1000).aoa
     gt1.random_points(3)
     gt1.interpolate()
     gt1.show()
 
-    gt2 = GroundTruth(length=100).tof
+    gt2 = GroundTruth(length=1000).doppler
     gt2.random_points(3)
     gt2.interpolate()
     gt2.show()
 
-    data = DataSimulator(length=100)
+    data = DataSimulator(length=1000)
     data.add_baseband()
     data.apply_gt(gt1)
     data.apply_gt(gt2)
 
-    simu = data.derive_MyCsi('MySimu')
+    simu = data.derive_MyCsi('GT10')
     simu.data.view_phase_diff()
-    simu.aoa_tof_by_music()
+    simu.aoa_doppler_by_music(window_length=100,stride=10)
     simu.data.view_spectrum()
     for i, spectrum in enumerate(simu.data.spectrum):
         simu.data.view_spectrum(sid=i, autosave=True, notion='_' + str(i))

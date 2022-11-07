@@ -947,10 +947,10 @@ class MyCsi(object):
             for i in range((self.data.length - window_length) // stride):
 
                 csi_windowed = csi[i * stride: i * stride + window_length, :, :]
-                csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub, nrx)
+                csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0)
 
                 csi_dynamic = csi_dynamic.swapaxes(1, 2).reshape(window_length * nrx, nsub)
-                noise_space = noise(csi_dynamic, ntx)
+                noise_space = noise(csi_dynamic.T, ntx)
 
                 if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
