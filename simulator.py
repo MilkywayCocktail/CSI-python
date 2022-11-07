@@ -78,7 +78,7 @@ class GroundTruth:
 
         print("Interpolation completed!")
 
-        print("Interpolation failed!")
+        # print("Interpolation failed!")
 
     def show(self):
         try:
@@ -109,8 +109,8 @@ class _GTToF(GroundTruth):
         GroundTruth.__init__(self, *args, **kwargs)
         self.category = 'ToF'
         self.span = np.arange(0, 1.e-7, 5.e-10)
-        self.ylim = (-5.e-8, 15.e-8)
-        self.ylabel = ("ToF / $s$")
+        self.ylim = (0, 1.e-7)
+        self.ylabel = "ToF / $s$"
 
 
 class _GTDoppler(GroundTruth):
@@ -130,21 +130,21 @@ class DataSimulator:
         self.nsub = 30
         self.center_freq = 5.67e+09
         self.lightspeed = 299792458
-        self.dist_antenna = 0.0264
+        self.dist_antenna = self.lightspeed / self.center_freq / 2.
         self.bandwidth = 40e+06
         self.delta_subfreq = 3.125e+05
         self.length = length
         self.sampling_rate = sampling_rate
         self.amp = None
         self.phase = None
-        self.timestamps = None
+        self.timestamps = np.arange(0, self.length, self.sampling_rate)
 
     def set_params(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
     def phase_add(self, phases):
-        self.phase = np.rad2deg(np.angle(np.exp(1.j * phases) * np.exp(1.j * self.phase)))
+        self.phase = np.angle(np.exp(1.j * (np.angle(phases) + self.phase)))
 
     def add_baseband(self):
         try:
@@ -218,16 +218,25 @@ class DataSimulator:
 
 if __name__ == '__main__':
 
-    gt2 = GroundTruth().aoa
-    gt2.random_points(10)
+    gt1 = GroundTruth(length=100).aoa
+    gt1.random_points(3)
+    gt1.interpolate()
+    gt1.show()
+
+    gt2 = GroundTruth(length=100).tof
+    gt2.random_points(3)
     gt2.interpolate()
     gt2.show()
 
-    data = DataSimulator()
+    data = DataSimulator(length=100)
     data.add_baseband()
+    data.apply_gt(gt1)
     data.apply_gt(gt2)
 
     simu = data.derive_MyCsi('MySimu')
     simu.data.view_phase_diff()
-    simu.aoa_by_music()
+    simu.aoa_tof_by_music()
     simu.data.view_spectrum()
+    for i, spectrum in enumerate(simu.data.spectrum):
+        simu.data.view_spectrum(sid=i, autosave=True, notion='_' + str(i))
+

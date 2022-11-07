@@ -1,6 +1,3 @@
-# Draft by CAO
-# Last edit: 2022-10-31
-
 from CSIKit.reader import get_reader
 from CSIKit.util import csitools
 from CSIKit.tools.batch_graph import BatchGraph
@@ -457,7 +454,9 @@ class MyCsi(object):
                     ax = sns.heatmap(spectrum)
                     label0, label1 = replace(self.timestamps, self.length, num_ticks)
 
-                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]))
+                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-20, 0, 20, 40, 60, 80, 100]))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(40))
+                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
                     plt.xticks(label0, label1)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
@@ -512,8 +511,7 @@ class MyCsi(object):
                     return "No saving"
 
                 elif autosave is True:
-                    save_path = os.getcwd().replace('\\', '/') + "/visualization/" + self.name[:4] + '/' + str(
-                        folder_name) + '/'
+                    save_path = "../visualization/" + self.name[:4] + '/' + str(folder_name) + '/'
 
                     if not os.path.exists(save_path):
                         os.mkdir(save_path)
@@ -734,7 +732,7 @@ class MyCsi(object):
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05),
                          window_length=500,
                          stride=500,
-                         raw_timestamps = False):
+                         raw_timestamps=False):
         """
         Computes Doppler spectrum by MUSIC.\n
         Involves self-calibration, windowed dynamic component extraction and resampling (if specified).\n
@@ -774,13 +772,14 @@ class MyCsi(object):
             pick_antenna = np.argmin(self.data.show_antenna_strength())
 
             spectrum = np.zeros((len(input_velocity_list), (self.data.length - window_length) // stride))
+            temp_timestamps = np.zeros((self.data.length - window_length) // stride)
 
             # Using windowed dynamic extraction
             for i in range((self.data.length - window_length) // stride):
 
-                csi_windowed = csi[i * stride: i * stride + window_length, :, :]
-                csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub, nrx)
-                noise_space = noise(csi_dynamic[:, :, pick_antenna], ntx)
+                csi_windowed = csi[i * stride: i * stride + window_length, :, pick_antenna]
+                csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub)
+                noise_space = noise(csi_dynamic.T, ntx)
 
                 if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
@@ -794,9 +793,11 @@ class MyCsi(object):
                     a_en = np.conjugate(steering_vector.T).dot(noise_space)
                     spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
 
+                temp_timestamps[i] = self.data.timestamps[i * stride]
+
             self.data.spectrum = np.log(spectrum)
             self.data.algorithm = '_doppler'
-            self.data.xlabels = self.data.timestamps[np.arange(0, self.data.length - window_length, stride)]
+            self.data.xlabels = temp_timestamps
 
             print(self.name, "Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
@@ -863,8 +864,8 @@ class MyCsi(object):
                     temp_amp = self.data.amp[i]
                     temp_phase = self.data.phase[i]
 
-                csi = np.squeeze(recon(temp_amp, temp_phase).reshape(1, -1))  # nrx * nsub columns
-                noise_space = noise(csi.T, ntx)
+                csi = np.squeeze(recon(temp_amp, temp_phase)).reshape(1, -1)  # nrx * nsub columns
+                noise_space = noise(csi, ntx)
 
                 for j, aoa in enumerate(input_theta_list):
 
