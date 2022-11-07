@@ -33,7 +33,6 @@ class GroundTruth:
             x = random.sample(self.x.tolist(), num_points)
             y = random.choices(self.span, k=num_points)
             for (index, value) in zip(x, y):
-                print(index, value)
                 self.y[index] = value
 
             print("Generated", self.category, "with", num_points, "points!")
@@ -137,7 +136,11 @@ class DataSimulator:
         self.sampling_rate = sampling_rate
         self.amp = None
         self.phase = None
-        self.timestamps = np.arange(0, self.length, self.sampling_rate)
+        self.csi = None
+        self.timestamps = np.arange(0, self.length, 1.) / self.sampling_rate
+        self.subfreq_list = np.arange(self.center_freq - 58 * self.delta_subfreq,
+                                      self.center_freq + 62 * self.delta_subfreq,
+                                      4 * self.delta_subfreq).reshape(-1, 1)
 
     def set_params(self, **kwargs):
         for k, v in kwargs.items():
@@ -149,8 +152,9 @@ class DataSimulator:
     def add_baseband(self):
         try:
             self.amp = np.ones((self.length, self.nsub, self.nrx, self.ntx))
-            self.phase = np.zeros((self.length, self.nsub, self.nrx, self.ntx))
             self.timestamps = np.arange(0, self.length) / self.sampling_rate
+            self.phase = np.zeros((self.length, self.nsub, self.nrx, self.ntx))
+            self.csi = self.amp * np.exp(1.j * self.phase)
             print("Baseband established!")
         except:
             print("Failed to establish baseband.")
@@ -173,28 +177,26 @@ class DataSimulator:
             antenna_list = np.arange(0, self.nrx, 1.).reshape(1, -1)
             for i, gt in enumerate(ground_truth.y):
                 frame = np.squeeze(np.exp((-2.j * np.pi * self.dist_antenna * np.sin(
-                    gt * np.pi / 180) * subfreq_list / self.lightspeed).dot(antenna_list)))
+                    gt * np.pi / 180) * self.subfreq_list / self.lightspeed).dot(antenna_list)))
                 csi[i] = frame[:, :, np.newaxis].repeat(self.ntx, axis=2)
 
             return csi
 
         def apply_ToF():
             for i, gt in enumerate(ground_truth.y):
-                frame = np.squeeze(np.exp([-2.j * np.pi * subfreq_list * gt]))
+                frame = np.squeeze(np.exp([-2.j * np.pi * self.subfreq_list * gt]))
                 csi[i] = frame[:, np.newaxis, np.newaxis].repeat(self.nrx, axis=1).repeat(self.ntx, axis=2)
 
             return csi
 
         def apply_Doppler():
             for i, gt in enumerate(ground_truth.y):
-                frame = np.squeeze(np.exp([-2.j * np.pi * subfreq_list * gt * self.timestamps[i] / self.lightspeed]))
+                frame = np.squeeze(np.exp([-2.j * np.pi * self.subfreq_list *
+                                           gt / self.lightspeed / self.sampling_rate]))
                 csi[i] = frame[:, np.newaxis, np.newaxis].repeat(self.nrx, axis=1).repeat(self.ntx, axis=2)
 
             return csi
 
-        subfreq_list = np.arange(self.center_freq - 58 * self.delta_subfreq,
-                                 self.center_freq + 62 * self.delta_subfreq,
-                                 4 * self.delta_subfreq).reshape(-1, 1)
         csi = np.ones((self.length, self.nsub, self.nrx, self.ntx)) * (0 + 0.j)
 
         if not isinstance(ground_truth, GroundTruth):
@@ -205,7 +207,6 @@ class DataSimulator:
 
         else:
             csi = eval('apply_' + ground_truth.category + '()')
-            print(csi.shape)
             self.amp += np.abs(csi)
             self.phase_add(csi)
 
@@ -218,25 +219,30 @@ class DataSimulator:
 
 if __name__ == '__main__':
 
-    gt1 = GroundTruth(length=1000).aoa
-    gt1.random_points(3)
+    gt1 = GroundTruth(length=10000).tof
+    gt1.random_points(10)
     gt1.interpolate()
     gt1.show()
 
-    gt2 = GroundTruth(length=1000).doppler
-    gt2.random_points(3)
-    gt2.interpolate()
-    gt2.show()
+#    gt2 = GroundTruth(length=1000).doppler
+#    gt2.random_points(3)
+#    gt2.interpolate()
+#    gt2.show()
 
-    data = DataSimulator(length=1000)
+    data = DataSimulator(length=10000)
     data.add_baseband()
+    #data.add_noise()
     data.apply_gt(gt1)
-    data.apply_gt(gt2)
+    #    data.apply_gt(gt2)
 
-    simu = data.derive_MyCsi('GT10')
-    simu.data.view_phase_diff()
-    simu.aoa_doppler_by_music(window_length=100,stride=10)
-    simu.data.view_spectrum()
-    for i, spectrum in enumerate(simu.data.spectrum):
-        simu.data.view_spectrum(sid=i, autosave=True, notion='_' + str(i))
+    simu = data.derive_MyCsi('GT15')
+    plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
+    plt.show()
+    #simu.data.view_phase_diff()
+    simu.tof_by_music()
+    #simu.doppler_by_music(window_length=100, stride=10, raw_timestamps=True, raw_window=True)
+    simu.data.view_spectrum(threshold=40)
+
+#    for i, spectrum in enumerate(simu.data.spectrum):
+#        simu.data.view_spectrum(sid=i, autosave=True, notion='_' + str(i))
 

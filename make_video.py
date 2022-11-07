@@ -1,7 +1,7 @@
 import cv2
 import os
 
-impath = '../visualization/1105/MySi'
+impath = '../visualization/GT10'
 
 videopath = '../visualization/1105'
 
@@ -10,12 +10,12 @@ if not os.path.exists(videopath):
 
 fps = 20
 
-frames = sorted(os.listdir(impath), key=lambda x: eval(x[10:-4]))
+frames = sorted(os.listdir(impath), key=lambda x: eval(x[12:-4]))
 
 img = cv2.imread(os.path.join(impath, frames[0]))
 imgsize = (img.shape[1], img.shape[0])
 
-videoname = 'GT9'
+videoname = 'GT10'
 videopath = os.path.join(videopath, videoname + '.avi')
 
 fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')

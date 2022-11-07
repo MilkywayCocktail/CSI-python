@@ -638,12 +638,13 @@ class MyCsi(object):
 
             # Subcarriers from -58 to 58, step = 4
             subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
-                                     4 * delta_subfreq)
-            antenna_list = np.arange(0, nrx, 1.)
+                                     4 * delta_subfreq).reshape(-1, 1)
+            antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
 
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
 
+            input_theta_list = np.resize(input_theta_list, (len(input_theta_list), 1))
             spectrum = np.zeros((len(input_theta_list), self.data.length))
 
             for i in range(self.data.length):
@@ -659,19 +660,17 @@ class MyCsi(object):
                 csi = np.squeeze(recon(temp_amp, temp_phase))
                 noise_space = noise(csi, ntx)
 
-                for j, aoa in enumerate(input_theta_list):
+                if smooth is True:
+                    steering_vector = np.exp([mjtwopi * dist_antenna * (np.sin(input_theta_list * torad) *
+                                              no_antenna).dot(sub_freq) / lightspeed
+                                              for no_antenna in antenna_list[:2]
+                                              for sub_freq in subfreq_list[:15]])
+                else:
+                    steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(input_theta_list * torad).dot(
+                                                antenna_list.T) * center_freq / lightspeed)
 
-                    if smooth is True:
-                        steering_vector = np.exp([mjtwopi * dist_antenna * np.sin(aoa * torad) *
-                                                  no_antenna * sub_freq / lightspeed
-                                                  for no_antenna in antenna_list[:2]
-                                                  for sub_freq in subfreq_list[:15]])
-                    else:
-                        steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(aoa * torad) *
-                                                 antenna_list * center_freq / lightspeed)
-
-                    a_en = np.conjugate(steering_vector.T).dot(noise_space)
-                    spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
+                a_en = steering_vector.conj().dot(noise_space)
+                spectrum[:, i] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
             self.data.spectrum = np.log(spectrum)
             self.data.algorithm = '_aoa'
@@ -706,8 +705,8 @@ class MyCsi(object):
 
             subcarrier_list = np.arange(-58, 62, 4)
             subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
-                                     4 * delta_subfreq)
-
+                                     4 * delta_subfreq).reshape(-1, 1)
+            input_dt_list = np.resize(input_dt_list, (len(input_dt_list), 1))
             spectrum = np.zeros((len(input_dt_list), self.data.length))
 
             for i in range(self.data.length):
@@ -715,12 +714,10 @@ class MyCsi(object):
                 csi = np.squeeze(recon(self.data.amp[i], self.data.phase[i]))
                 noise_space = noise(csi.T, ntx)
 
-                for j, tof in enumerate(input_dt_list):
+                steering_vector = np.exp(mjtwopi * input_dt_list.dot(subfreq_list.T))
 
-                    steering_vector = np.exp([mjtwopi * subfreq_list * tof]).reshape(-1, 1)
-
-                    a_en = np.conjugate(steering_vector.T).dot(noise_space)
-                    spectrum[j, i] = 1. / np.absolute(a_en.dot(np.conjugate(a_en.T)))
+                a_en = steering_vector.conj().dot(noise_space)
+                spectrum[:, i] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
             self.data.spectrum = np.log(spectrum)
             self.data.algorithm = '_tof'
@@ -732,7 +729,8 @@ class MyCsi(object):
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05),
                          window_length=500,
                          stride=500,
-                         raw_timestamps=False):
+                         raw_timestamps=False,
+                         raw_window=False):
         """
         Computes Doppler spectrum by MUSIC.\n
         Involves self-calibration, windowed dynamic component extraction and resampling (if specified).\n
@@ -740,6 +738,7 @@ class MyCsi(object):
         :param window_length: window length for each step
         :param stride: stride for each step
         :param raw_timestamps: whether use original timestamps. Default is False
+        :param raw_window: whether skip extracting dynamic CSI. Default is False
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
         lightspeed = self.lightspeed
@@ -778,8 +777,11 @@ class MyCsi(object):
             for i in range((self.data.length - window_length) // stride):
 
                 csi_windowed = csi[i * stride: i * stride + window_length, :, pick_antenna]
-                csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0).reshape(1, nsub)
-                noise_space = noise(csi_dynamic.T, ntx)
+
+                if raw_window is True:
+                    noise_space = noise(csi_windowed.T, ntx)
+                else:
+                    noise_space = noise((csi_windowed - np.mean(csi_windowed, axis=0)).T, ntx)
 
                 if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
