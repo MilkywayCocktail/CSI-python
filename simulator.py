@@ -184,15 +184,15 @@ class DataSimulator:
 
         def apply_ToF():
             for i, gt in enumerate(ground_truth.y):
-                frame = np.squeeze(np.exp([-2.j * np.pi * self.subfreq_list * gt]))
+                frame = np.squeeze(np.exp(-2.j * np.pi * self.subfreq_list * gt))
                 csi[i] = frame[:, np.newaxis, np.newaxis].repeat(self.nrx, axis=1).repeat(self.ntx, axis=2)
 
             return csi
 
         def apply_Doppler():
             for i, gt in enumerate(ground_truth.y):
-                frame = np.squeeze(np.exp([-2.j * np.pi * self.subfreq_list *
-                                           gt / self.lightspeed / self.sampling_rate]))
+                frame = np.squeeze(np.exp(-2.j * np.pi * self.subfreq_list *
+                                          gt / self.lightspeed / self.sampling_rate))
                 csi[i] = frame[:, np.newaxis, np.newaxis].repeat(self.nrx, axis=1).repeat(self.ntx, axis=2)
 
             return csi
@@ -219,7 +219,7 @@ class DataSimulator:
 
 if __name__ == '__main__':
 
-    gt1 = GroundTruth(length=10000).tof
+    gt1 = GroundTruth(length=10000).doppler
     gt1.random_points(10)
     gt1.interpolate()
     gt1.show()
@@ -239,8 +239,7 @@ if __name__ == '__main__':
     plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
     plt.show()
     #simu.data.view_phase_diff()
-    simu.tof_by_music()
-    #simu.doppler_by_music(window_length=100, stride=10, raw_timestamps=True, raw_window=True)
+    simu.doppler_by_music(window_length=1, stride=1, raw_timestamps=True, raw_window=False)
     simu.data.view_spectrum(threshold=40)
 
 #    for i, spectrum in enumerate(simu.data.spectrum):
