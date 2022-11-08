@@ -52,7 +52,7 @@ class GroundTruth:
         except:
             print("Point set failed!")
 
-    def set_constant(self, value, rd=True):
+    def set_constant(self, value=0, rd=True):
         try:
             if rd is True:
                 y = random.choice(self.span)
@@ -65,11 +65,11 @@ class GroundTruth:
         except:
             print("Constant value set failed!")
 
-    def interpolate(self):
+    def interpolate(self, order=3):
 
         x = self.x[~np.isnan(self.y)]
         y = np.ma.masked_array(self.y, mask=np.isnan(self.y))
-        curve = np.polyfit(x, y[x], 3)
+        curve = np.polyfit(x, y[x], order)
         self.y = np.polyval(curve, self.x)
 
         self.y[self.y > self.span[-1]] = self.span[-1]
@@ -146,9 +146,6 @@ class DataSimulator:
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def phase_add(self, phases):
-        self.phase = np.angle(np.exp(1.j * (np.angle(phases) + self.phase)))
-
     def add_baseband(self):
         try:
             self.amp = np.ones((self.length, self.nsub, self.nrx, self.ntx))
@@ -192,10 +189,15 @@ class DataSimulator:
         def apply_Doppler():
 
             for i, gt in enumerate(ground_truth.y):
+
                 frame = np.squeeze(np.exp(-2.j * np.pi * self.subfreq_list *
                                           gt / self.lightspeed / self.sampling_rate))
-                if i < self.length - 1:
-                    csi[i+1] = csi[i] + frame[:, np.newaxis, np.newaxis].repeat(
+
+                if i > 0:
+                    csi[i] = csi[i - 1] * frame[:, np.newaxis, np.newaxis].repeat(
+                        self.nrx, axis=1).repeat(self.ntx, axis=2)
+                else:
+                    csi[i] = frame[:, np.newaxis, np.newaxis].repeat(
                         self.nrx, axis=1).repeat(self.ntx, axis=2)
 
             return csi
@@ -211,7 +213,7 @@ class DataSimulator:
         else:
             csi = eval('apply_' + ground_truth.category + '()')
             self.amp += np.abs(csi)
-            self.phase_add(csi)
+            self.phase += np.angle(csi)
 
     def derive_MyCsi(self, name):
 
@@ -224,7 +226,7 @@ if __name__ == '__main__':
 
     gt1 = GroundTruth(length=10000).doppler
     gt1.random_points(10)
-    gt1.interpolate()
+    gt1.interpolate(5)
     gt1.show()
 
 #    gt2 = GroundTruth(length=1000).doppler
@@ -238,12 +240,12 @@ if __name__ == '__main__':
     data.apply_gt(gt1)
     #    data.apply_gt(gt2)
 
-    simu = data.derive_MyCsi('GT2')
+    simu = data.derive_MyCsi('GT11')
     plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
     plt.show()
     #simu.data.view_phase_diff()
     simu.doppler_by_music(window_length=100, stride=100, raw_timestamps=False, raw_window=False)
-    simu.data.view_spectrum(threshold=40)
+    simu.data.view_spectrum(threshold=10)
 
 #    for i, spectrum in enumerate(simu.data.spectrum):
 #        simu.data.view_spectrum(sid=i, autosave=True, notion='_' + str(i))
