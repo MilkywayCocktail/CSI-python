@@ -236,3 +236,8 @@ pycsi.py
 simulator.py
 - Modification: apply_Doppler(), corrected method
 - Modification: DataSimulator, corrected self.timestamps
+
+# 1108
+
+simulator.py
+- Bugfix: apply_Doppler(), corrected mothod
