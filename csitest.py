@@ -58,7 +58,7 @@ class MyTest(object):
         :return: csi data loaded into MyCsi object
         """
         if input_path is None:
-            filepath = "npsave/" + input_name[:4] + '/csi/' + input_name + "-csis.npz"
+            filepath = "../npsave/" + input_name[:4] + '/csi/' + input_name + "-csis.npz"
         else:
             filepath = input_path + input_name + "-csis.npz"
 

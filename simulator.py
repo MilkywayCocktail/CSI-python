@@ -190,10 +190,13 @@ class DataSimulator:
             return csi
 
         def apply_Doppler():
+
             for i, gt in enumerate(ground_truth.y):
                 frame = np.squeeze(np.exp(-2.j * np.pi * self.subfreq_list *
                                           gt / self.lightspeed / self.sampling_rate))
-                csi[i] = frame[:, np.newaxis, np.newaxis].repeat(self.nrx, axis=1).repeat(self.ntx, axis=2)
+                if i < self.length - 1:
+                    csi[i+1] = csi[i] + frame[:, np.newaxis, np.newaxis].repeat(
+                        self.nrx, axis=1).repeat(self.ntx, axis=2)
 
             return csi
 
@@ -235,11 +238,11 @@ if __name__ == '__main__':
     data.apply_gt(gt1)
     #    data.apply_gt(gt2)
 
-    simu = data.derive_MyCsi('GT15')
+    simu = data.derive_MyCsi('GT2')
     plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
     plt.show()
     #simu.data.view_phase_diff()
-    simu.doppler_by_music(window_length=1, stride=1, raw_timestamps=True, raw_window=False)
+    simu.doppler_by_music(window_length=100, stride=100, raw_timestamps=False, raw_window=False)
     simu.data.view_spectrum(threshold=40)
 
 #    for i, spectrum in enumerate(simu.data.spectrum):
