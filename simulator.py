@@ -167,7 +167,7 @@ class DataSimulator:
         except:
             print("Failed to add noise.")
 
-    def apply_gt(self, ground_truth):
+    def apply_gt(self, *args):
 
         def apply_AoA():
 
@@ -204,16 +204,17 @@ class DataSimulator:
 
         csi = np.ones((self.length, self.nsub, self.nrx, self.ntx)) * (0 + 0.j)
 
-        if not isinstance(ground_truth, GroundTruth):
-            print("Please first generate the ground truth!")
+        for ground_truth in args:
+            if not isinstance(ground_truth, GroundTruth):
+                print("Please first generate the GroundTruth object!")
 
-        elif isinstance(ground_truth, GroundTruth) and ground_truth.length != self.length:
-            print("Length of ground truth", ground_truth.length, "does not match length", self.length, "!")
+            elif isinstance(ground_truth, GroundTruth) and ground_truth.length != self.length:
+                print("Length of ground truth", ground_truth.length, "does not match length", self.length, "!")
 
-        else:
-            csi = eval('apply_' + ground_truth.category + '()')
-            self.amp += np.abs(csi)
-            self.phase += np.angle(csi)
+            else:
+                csi = eval('apply_' + ground_truth.category + '()')
+                self.amp += np.abs(csi)
+                self.phase += np.angle(csi)
 
     def derive_MyCsi(self, name):
 
@@ -224,29 +225,28 @@ class DataSimulator:
 
 if __name__ == '__main__':
 
-    gt1 = GroundTruth(length=10000).doppler
+    gt1 = GroundTruth(length=10000).aoa
     gt1.random_points(10)
     gt1.interpolate(5)
     gt1.show()
 
-#    gt2 = GroundTruth(length=1000).doppler
-#    gt2.random_points(3)
-#    gt2.interpolate()
-#    gt2.show()
+    gt2 = GroundTruth(length=10000).doppler
+    gt2.random_points(3)
+    gt2.interpolate()
+    gt2.show()
 
     data = DataSimulator(length=10000)
     data.add_baseband()
     #data.add_noise()
-    data.apply_gt(gt1)
-    #    data.apply_gt(gt2)
+    data.apply_gt(gt1, gt2)
 
-    simu = data.derive_MyCsi('GT11')
+    simu = data.derive_MyCsi('1109GT2')
     plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
     plt.show()
     #simu.data.view_phase_diff()
-    simu.doppler_by_music(window_length=100, stride=100, raw_timestamps=False, raw_window=False)
-    simu.data.view_spectrum(threshold=10)
+    simu.aoa_doppler_by_music(window_length=100, stride=100)
+    simu.data.view_spectrum()
 
-#    for i, spectrum in enumerate(simu.data.spectrum):
-#        simu.data.view_spectrum(sid=i, autosave=True, notion='_' + str(i))
+    for i, spectrum in enumerate(simu.data.spectrum):
+        simu.data.view_spectrum(sid=i, autosave=True, folder_name='GT2', notion='_' + str(i))
 
