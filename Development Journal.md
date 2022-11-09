@@ -229,8 +229,8 @@ simulator.py
 # 1107
 
 pycsi.py
-- Modification: aoa_by_doppler(), parallelized
-- Modification: tof_by_doppler(), parallelized
+- Modification: aoa_by_music(), parallelized
+- Modification: tof_by_music(), parallelized
 - Added parameter: raw_window, into doppler_by_music()
 
 simulator.py
@@ -241,3 +241,10 @@ simulator.py
 
 simulator.py
 - Bugfix: apply_Doppler(), corrected mothod
+
+# 1109
+
+pycsi.py
+- Modification: doppler_by_music(), parallelized
+- Modification: aoa_tof_by_music(), parallelized
+- 
