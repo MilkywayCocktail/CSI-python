@@ -248,3 +248,6 @@ pycsi.py
 - Modification: doppler_by_music(), parallelized
 - Modification: aoa_tof_by_music(), parallelized
 - Modification: aoa_doppler_by_music(), parallelized (also fixed)
+
+simulator.py
+- Modification: apply_gt(), suported uncertain number of inputs
