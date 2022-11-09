@@ -247,4 +247,4 @@ simulator.py
 pycsi.py
 - Modification: doppler_by_music(), parallelized
 - Modification: aoa_tof_by_music(), parallelized
-- 
+- Modification: aoa_doppler_by_music(), parallelized (also fixed)
