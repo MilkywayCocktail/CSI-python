@@ -292,5 +292,15 @@ def read_bf_file_multi(filename):
     timestamp_lowlist, csilist, rssilist, permlist, bfee_countlist, noiselist, agclist, fake_rate_n_flagslist, Nrx, Ntx, flg = np.concatenate(
         np.array([np.array(r, dtype=object) for r in ret])).T
 
+    flg = np.array(flg).astype(bool)
+    timestamp_lowlist = timestamp_lowlist[flg]
+    csilist = csilist[flg]
+    rssilist = rssilist[flg]
+    permlist = permlist[flg]
+    bfee_countlist = bfee_countlist[flg]
+    noiselist = noiselist[flg]
+    agclist = agclist[flg]
+    fake_rate_n_flagslist = fake_rate_n_flagslist[flg]
+
     return list(timestamp_lowlist), list(csilist), list(rssilist), list(permlist), list(bfee_countlist), list(
         noiselist), list(agclist), list(fake_rate_n_flagslist), skip_list

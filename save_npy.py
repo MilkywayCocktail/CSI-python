@@ -5,10 +5,21 @@ import os
 import csi_loader
 
 npzpath = '../npsave/1030/csi/'
+datapath = '../data/1030/'
+name = 'csi1030B23.dat'
 
-name = '1030A00'
+csi_loader.dat2npy(datapath + name, npzpath)
 
-#csi_loader.dat2npy('../data/1030/csi1030A00.dat', npzpath)
+'''
+
+filenames = os.listdir(datapath)
+
+for file in filenames:
+    if file[-3:] == 'txt':
+        continue
+    csi_loader.dat2npy(datapath + file, npzpath)
+
+
 
 file = npzpath + name + '-csio.npy'
 
@@ -17,4 +28,4 @@ b = np.array(b) / 1e6
 
 csi = pycsi.MyCsi(name, file)
 csi.load_lists(np.abs(a).swapaxes(1,3), np.angle(a).swapaxes(1,3), b)
-csi.data.remove_inf_values()
+'''
