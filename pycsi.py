@@ -441,9 +441,9 @@ class MyCsi(object):
                     ax = sns.heatmap(spectrum)
                     label0, label1 = replace(self.timestamps, self.length, num_ticks)
 
-                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-240, -180, -120, -60, 0, 60, 120, 180]))
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(60))
-                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(20))
+                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
+                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
                     plt.xticks(label0, label1)
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.set_xlabel("Time / $s$")
@@ -478,9 +478,9 @@ class MyCsi(object):
 
                 elif self.algorithm == '_aoatof':
                     ax = sns.heatmap(spectrum[sid])
-                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-240, -180, -120, -60, 0, 60, 120, 180]))
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(60))
-                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(20))
+                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
+                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
                     plt.xticks([0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200],
                                [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
@@ -491,9 +491,9 @@ class MyCsi(object):
                 elif self.algorithm == '_aoadoppler':
                     ax = sns.heatmap(spectrum[sid])
 
-                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-240, -180, -120, -60, 0, 60, 120, 180]))
-                    ax.yaxis.set_major_locator(ticker.MultipleLocator(60))
-                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(20))
+                    ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
+                    ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
+                    ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
                     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
                     ax.xaxis.set_major_locator(ticker.MultipleLocator(20))
                     ax.xaxis.set_minor_locator(ticker.MultipleLocator(10))
@@ -596,12 +596,15 @@ class MyCsi(object):
             indices = [i * input_length // (input_ticks - 1) for i in range(input_ticks - 1)]
             indices.append(input_length - 1)
 
-            labels = indices if len(np.where(np.array(input_timestamps) < 0)[0]) > 0 else [
-                float('%.3f' % x) for x in input_timestamps[indices]]
+            if len(np.where(np.array(input_timestamps) < 0)[0]) > 0:
+                labels = indices
+
+            else:
+                labels = [float('%.3f' % input_timestamps[x]) for x in indices]
 
             return indices, labels
 
-    def aoa_by_music(self, input_theta_list=np.arange(-180, 181, 1.), smooth=False):
+    def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
         """
         Computes AoA spectrum by MUSIC.\n
         :param input_theta_list: list of angels, default = -90~90

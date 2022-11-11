@@ -160,7 +160,7 @@ if __name__ == '__main__':
 
     sub = '1025A56'
 
-    npzpath = '../npsave/1110/csi/A/'
+    npzpath = '../npsave/1110/csi/A'
 
     cal = {}
 
@@ -168,6 +168,6 @@ if __name__ == '__main__':
     test0.show_all_methods()
 
     mytest = MyTest(title='aoa_raw', date='1111', subject=sub, reference=cal, path=npzpath, batch=True,
-                    func_index=0)
+                    func_index=5)
     mytest.run(ref_antenna=0, calibrate=False, recursive=False, resample=False, autosave=True,
-               method='calibration + sanitization', notion='_raw')
+               method='calibration + sanitization', notion='')
