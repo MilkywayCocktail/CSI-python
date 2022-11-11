@@ -596,7 +596,7 @@ class MyCsi(object):
             indices = [i * input_length // (input_ticks - 1) for i in range(input_ticks - 1)]
             indices.append(input_length - 1)
 
-            labels = indices if len(np.where(input_timestamps < 0)[0]) > 0 else [
+            labels = indices if len(np.where(np.array(input_timestamps) < 0)[0]) > 0 else [
                 float('%.3f' % x) for x in input_timestamps[indices]]
 
             return indices, labels

@@ -1,9 +1,7 @@
 import numpy as np
 import time
 import os
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import seaborn as sns
+import csi_loader
 import pycsi
 import myfunc
 from functools import wraps
@@ -33,6 +31,7 @@ class MyTest(object):
         self.batch_trigger = batch
         self.log = []
         self.testfunc = None
+        self.mode = 'o'
 
         self.methods = [method for method in dir(myfunc) if method.startswith('_T') is True]
         self.methods = {i: m for i, m in enumerate(self.methods)}
@@ -49,8 +48,7 @@ class MyTest(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    @staticmethod
-    def npzloader(input_name, input_path):
+    def npzloader(self, input_name, input_path):
         """
         A loader that loads npz files into MyCsi object.\n
         :param input_name: name of the MyCsi object (filename without '.npz')
@@ -58,12 +56,23 @@ class MyTest(object):
         :return: csi data loaded into MyCsi object
         """
         if input_path is None:
-            filepath = "../npsave/" + input_name[:4] + '/csi/' + input_name + "-csis.npz"
+            print('Please specify path')
+            return
         else:
-            filepath = input_path + input_name + "-csis.npz"
+            if self.mode == 's':
+                filepath = input_path + input_name + "-csis.npz"
+                _csi = pycsi.MyCsi(input_name, filepath)
+                _csi.load_data()
 
-        _csi = pycsi.MyCsi(input_name, filepath)
-        _csi.load_data()
+            elif self.mode == 'o':
+                filepath = input_path + input_name + "-csio.npy"
+                csi, time, i, j = csi_loader.load_npy(filepath)
+                _csi = pycsi.MyCsi(input_name, filepath)
+                _csi.load_lists(np.abs(csi).swapaxes(1, 3), np.angle(csi).swapaxes(1, 3), time)
+            else:
+                print('Please specify mode=\'s\' or \'o\'')
+                return
+
         _csi.data.remove_inf_values()
         return _csi
 
@@ -151,18 +160,14 @@ if __name__ == '__main__':
 
     sub = '1025A56'
 
-    npzpath = '../npsave/1025/csi/'
+    npzpath = '../npsave/1110/csi/A/'
 
-    cal = {'180': "1025A18",
-           '-30': "1025A33",
-           '-60': "1025A30",
-           '30': "1025A03",
-           '60': "1025A06"}
+    cal = {}
 
     test0 = MyTest()
     test0.show_all_methods()
 
-    mytest = MyTest(title='phasediff-cal-san', date='1025', subject=sub, reference=cal, path=npzpath, batch=False,
-                    func_index=5)
-    mytest.run(ref_antenna=0, recursive=False, resample=True, sampling_rate=100, autosave=True,
-               method='calibration + sanitization', notion='_5cal_an0')
+    mytest = MyTest(title='aoa_raw', date='1111', subject=sub, reference=cal, path=npzpath, batch=True,
+                    func_index=0)
+    mytest.run(ref_antenna=0, calibrate=False, recursive=False, resample=False, autosave=True,
+               method='calibration + sanitization', notion='_raw')
