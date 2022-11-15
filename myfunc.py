@@ -134,11 +134,10 @@ class PhaseCompare(MyFunc):
         for i in range(count):
 
             if count == 1:
-                self.suptitle = self.subject.name
                 self.packet1 = np.random.randint(self.subject.data.length)
                 self.packet2 = np.random.randint(self.subject.data.length)
             else:
-                self.suptitle = self.subject.name + "_" + str(i)
+                self.suptitle += "_" + str(i)
                 self.packet1 = i
                 self.packet2 = i
 
@@ -230,6 +229,7 @@ class _TestPhaseDiff(PhaseCompare):
 
     def antenna_list(self):
         self.antennas.remove(int(self.ref_antenna))
+        self.suptitle = self.subject.name + '_ref' + str(self.ref_antenna)
 
 
 @CountClass
@@ -362,7 +362,7 @@ class _TestAoAToF(MyFunc):
 
         for i, spectrum in enumerate(self.subject.data.spectrum):
             return_name = self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
-                                            self.notion + '_' + str(i), self.title)
+                                            self.notion + '_' + str(i).zfill(5), self.title)
 
         return return_name
 
@@ -402,6 +402,6 @@ class _TestAoADoppler(MyFunc):
 
         for i, spectrum in enumerate(self.subject.data.spectrum):
             return_name = self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
-                                                          self.notion + '_' + str(i), self.title)
+                                                          self.notion + '_' + str(i).zfill(5), self.title)
 
         return return_name

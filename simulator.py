@@ -240,7 +240,7 @@ if __name__ == '__main__':
     #data.add_noise()
     data.apply_gt(gt1, gt2)
 
-    simu = data.derive_MyCsi('1109GT2')
+    simu = data.derive_MyCsi('1109GT3')
     plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
     plt.show()
     #simu.data.view_phase_diff()
@@ -248,5 +248,5 @@ if __name__ == '__main__':
     simu.data.view_spectrum()
 
     for i, spectrum in enumerate(simu.data.spectrum):
-        simu.data.view_spectrum(sid=i, autosave=True, folder_name='GT2', notion='_' + str(i))
+        simu.data.view_spectrum(sid=i, autosave=True, folder_name='GT3', notion='_' + str(i))
 

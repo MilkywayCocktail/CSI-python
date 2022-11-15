@@ -804,7 +804,7 @@ class MyCsi(object):
         except DataError as e:
             print(e)
 
-    def aoa_tof_by_music(self, input_theta_list=np.arange(-180, 181, 1.),
+    def aoa_tof_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
                          input_dt_list=np.arange(0, 1.e-7, 5.e-10),
                          smooth=False):
         """
@@ -895,7 +895,7 @@ class MyCsi(object):
         except ArgError as e:
             print(e, "\nPlease specify smooth=True or False")
 
-    def aoa_doppler_by_music(self, input_theta_list=np.arange(-180, 181, 1.),
+    def aoa_doppler_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
                              input_velocity_list=np.arange(-5, 5.05, 0.05),
                              window_length=500,
                              stride=500,
@@ -1057,7 +1057,7 @@ class MyCsi(object):
         center_freq = self.center_freq
         recon = self.commonfunc.reconstruct_csi
 
-        print(self.name, "apply phase calibration according to", cal_dict.keys(), "...",
+        print(self.name, "apply phase calibration according to", str(cal_dict.keys())[10:-1], "...",
               time.asctime(time.localtime(time.time())))
 
         try:

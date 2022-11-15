@@ -4,11 +4,11 @@ import csitest
 import os
 import csi_loader
 
-npzpath = '../npsave/1111/csi/'
-datapath = '../data/1111/'
+npzpath = '../npsave/1114/csi/'
+datapath = '../data/1114/'
 name = 'csi1030B23.dat'
 
-#csi_loader.dat2npy(datapath + name, npzpath)
+# csi_loader.dat2npy(datapath + name, npzpath)
 
 filenames = os.listdir(datapath)
 

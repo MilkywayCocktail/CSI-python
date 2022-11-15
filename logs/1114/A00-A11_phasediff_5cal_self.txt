@@ -1,0 +1,25 @@
+2022-11-15 14:41:49_TestPhaseDiff ----TEST START----
+----Batch process----
+2022-11-15 14:42:01 1114A00
+date : None
+title : A00-A11_phasediff_5cal_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A00
+autosave : True
+notion : _5cal_self
+suptitle : 1114A00
+ref_antenna : 1
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 117669
+packet2 : 41470
+method : calibration + sanitization
+title1 : Before
+title2 : After

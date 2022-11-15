@@ -4,7 +4,14 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 
-l = np.arange(10).reshape(2,5)
-print(l)
-print(l.reshape(-1, 1))
-print(l.reshape(1, -1))
+cal = {'0': '1110A00',
+       '30': '1110A01',
+       '60': '1110A02',
+       '-60': '1110A10',
+       '-30': '1110A11'}
+
+print(str(cal.keys())[10:-1])
+
+s = '1110A11'
+
+print(s[-3:])

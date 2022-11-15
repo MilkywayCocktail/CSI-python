@@ -4,6 +4,7 @@ import os
 import csi_loader
 import pycsi
 import myfunc
+import time
 from functools import wraps
 
 
@@ -21,7 +22,8 @@ class MyTest(object):
                  path=None,
                  batch=False,
                  func_index=0,
-                 func_name=None):
+                 func_name=None,
+                 sub_range=None):
 
         self.subject = subject
         self.reference = reference
@@ -32,6 +34,7 @@ class MyTest(object):
         self.log = []
         self.testfunc = None
         self.mode = 'o'
+        self.sub_range = sub_range
 
         self.methods = [method for method in dir(myfunc) if method.startswith('_T') is True]
         self.methods = {i: m for i, m in enumerate(self.methods)}
@@ -66,9 +69,11 @@ class MyTest(object):
 
             elif self.mode == 'o':
                 filepath = input_path + input_name + "-csio.npy"
-                csi, time, i, j = csi_loader.load_npy(filepath)
+                print(input_name, "npz load start...", time.asctime(time.localtime(time.time())))
+                csi, t, i, j = csi_loader.load_npy(filepath)
                 _csi = pycsi.MyCsi(input_name, filepath)
-                _csi.load_lists(np.abs(csi).swapaxes(1, 3), np.angle(csi).swapaxes(1, 3), time)
+                _csi.load_lists(np.abs(csi).swapaxes(1, 3), np.angle(csi).swapaxes(1, 3), t)
+                print(input_name, "npz load complete", time.asctime(time.localtime(time.time())))
             else:
                 print('Please specify mode=\'s\' or \'o\'')
                 return
@@ -139,14 +144,16 @@ class MyTest(object):
             for file in filenames:
                 name = file[:-9]
 
-                self.subject = self.npzloader(name, self.path)
-                self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
+                if self.sub_range is not None and name[-3:] in self.sub_range:
 
-                self.testfunc = eval('myfunc.' + self.select_func +
-                                     '(test_title=self.title, reference=self.reference, subject=self.subject)')
-                self.testfunc.set_params(**kwargs)
-                self.logger(self.testfunc.__dict__)
-                self.logger(self.testfunc.func())
+                    self.subject = self.npzloader(name, self.path)
+                    self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
+
+                    self.testfunc = eval('myfunc.' + self.select_func +
+                                         '(test_title=self.title, reference=self.reference, subject=self.subject)')
+                    self.testfunc.set_params(**kwargs)
+                    self.logger(self.testfunc.__dict__)
+                    self.logger(self.testfunc.func())
 
             print("- Batch processing complete -")
 
@@ -158,16 +165,31 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = '1025A56'
+    sub = '1110A00'
 
-    npzpath = '../npsave/1110/csi/A'
+    npzpath = '../npsave/1114/csi/'
 
-    cal = {}
+    cal = {'0': '1114A00',
+           '30': '1114A01',
+           '60': '1114A02',
+           '-60': '1114A10',
+           '-30': '1114A11'}
 
-    test0 = MyTest()
-    test0.show_all_methods()
+    sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
-    mytest = MyTest(title='aoa_raw', date='1111', subject=sub, reference=cal, path=npzpath, batch=True,
-                    func_index=5)
-    mytest.run(ref_antenna=0, calibrate=False, recursive=False, resample=False, autosave=True,
-               method='calibration + sanitization', notion='')
+    # test0 = MyTest()
+    # test0.show_all_methods()
+
+    mytest = MyTest(title='A00-A11_phasediff_5cal_self', date='1114', subject=sub, reference=cal, path=npzpath, batch=True,
+                    func_index=5, sub_range=sub_range)
+    mytest.run(calibrate=False, recursive=False, resample=False, autosave=True,
+               method='calibration + sanitization', notion='_5cal_self')
+
+'''
+0 : _TestAoA
+1 : _TestAoADoppler
+2 : _TestAoAToF
+3 : _TestDoppler
+4 : _TestPhase
+5 : _TestPhaseDiff
+6 : _TestResampling'''
