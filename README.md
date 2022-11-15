@@ -3,9 +3,6 @@
 ### pycsi.py
 main functionality codes
 
-### tests.py
-collection of all tests. You can run parallel tests and get batch results. (To be moved into myfunc.py)
-
 ### myfunc.py
 A collection of all testing methods.
 
