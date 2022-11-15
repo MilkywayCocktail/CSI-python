@@ -12,6 +12,9 @@ A collection of all testing methods.
 ### csitests.py
 The work panel of getting csi results.
 
+### simulator.py
+Generates virtual CSI data.
+
 ### Widar2.py
 raw version
 
