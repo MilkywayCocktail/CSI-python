@@ -79,7 +79,7 @@ The folder structure:<br>
     csi = pycsi.MyCsi(name, file)
     csi.load_data()
     csi.aoa_by_music()
-    csi.data.view_spectrum(threshold=0, 0, autosave=False, notion='_vanilla')
+    csi.data.view_spectrum()
 ```
 - The CSI data will be stored in MyCsi object after being instantialized. You can perform multiple algorithms by calling methods.
 
