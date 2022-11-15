@@ -53,12 +53,14 @@ The folder structure:<br>
 - Sample code:
 
 ```python
+    import pycsi
+    import os
     filepath = "data/0919/"
     filenames = os.listdir(filepath)
     for file in filenames:
         name = file[3:-4]
         mypath = filepath + file
-        _csi = MyCsi(name, mypath)
+        _csi = pycsi.MyCsi(name, mypath)
         _csi.load_data()
         _csi.save_csi(name)
 ```
@@ -67,18 +69,19 @@ The folder structure:<br>
 - You may find '-inf' values in CSI data with CSIKit. Using Ohara's csi_loader can avoid this.
 
 ### Try out algorithms
-- At present, we have AoA, Doppler velocity, AoA-ToF and AoA-Doppler algorithms, all based on MUSIC.
+- At present, we have AoA, ToF, Doppler velocity, AoA-ToF and AoA-Doppler algorithms, all based on MUSIC.
 - Sample code:
 
 ```python
+    import pycsi
     name = "1010A30"
     file = "npsave/" + name[:4] + '/' + name + "-csis.npz"
     csi = pycsi.MyCsi(name, file)
     csi.load_data()
     csi.aoa_by_music()
-    csi.data.view_spectrum(threshold=0, autosave=False, notion='_vanilla')
+    csi.data.view_spectrum(threshold=0, 0, autosave=False, notion='_vanilla')
 ```
-- The csi data will be stored in MyCsi object after being instantialized. You can perform multiple actions by calling methods.
+- The CSI data will be stored in MyCsi object after being instantialized. You can perform multiple algorithms by calling methods.
 
 ### Try out simulation
 - Using simulator.py, you can generate virtual CSI data.
@@ -87,10 +90,11 @@ The folder structure:<br>
 - Sample code:
 
 ```python
-    gt1 = GroundTruth(length=10000).aoa
+    import simulator
+    gt1 = simulator.GroundTruth(length=10000).aoa
     gt1.random_points(10)
     gt1.interpolate(5)
-    data = DataSimulator(length=10000)
+    data = simulator.DataSimulator(length=10000)
     data.add_baseband()
     data.apply_gt(gt1)
     data.add_noise()
