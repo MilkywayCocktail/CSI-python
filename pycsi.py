@@ -43,12 +43,13 @@ class MyCsi(object):
     # Neither getter nor setter is defined in MyCsi class.
     # Please get and set manually when you need to.
 
-    def __init__(self, input_name='', path=None):
+    def __init__(self, input_name='', path=None, center_freq=5.67, bandwidth=40):
         self.name = str(input_name)
         self.path = path
 
         self.lightspeed = 299792458
-        self.center_freq = 5.67e+09  # 5.67GHz
+        self.center_freq = center_freq * 1e+09  # 5.67GHz
+        self.bandwidth = bandwidth  # 40MHz
         self.dist_antenna = self.lightspeed / self.center_freq / 2.  # half-wavelength (2.64)
         self.mjtwopi = -1.j * 2 * np.pi
         self.torad = np.pi / 180
@@ -59,6 +60,15 @@ class MyCsi(object):
 
         self.commonfunc = self._CommonFunctions
         self.data = self._Data(input_name, self.nrx)
+
+        if self.bandwidth == 40:
+            self.subfreq_list = np.arange(self.center_freq - 58 * self.delta_subfreq,
+                                          self.center_freq + 62 * self.delta_subfreq,
+                                          4 * self.delta_subfreq).reshape(-1, 1)
+        elif self.bandwidth == 20:
+            self.subfreq_list = np.arange(self.center_freq - 28 * self.delta_subfreq,
+                                          self.center_freq + 30 * self.delta_subfreq,
+                                          2 * self.delta_subfreq).reshape(-1, 1)
 
     def __str__(self):
         return 'MyCsi-' + self.name
@@ -616,7 +626,6 @@ class MyCsi(object):
         dist_antenna = self.dist_antenna
         mjtwopi = self.mjtwopi
         torad = self.torad
-        delta_subfreq = self.delta_subfreq
         nrx = self.nrx
         ntx = self.ntx
         recon = self.commonfunc.reconstruct_csi
@@ -642,9 +651,6 @@ class MyCsi(object):
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
 
-            # Subcarriers from -58 to 58, step = 4
-            subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
-                                     4 * delta_subfreq).reshape(-1, 1)
             antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
             theta_list = np.array(input_theta_list).reshape(-1, 1)
             spectrum = np.zeros((len(input_theta_list), self.data.length))
@@ -659,14 +665,14 @@ class MyCsi(object):
                     temp_amp = self.data.amp[i]
                     temp_phase = self.data.phase[i]
 
-                csi = np.squeeze(recon(temp_amp, temp_phase))
+                csi = np.squeeze(recon(temp_amp, np.unwrap(temp_phase, axis=2)))
                 noise_space = noise(csi, ntx)
 
                 if smooth is True:
                     steering_vector = np.exp([mjtwopi * dist_antenna * (np.sin(theta_list * torad) *
                                               no_antenna).dot(sub_freq) / lightspeed
                                               for no_antenna in antenna_list[:2]
-                                              for sub_freq in subfreq_list[:15]])
+                                              for sub_freq in self.subfreq_list[:15]])
                 else:
                     steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta_list * torad).dot(
                                                 antenna_list.T) * center_freq / lightspeed)
@@ -705,9 +711,6 @@ class MyCsi(object):
             if self.data.remove_inf_values() == 'bad':
                 raise DataError("values: too many -inf values\nSample aborted")
 
-            subcarrier_list = np.arange(-58, 62, 4)
-            subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
-                                     4 * delta_subfreq).reshape(-1, 1)
             dt_list = np.array(input_dt_list).reshape(-1, 1)
             spectrum = np.zeros((len(input_dt_list), self.data.length))
 
@@ -716,7 +719,7 @@ class MyCsi(object):
                 csi = np.squeeze(recon(self.data.amp[i], self.data.phase[i]))
                 noise_space = noise(csi.T, ntx)
 
-                steering_vector = np.exp(mjtwopi * dt_list.dot(subfreq_list.T))
+                steering_vector = np.exp(mjtwopi * dt_list.dot(self.subfreq_list.T))
 
                 a_en = steering_vector.conj().dot(noise_space)
                 spectrum[:, i] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
@@ -847,10 +850,6 @@ class MyCsi(object):
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
 
-            # Subcarriers from -58 to 58, step = 4
-            subcarrier_list = np.arange(-58, 62, 4)
-            subfreq_list = np.arange(center_freq - 58 * delta_subfreq, center_freq + 62 * delta_subfreq,
-                                     4 * delta_subfreq)
             antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
             theta_list = np.array(input_theta_list).reshape(-1, 1)
             dt_list = np.array(input_dt_list).reshape(-1, 1)
@@ -877,9 +876,9 @@ class MyCsi(object):
 
                     if smooth is True:
                         steering_vector = np.exp(mjtwopi * dist_antenna * np.sin(theta_list * torad).dot(
-                            antenna_list[:2].dot(subfreq_list[:15])) / lightspeed)
+                            antenna_list[:2].dot(self.subfreq_list[:15])) / lightspeed)
                     else:
-                        steering_tof = np.exp(mjtwopi * subfreq_list * tof).reshape(-1, 1)
+                        steering_tof = np.exp(mjtwopi * self.subfreq_list * tof).reshape(-1, 1)
                         steering_vector = steering_tof.dot(steering_aoa.T).reshape(nsub, len(input_theta_list), nrx)
                         steering_vector = steering_vector.swapaxes(0, 1).reshape(len(input_theta_list), nrx * nsub)
 

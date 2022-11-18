@@ -51,11 +51,13 @@ class MyTest(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def npzloader(self, input_name, input_path):
+    def npzloader(self, input_name, input_path, fc, bw):
         """
         A loader that loads npz files into MyCsi object.\n
         :param input_name: name of the MyCsi object (filename without '.npz')
         :param input_path: folder path of npz file (excluding filename)
+        :param fc: center frequency of CSI (in GHz)
+        :param bw: bandwidth of CSI (in MHz)
         :return: csi data loaded into MyCsi object
         """
         if input_path is None:
@@ -64,16 +66,16 @@ class MyTest(object):
         else:
             if self.mode == 's':
                 filepath = input_path + input_name + "-csis.npz"
-                _csi = pycsi.MyCsi(input_name, filepath)
+                _csi = pycsi.MyCsi(input_name, filepath, fc, bw)
                 _csi.load_data()
 
             elif self.mode == 'o':
                 filepath = input_path + input_name + "-csio.npy"
-                print(input_name, "npz load start...", time.asctime(time.localtime(time.time())))
+                print(input_name, "npy load start...", time.asctime(time.localtime(time.time())))
                 csi, t, i, j = csi_loader.load_npy(filepath)
-                _csi = pycsi.MyCsi(input_name, filepath)
+                _csi = pycsi.MyCsi(input_name, filepath, fc, bw)
                 _csi.load_lists(np.abs(csi).swapaxes(1, 3), np.angle(csi).swapaxes(1, 3), t)
-                print(input_name, "npz load complete", time.asctime(time.localtime(time.time())))
+                print(input_name, "npy load complete", time.asctime(time.localtime(time.time())))
             else:
                 print('Please specify mode=\'s\' or \'o\'')
                 return
@@ -103,10 +105,10 @@ class MyTest(object):
 
         return log_path + str(self.title) + '.txt'
 
-    def load_all_references(self, rearrange=False):
+    def load_all_references(self, fc, bw, rearrange=False):
         if self.reference is not None:
             for key, value in self.reference.items():
-                degref = value if isinstance(value, pycsi.MyCsi) else self.npzloader(value, self.path)
+                degref = value if isinstance(value, pycsi.MyCsi) else self.npzloader(value, self.path, fc, bw)
                 if rearrange is True:
                     degref.data.rearrange_antenna()
                 self.reference[key] = degref
@@ -115,21 +117,21 @@ class MyTest(object):
         for key, value in self.methods.items():
             print(key, ':', value)
 
-    def run(self, **kwargs):
+    def run(self, fc=5.67, bw=40, **kwargs):
         self.log.append(os.getcwd().replace('\\', '/') + "/logs/" + str(self.date) + '/' + self.title + '.txt')
         self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(
             self.select_func) + ' ----TEST START----')
 
-        print(self.title, "Test Start", time.asctime(time.localtime(time.time())))
+        print("######", self.title, "Test Start", time.asctime(time.localtime(time.time())))
 
         if self.batch_trigger is False and self.subject is not None:
-            self.load_all_references()
-            self.subject = self.npzloader(self.subject, self.path) \
+            self.load_all_references(fc, bw)
+            self.subject = self.npzloader(self.subject, self.path, fc, bw) \
                 if not isinstance(self.subject, pycsi.MyCsi) else self.subject
             self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
 
             self.testfunc = eval('myfunc.' + self.select_func +
-                                 '(test_title=self.title, reference=self.reference, subject=self.subject)')
+                                 '(test_title=self.title, reference=self   .reference, subject=self.subject)')
             self.testfunc.set_params(**kwargs)
             self.logger(self.testfunc.__dict__)
             self.logger(self.testfunc.func())
@@ -139,14 +141,14 @@ class MyTest(object):
             self.logger('----Batch process----')
 
             filenames = os.listdir(self.path)
-            self.load_all_references()
+            self.load_all_references(fc, bw)
 
             for file in filenames:
                 name = file[:-9]
 
                 if self.sub_range is not None and name[-3:] in self.sub_range:
 
-                    self.subject = self.npzloader(name, self.path)
+                    self.subject = self.npzloader(name, self.path,fc, bw)
                     self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
 
                     self.testfunc = eval('myfunc.' + self.select_func +
@@ -160,30 +162,33 @@ class MyTest(object):
         self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(
             self.select_func) + ' ----TEST FINISH----\n')
 
-        print(self.title, "Test Complete", time.asctime(time.localtime(time.time())))
+        print("######", self.title, "Test Complete", time.asctime(time.localtime(time.time())))
 
 
 if __name__ == '__main__':
 
-    sub = '1110A00'
+    sub = '1116A24'
 
-    npzpath = '../npsave/1114/csi/'
+    npzpath = '../npsave/1116/csi/'
 
-    cal = {'0': '1114A00',
-           '30': '1114A01',
-           '60': '1114A02',
-           '-60': '1114A10',
-           '-30': '1114A11'}
+    cal = {'0': '1116A00',
+           '30': '1116A01',
+           '60': '1116A02',
+           '-60': '1116A10',
+           '-30': '1116A11'}
 
     sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    mytest = MyTest(title='A00-A11_phasediff_5cal_self', date='1114', subject=sub, reference=cal, path=npzpath, batch=True,
-                    func_index=5, sub_range=sub_range)
-    mytest.run(calibrate=False, recursive=False, resample=False, autosave=True,
-               method='calibration + sanitization', notion='_5cal_self')
+    mytest = MyTest(title='A24_AoA_unrwap_by_antenna', date='1116', subject=sub, reference=cal, path=npzpath, batch=False,
+                    func_index=0, sub_range=None)
+    mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, resample=False, autosave=True,
+               method='calibration + sanitization', notion='_unrwap_by_antenna')
+
+
+
 
 '''
 0 : _TestAoA
