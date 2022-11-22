@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
-
+import csi_loader
 
 class MyException(Exception):
     def __init__(self, input_catch):
@@ -85,13 +85,13 @@ class MyCsi(object):
         try:
             if self.path is None or not os.path.exists(self.path):
                 raise PathError(str(self.path))
-            if self.path[-3:] not in ('dat', 'npz'):
+            if self.path[-3:] not in ('dat', 'npz', 'npy'):
                 raise DataError("file: " + str(self.path))
 
         except PathError as e:
             print(e, "\nPlease check the path")
         except DataError as e:
-            print(e, "\nFile not supported. Please input .dat or .npz")
+            print(e, "\nFile not supported. Please input .dat, .npz or .npy")
 
         else:
             if self.path[-3:] == "dat":
@@ -117,6 +117,16 @@ class MyCsi(object):
                 self.data.timestamps = csi_data['csi_timestamps']
                 self.data.sampling_rate = self.data.length / self.data.timestamps[-1]
                 print(self.name, "npz load complete", time.asctime(time.localtime(time.time())))
+
+            elif self.path[-3:] == "npy":
+                print(self.name, "npy load start...", time.asctime(time.localtime(time.time())))
+                csi, t, i, j = csi_loader.load_npy(self.path)
+                self.data.amp = np.abs(csi).swapaxes(1, 3)
+                self.data.phase = np.angle(csi).swapaxes(1, 3)
+                self.data.length = len(t)
+                self.data.timestamps = t
+                self.data.sampling_rate = self.data.length / self.data.timestamps[-1]
+                print(self.name, "npy load complete", time.asctime(time.localtime(time.time())))
 
     def load_lists(self, amp, phase, timelist):
         """
@@ -415,7 +425,7 @@ class MyCsi(object):
 
                 print(self.name, metric, "plot complete", time.asctime(time.localtime(time.time())))
 
-        def view_spectrum(self, threshold=0, sid=0, num_ticks=11, autosave=False, notion='', folder_name=''):
+        def view_spectrum(self, threshold=0, sid=0, srange=None, num_ticks=11, autosave=False, notion='', folder_name=''):
             """
             Plots spectrum. You can select whether save the image or not.\n
             :param threshold: set threshold of spectrum, default is 0 (none)
@@ -448,8 +458,12 @@ class MyCsi(object):
                     spectrum[spectrum > threshold] = threshold
 
                 if self.algorithm == '_aoa':
-                    ax = sns.heatmap(spectrum)
-                    label0, label1 = replace(self.timestamps, self.length, num_ticks)
+                    if srange is not None and isinstance(srange,list):
+                        ax = sns.heatmap(spectrum[srange])
+                        label0, label1 = replace(self.timestamps[srange], len(srange), num_ticks)
+                    else:
+                        ax = sns.heatmap(spectrum)
+                        label0, label1 = replace(self.timestamps, self.length, num_ticks)
 
                     ax.yaxis.set_major_formatter(ticker.FixedFormatter([-120, -90, -60, -30, 0, 30, 60, 90]))
                     ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
@@ -665,7 +679,7 @@ class MyCsi(object):
                     temp_amp = self.data.amp[i]
                     temp_phase = self.data.phase[i]
 
-                csi = np.squeeze(recon(temp_amp, np.unwrap(temp_phase, axis=2)))
+                csi = np.squeeze(recon(temp_amp, temp_phase))
                 noise_space = noise(csi, ntx)
 
                 if smooth is True:

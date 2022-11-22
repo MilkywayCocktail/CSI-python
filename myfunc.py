@@ -297,7 +297,7 @@ class _TestAoA(MyFunc):
         self.preprocess()
         self.subject.aoa_by_music(smooth=self.smooth)
 
-        return self.subject.data.view_spectrum(self.threshold, 0, self.num_ticks, self.autosave, self.notion)
+        return self.subject.data.view_spectrum(self.threshold, 0, None, self.num_ticks, self.autosave, self.notion)
 
 
 @CountClass
@@ -322,7 +322,7 @@ class _TestDoppler(MyFunc):
 
         self.subject.doppler_by_music(resample=self.sampling_rate, window_length=self.window_length, stride=self.stride)
 
-        return self.subject.data.view_spectrum(self.threshold, 0, self.num_ticks, self.autosave, self.notion)
+        return self.subject.data.view_spectrum(self.threshold, 0, None, self.num_ticks, self.autosave, self.notion)
 
 
 @CountClass

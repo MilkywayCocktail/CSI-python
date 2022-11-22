@@ -4,20 +4,20 @@ import csitest
 import os
 import csi_loader
 
-npzpath = '../npsave/1116/csi/'
-datapath = '../data/1116/'
-name = 'csi1030B23.dat'
+npzpath = '../npsave/1117/csi/'
+datapath = '../data/1117/'
+name = 'csi1117A14.dat'
 
-# csi_loader.dat2npy(datapath + name, npzpath)
+csi_loader.dat2npy(datapath + name, npzpath)
 
 filenames = os.listdir(datapath)
-
+'''
 for file in filenames:
     if file[-3:] == 'txt':
         continue
     csi_loader.dat2npy(datapath + file, npzpath)
 
-'''
+
 
 file = npzpath + name + '-csio.npy'
 

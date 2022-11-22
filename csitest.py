@@ -169,23 +169,24 @@ if __name__ == '__main__':
 
     sub = '1116A24'
 
-    npzpath = '../npsave/1116/csi/'
+    npzpath = '../npsave/1117/csi/'
 
-    cal = {'0': '1116A00',
-           '30': '1116A01',
-           '60': '1116A02',
-           '-60': '1116A10',
-           '-30': '1116A11'}
+    cal = {'0': '1117A00',
+           '30': '1117A01',
+           '60': '1117A02',
+           '-60': '1117A10',
+           '-30': '1117A11'}
 
     sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    mytest = MyTest(title='A24_AoA_unrwap_by_antenna', date='1116', subject=sub, reference=cal, path=npzpath, batch=False,
-                    func_index=0, sub_range=None)
+    mytest = MyTest(title='phasediff', date='1117', subject=sub, reference=cal, path=npzpath, batch=True,
+                    func_index=5, sub_range=sub_range)
     mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, resample=False, autosave=True,
-               method='calibration + sanitization', notion='_unrwap_by_antenna')
+               method='calibration + sanitization', notion='_5cal')
+
 
 
 
