@@ -40,6 +40,10 @@ class MySense:
             os.makedirs(self.savepath)
 
     def run(self):
+        print("\033[32mWelcome!" +
+              "\nFrame size = " + str(self.length) + ' * ' + str(self.height) + ' * ' + str(self.width) +
+              "\nSave path = " + self.savepath +
+              "\033[0m")
 
         while True:
             print("Please enter a save name to start recording:\n",
@@ -49,14 +53,14 @@ class MySense:
             accept_string = input()
 
             if accept_string == 'exit':
-                print("Exiting...")
+                print("\033[32mExiting...\033[0m")
                 self.pipeline.stop()
                 return
 
             elif accept_string[:7] == 'length=':
                 if isinstance(eval(accept_string[7:]), int) and eval(accept_string[7:]) > 0:
                     self.length = eval(accept_string[7:])
-                    print("Length changed to", self.length)
+                    print("\033[32mLength changed to " + str(self.length) + "\033[0m")
 
             else:
                 name = accept_string
@@ -71,7 +75,7 @@ class MySense:
             self.vis = vis
 
         def __enter__(self):
-            print("Recording in process...")
+            print("\033[32mRecording in process...\033[0m")
             return self
 
         def record(self, name, length, height, width):
@@ -122,7 +126,7 @@ class MySense:
             if exc_type is not None:
                 print(exc_type)
             else:
-                print("\nRecording complete!")
+                print("\n\033[32mRecording complete!\033[0m")
 
 
 if __name__ == '__main__':
