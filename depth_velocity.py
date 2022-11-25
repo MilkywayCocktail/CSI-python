@@ -1,5 +1,7 @@
 import numpy as np
 import cv2
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 path = '../sense/1124/take6/take6'
 
@@ -16,5 +18,7 @@ print(np.max(v_map))
 print(np.min(v_map))
 
 for i in range(299):
-    cv2.imshow("vmap", v_map[i] * 100)
-    cv2.waitKey(500)
+    sns.heatmap(v_map[i])
+    plt.show()
+
+#    https: // www.cxyzjd.com / article / qq_25105061 / 111312298
