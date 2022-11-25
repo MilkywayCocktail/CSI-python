@@ -5,14 +5,6 @@ import time
 import os
 
 
-def depth2distance(depth_image, frame):
-    dist_image = np.zeros_like(depth_image)
-    for y in range(depth_image.shape[0]):
-        for x in range(depth_image.shape[1]):
-            dist_image[y, x] = frame.get_distance(x, y) * 100     # distance in cm
-    return dist_image
-
-
 class MySense:
 
     def __init__(self, savepath):
@@ -26,6 +18,7 @@ class MySense:
         # used in session
         self.pipeline = None
         self.profile = None
+        self.config = None
 
     def setup(self, **kwargs):
 
@@ -33,11 +26,12 @@ class MySense:
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
-        self.pipeline = rs.pipeline()
-        self.profile = self.pipeline.start()
-
         if not os.path.exists(self.savepath):
             os.makedirs(self.savepath)
+
+        self.pipeline = rs.pipeline()
+        self.config = rs.config()
+        self.config.enable_all_streams()
 
     def run(self):
         print("\033[32mWelcome!" +
@@ -64,13 +58,14 @@ class MySense:
 
             else:
                 name = accept_string
-                with self._Recorder(self.pipeline, self.savepath, self.visual_output) as r_session:
+                with self._Recorder(self.pipeline, self.config, self.savepath, self.visual_output) as r_session:
                     r_session.record(name, self.length, self.height, self.width)
 
     class _Recorder:
 
-        def __init__(self, pipeline, savepath, vis):
+        def __init__(self, pipeline, config, savepath, vis):
             self.pipeline = pipeline
+            self.config = config
             self.savepath = savepath
             self.vis = vis
 
@@ -79,10 +74,12 @@ class MySense:
             return self
 
         def record(self, name, length, height, width):
-            dmatrix = np.zeros((length, height, width))
-            timestamps = np.zeros(length)
+
             timefile = None
             img_path = None
+
+            self.config.enable_record_to_file(self.savepath + name + '.bag')
+            profile = self.pipeline.start(self.config)
 
             if self.vis is True:
                 timefile = open(path + name + '_timestamps.txt', mode='a', encoding='utf-8')
@@ -96,27 +93,21 @@ class MySense:
             for i in range(length):
 
                 frames = self.pipeline.wait_for_frames()
-                depth_frame = frames.get_depth_frame()
                 t = int(round(time.time() * 1000)) - t0
-                depth_image = np.asanyarray(depth_frame.get_data())
-
-                dmatrix[i] = depth_image
-                timestamps[i] = t
 
                 if self.vis is True:
                     #    depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03),
                     #    cv2.COLORMAP_JET)
 
                     img_name = str(i).zfill(5) + '.jpg'
+                    depth_frame = frames.get_depth_frame()
+                    depth_image = np.asanyarray(depth_frame.get_data())
                     transfer_image = depth_image // 10
                     #    cv2.imwrite(path + 'img' + fname, depth_image)
                     cv2.imwrite(img_path + '_timg' + img_name, transfer_image)
                     timefile.write(str(t))
 
                 print('\r', i + 1, "of", length, "recorded", end='')
-
-            np.save(self.savepath + name + "_dmatrix.npy", dmatrix)
-            np.save(self.savepath + name + "_timestamps.npy", timestamps)
 
             if self.vis is True:
                 timefile.close()
