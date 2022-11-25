@@ -48,7 +48,6 @@ class MySense:
 
             if accept_string == 'exit':
                 print("\033[32mExiting...\033[0m")
-                self.pipeline.stop()
                 return
 
             elif accept_string[:7] == 'length=':
@@ -117,6 +116,7 @@ class MySense:
             if exc_type is not None:
                 print(exc_type)
             else:
+                self.pipeline.stop()
                 print("\n\033[32mRecording complete!\033[0m")
 
 
