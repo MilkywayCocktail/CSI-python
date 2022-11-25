@@ -2,11 +2,16 @@ import numpy as np
 import cv2
 import seaborn as sns
 import matplotlib.pyplot as plt
+import pyrealsense2 as rs
 
 path = '../sense/1124/take6/take6'
 
 dmatrix = np.load(path + '_dmatrix.npy')[:300]
 time = np.load(path + '_timestamps.npy')[:300]
+
+hf = rs.hole_filling_filter()
+for i in range(len(dmatrix)):
+    dmatrix[i] = hf.process(dmatrix[i])
 
 time = time - time[0]
 
