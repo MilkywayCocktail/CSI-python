@@ -83,6 +83,7 @@ class MySense:
             timestamps = np.zeros(length)
             timefile = None
             img_path = None
+            hole_filling = rs.hole_filling_filter()
 
             if self.vis is True:
                 timefile = open(path + name + '_timestamps.txt', mode='a', encoding='utf-8')
@@ -97,6 +98,7 @@ class MySense:
 
                 frames = self.pipeline.wait_for_frames()
                 depth_frame = frames.get_depth_frame()
+                depth_frame = hole_filling.process(depth_frame)
                 t = int(round(time.time() * 1000)) - t0
                 depth_image = np.asanyarray(depth_frame.get_data())
 

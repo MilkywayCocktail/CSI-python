@@ -169,23 +169,23 @@ if __name__ == '__main__':
 
     sub = '1116A24'
 
-    npzpath = '../npsave/1117/csi/'
+    npzpath = '../npsave/1116/csi/'
 
-    cal = {'0': '1117A00',
-           '30': '1117A01',
-           '60': '1117A02',
-           '-60': '1117A10',
-           '-30': '1117A11'}
+    cal = {'0': '1116A00',
+           '30': '1116A01',
+           '-150': '1116A07',
+           '-120': '1116A08',
+           '-30': '1116A11'}
 
     sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    mytest = MyTest(title='phasediff', date='1117', subject=sub, reference=cal, path=npzpath, batch=True,
-                    func_index=5, sub_range=sub_range)
-    mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, resample=False, autosave=True,
-               method='calibration + sanitization', notion='_5cal')
+    mytest = MyTest(title='A00-A11_AoA_new', date='1128', subject=sub, reference=cal, path=npzpath, batch=True,
+                    func_index=0, sub_range=sub_range)
+    mytest.run(fc=5.32, bw=20, calibrate=True, recursive=False, resample=False, autosave=True,
+               method='calibration + sanitization', notion='_5cal_new')
 
 
 

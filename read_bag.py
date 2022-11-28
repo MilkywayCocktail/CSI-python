@@ -2,12 +2,11 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 
-path = '../sense/1124/'
+path = '../sense/1126/'
 
 config = rs.config()
-config.enable_device_from_file('./data/d415data.bag')
-config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+config.enable_device_from_file(path + '1126.bag')
+config.enable_all_streams()
 pipeline = rs.pipeline()
 profile = pipeline.start(config)
 try:
