@@ -48,8 +48,8 @@ class MyCsi(object):
         self.path = path
 
         self.lightspeed = 299792458
-        self.center_freq = center_freq * 1e+09  # 5.67GHz
-        self.bandwidth = bandwidth  # 40MHz
+        self.center_freq = center_freq * 1e+09  # in GHz
+        self.bandwidth = bandwidth  # in MHz
         self.dist_antenna = self.lightspeed / self.center_freq / 2.  # half-wavelength (2.64)
         self.mjtwopi = -1.j * 2 * np.pi
         self.torad = np.pi / 180

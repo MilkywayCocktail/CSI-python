@@ -33,7 +33,6 @@ class MyTest(object):
         self.batch_trigger = batch
         self.log = []
         self.testfunc = None
-        self.mode = 'o'
         self.sub_range = sub_range
 
         self.methods = [method for method in dir(myfunc) if method.startswith('_T') is True]
@@ -51,7 +50,8 @@ class MyTest(object):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-    def npzloader(self, input_name, input_path, fc, bw):
+    @staticmethod
+    def npzloader(input_name, input_path, fc, bw):
         """
         A loader that loads npz files into MyCsi object.\n
         :param input_name: name of the MyCsi object (filename without '.npz')
@@ -64,21 +64,11 @@ class MyTest(object):
             print('Please specify path')
             return
         else:
-            if self.mode == 's':
-                filepath = input_path + input_name + "-csis.npz"
-                _csi = pycsi.MyCsi(input_name, filepath, fc, bw)
-                _csi.load_data()
-
-            elif self.mode == 'o':
-                filepath = input_path + input_name + "-csio.npy"
-                print(input_name, "npy load start...", time.asctime(time.localtime(time.time())))
-                csi, t, i, j = csi_loader.load_npy(filepath)
-                _csi = pycsi.MyCsi(input_name, filepath, fc, bw)
-                _csi.load_lists(np.abs(csi).swapaxes(1, 3), np.angle(csi).swapaxes(1, 3), t)
-                print(input_name, "npy load complete", time.asctime(time.localtime(time.time())))
-            else:
-                print('Please specify mode=\'s\' or \'o\'')
-                return
+            filepath = input_path + input_name + '-csio.npy'
+            if not os.path.exists(filepath):
+                filepath = input_path + input_name + '-csis.npz'
+            _csi = pycsi.MyCsi(input_name, filepath, fc, bw)
+            _csi.load_data()
 
         _csi.data.remove_inf_values()
         return _csi
@@ -167,25 +157,25 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = '1116A24'
+    sub = None
 
-    npzpath = '../npsave/1116/csi/'
+    npzpath = '../npsave/1128/csi/'
 
-    cal = {'0': '1116A00',
-           '30': '1116A01',
-           '-150': '1116A07',
-           '-120': '1116A08',
-           '-30': '1116A11'}
+    cal = {'0': '1128A00',
+           '30': '1128A01',
+           '60': '1128A02',
+           '-60': '1128A10',
+           '-30': '1128A11'}
 
     sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    mytest = MyTest(title='A00-A11_AoA_new', date='1128', subject=sub, reference=cal, path=npzpath, batch=True,
+    mytest = MyTest(title='A00-A11_AoA', date='1129', subject=sub, reference=cal, path=npzpath, batch=True,
                     func_index=0, sub_range=sub_range)
-    mytest.run(fc=5.32, bw=20, calibrate=True, recursive=False, resample=False, autosave=True,
-               method='calibration + sanitization', notion='_5cal_new')
+    mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, resample=False, autosave=True,
+               method='calibration + sanitization', notion='_raw')
 
 
 

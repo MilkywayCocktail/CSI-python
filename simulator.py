@@ -52,9 +52,9 @@ class GroundTruth:
         except:
             print("Point set failed!")
 
-    def set_constant(self, value=0, rd=True):
+    def set_constant(self, value=None):
         try:
-            if rd is True:
+            if value is None:
                 y = random.choice(self.span)
                 self.y = np.ones(self.length) * y
 
@@ -167,6 +167,18 @@ class DataSimulator:
         except:
             print("Failed to add noise.")
 
+    def add_ipo(self, p1=None, p2=None):
+        try:
+            if p1 is None:
+                p1 = 2 * np.pi * (np.random.randn() - 0.5)
+            if p2 is None:
+                p2 = 2 * np.pi * (np.random.randn() - 0.5)
+            self.phase[:, :, 1, :] += p1
+            self.phase[:, :, 2, :] += p2
+            print("IPO added!")
+        except:
+            print("Failed to add IPO.")
+
     def apply_gt(self, *args):
 
         def apply_AoA():
@@ -225,27 +237,33 @@ class DataSimulator:
 
 if __name__ == '__main__':
 
+    ipo1 = -2.33
+    ipo2 = 3.10
+
     gt1 = GroundTruth(length=10000).aoa
-    gt1.set_constant()
-    gt1.interpolate(5)
-    gt1.show()
+    gt1.set_constant(330)
+    #gt1.interpolate(5)
+    #gt1.show()
 
     gt2 = GroundTruth(length=10000).aoa
     gt2.set_constant()
     gt2.interpolate()
-    gt2.show()
+    # gt2.show()
 
     data = DataSimulator(length=10000)
     data.add_baseband()
     #data.add_noise()
-    data.apply_gt(gt1, gt2)
+    data.apply_gt(gt1)
+    data.add_ipo(ipo1, ipo2)
 
-    simu = data.derive_MyCsi('1118GT')
-    plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
-    plt.show()
+    simu = data.derive_MyCsi('1128GT0')
+    #plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
+    #plt.title("Phase with IPO")
+    #plt.show()
     #simu.data.view_phase_diff()
-    simu.aoa_by_music()
-    simu.data.view_spectrum(10)
+    # simu.aoa_by_music()
+    # simu.data.view_spectrum(10)
+    simu.save_csi('1128G11')
 
 #    for i, spectrum in enumerate(simu.data.spectrum):
 #        simu.data.view_spectrum(sid=i, autosave=True, folder_name='GT3', notion='_' + str(i))
