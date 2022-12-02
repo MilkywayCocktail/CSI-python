@@ -104,7 +104,7 @@ class MySense:
                     transfer_image = depth_image // 10
                     #    cv2.imwrite(path + 'img' + fname, depth_image)
                     cv2.imwrite(img_path + '_timg' + img_name, transfer_image)
-                    timefile.write(str(t))
+                    timefile.write(str(t) + '\n')
 
                 print('\r', i + 1, "of", length, "recorded", end='')
 

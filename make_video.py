@@ -1,21 +1,21 @@
 import cv2
 import os
 
-impath = '../visualization/1109/GT3'
+impath = '../sense/save/'
 
-videopath = '../visualization/1109/'
+videopath = '../sense/'
 
 if not os.path.exists(videopath):
     os.makedirs(videopath)
 
-fps = 20
+fps = 30
 
-frames = sorted(os.listdir(impath), key=lambda x: eval(x[15:-4]))
+frames = sorted(os.listdir(impath), key=lambda x: eval(x[:-3]))
 
 img = cv2.imread(os.path.join(impath, frames[0]))
 imgsize = (img.shape[1], img.shape[0])
 
-videoname = 'GT3'
+videoname = '1126'
 videopath = os.path.join(videopath, videoname + '.avi')
 
 fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
