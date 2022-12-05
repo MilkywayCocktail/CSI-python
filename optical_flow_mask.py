@@ -1,12 +1,15 @@
 import cv2 as cv
 import numpy as np
 
-cap = cv.VideoCapture('../sense/1126.avi')
+cap = cv.VideoCapture('../sense/1202/T04.avi')
 
 ret, frame1 = cap.read()
 prvs = cv.cvtColor(frame1,cv.COLOR_BGR2GRAY)
 hsv = np.zeros_like(frame1)
 hsv[...,1] = 255
+
+fourcc = cv.VideoWriter_fourcc('M', 'J', 'P', 'G')
+videowriter = cv.VideoWriter('../sense/T04_OF_M.avi', fourcc, 30, (1280, 720))
 
 while(1):
     ret, frame2 = cap.read()
@@ -34,6 +37,7 @@ while(1):
     bgr = cv.cvtColor(hsv, cv.COLOR_HSV2BGR)
 
     cv.imshow('frame2', bgr)
+    videowriter.write(bgr)
     k = cv.waitKey(30) & 0xff
     if k == 27:
         break
@@ -44,3 +48,4 @@ while(1):
 
 cap.release()
 cv.destroyAllWindows()
+videowriter.release()

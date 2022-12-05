@@ -1,7 +1,7 @@
 import cv2
 import os
 
-impath = '../sense/save/'
+impath = '../sense/1202/OF/'
 
 videopath = '../sense/'
 
@@ -15,7 +15,7 @@ frames = sorted(os.listdir(impath), key=lambda x: eval(x[:-3]))
 img = cv2.imread(os.path.join(impath, frames[0]))
 imgsize = (img.shape[1], img.shape[0])
 
-videoname = '1126'
+videoname = 'T04_OF_E'
 videopath = os.path.join(videopath, videoname + '.avi')
 
 fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
