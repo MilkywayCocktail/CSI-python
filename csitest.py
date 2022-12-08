@@ -136,8 +136,10 @@ class MyTest(object):
             for file in filenames:
                 name = file[:-9]
 
-                if self.sub_range is not None and name[-3:] in self.sub_range:
+                if self.sub_range is not None and name[-3:] not in self.sub_range:
+                    continue
 
+                else:
                     self.subject = self.npzloader(name, self.path,fc, bw)
                     self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
 
@@ -159,7 +161,7 @@ if __name__ == '__main__':
 
     sub = None
 
-    npzpath = '../npsave/1128/csi/'
+    npzpath = '../npsave/1205/'
 
     cal = {'0': '1128A00',
            '30': '1128A01',
@@ -167,15 +169,15 @@ if __name__ == '__main__':
            '-60': '1128A10',
            '-30': '1128A11'}
 
-    sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
+    # sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    mytest = MyTest(title='A00-A11_AoA', date='1129', subject=sub, reference=cal, path=npzpath, batch=True,
-                    func_index=0, sub_range=sub_range)
+    mytest = MyTest(title='Kim_phasediff', date='1129', subject=sub, reference=cal, path=npzpath, batch=True,
+                    func_index=5)
     mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, resample=False, autosave=True,
-               method='calibration + sanitization', notion='_raw')
+               method='calibration + sanitization', notion='_5cal')
 
 
 

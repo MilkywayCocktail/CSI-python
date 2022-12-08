@@ -4,8 +4,8 @@ import csitest
 import os
 import csi_loader
 
-npzpath = '../npsave/1128/csi/'
-datapath = '../data/1128/'
+npzpath = '../npsave/1205/'
+datapath = "D:/CAO/KIM/csi_programs/sample/sample_data_AoA/"
 name = 'csi1117A14.dat'
 
 # csi_loader.dat2npy(datapath + name, npzpath)

@@ -262,9 +262,9 @@ def _read_bytes(filename):
             byte = f.read(field_len - 1)
             byte_list.append(byte)
             cur = cur + field_len - 1
-            if len(byte) != field_len - 1:
-                f.close()
-                return
+        #    if len(byte) != field_len - 1:
+        #        f.close()
+        #        return
         else:  # skip all other info
             skip_list.append(count - 1)
             f.seek(field_len - 1, 1)

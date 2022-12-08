@@ -3,23 +3,54 @@ import cv2
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pyrealsense2 as rs
+import rosbag
 
-path = '../sense/11282'
+path = '../sense/1202/'
+source_name = 'T04.bag'
+export_name = 'T04_vmap.avi'
 
-dmatrix = np.load(path + '_dmatrix.npy')[:300]
-time = np.load(path + '_timestamps.npy')[:300]
+bag = rosbag.Bag(path + source_name, "r")
 
-time = (time - time[0]) / 1.e3
+fps = 30
 
-d_diff = dmatrix[1:] - dmatrix[:-1]
+pipeline = rs.pipeline()
+config = rs.config()
+rs.config.enable_device_from_file(config, path + source_name, False)
+config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, fps)
+pipeline.start(config)
 
-v_map = d_diff / time[1:, np.newaxis, np.newaxis].repeat(480, axis=1).repeat(848, axis=2)
+fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
+videowriter = cv2.VideoWriter(path + export_name, fourcc, fps, (848, 480))
 
-print(np.max(v_map))
-print(np.min(v_map))
+try:
+    t_tmp = 0
+    t_vmap = np.zeros((480, 848))
 
-for i in range(299):
-    sns.heatmap(v_map[i])
-    plt.show()
+    while True:
+        frames = pipeline.wait_for_frames()
+        depth_frame = frames.get_depth_frame()
+        if not depth_frame:
+            continue
+        depth_image = np.asanyarray(depth_frame.get_data())
+
+        timestamp = frames.timestamp
+        if t_tmp == 0:
+            t_tmp = timestamp
+        timestamp = timestamp - t_tmp
+
+        print(timestamp)
+
+        vmap = depth_image - t_vmap
+
+        videowriter.write(cv2.applyColorMap(cv2.convertScaleAbs(vmap, alpha=0.03), cv2.COLORMAP_JET))
+
+        t_vmap = depth_image
+
+
+except RuntimeError:
+    print("Read finished!")
+finally:
+    pipeline.stop()
+    videowriter.release()
 
 #    https: // www.cxyzjd.com / article / qq_25105061 / 111312298
