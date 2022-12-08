@@ -96,15 +96,12 @@ class MyCsi(object):
         else:
             if self.path[-3:] == "dat":
                 print(self.name, "raw load start...", time.asctime(time.localtime(time.time())))
-                csi_reader = get_reader(self.path)
-                csi_data = csi_reader.read_file(self.path, scaled=True)
-                csi_amp, no_frames, no_subcarriers = csitools.get_CSI(csi_data, metric="amplitude")
-                csi_phase, no_frames, no_subcarriers = csitools.get_CSI(csi_data, metric="phase")
-
-                self.data.amp = csi_amp
-                self.data.phase = csi_phase
-                self.data.length = no_frames
-                self.data.timestamps = csi_data.timestamps
+                save_path = "../npsave/" + self.name[:4] + '/csi/'
+                a, b = csi_loader.dat2npy(self.path, save_path)
+                self.data.amp = np.abs(a).swapaxes(1,3)
+                self.data.phase = np.angle(a).swapaxes(1,3)
+                self.data.length = len(b)
+                self.data.timestamps = b
                 self.data.sampling_rate = self.data.length / self.data.timestamps[-1]
                 print(self.name, "raw load complete", time.asctime(time.localtime(time.time())))
 

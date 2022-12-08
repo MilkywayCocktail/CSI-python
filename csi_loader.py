@@ -334,6 +334,8 @@ def dat2npy(filename, save_path):
     #     (real_csilist, imag_csilist, uint_rssilist, int_noiselist, uint_agclist, timelist, datetimelist),
     #     filename.replace(".dat", ".dump"))
 
+    return real_csilist + 1.j * imag_csilist, timelist
+
 
 def load_npy(filename):
     csilist, rssilist, noiselist, agclist, timelist, datetimelist = np.load(filename, allow_pickle=True)

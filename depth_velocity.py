@@ -6,8 +6,8 @@ import pyrealsense2 as rs
 import rosbag
 
 path = '../sense/1202/'
-source_name = 'T04.bag'
-export_name = 'T04_vmap.avi'
+source_name = 'T01.bag'
+export_name = 'T01_vmap.avi'
 
 bag = rosbag.Bag(path + source_name, "r")
 
@@ -24,6 +24,7 @@ videowriter = cv2.VideoWriter(path + export_name, fourcc, fps, (848, 480))
 
 try:
     t_tmp = 0
+    t1 = 0
     t_vmap = np.zeros((480, 848))
 
     while True:
@@ -37,10 +38,12 @@ try:
         if t_tmp == 0:
             t_tmp = timestamp
         timestamp = timestamp - t_tmp
-
         print(timestamp)
 
         vmap = depth_image - t_vmap
+        if t1 != 0:
+            vmap = vmap / (timestamp - t1)
+        t1 = timestamp
 
         videowriter.write(cv2.applyColorMap(cv2.convertScaleAbs(vmap, alpha=0.03), cv2.COLORMAP_JET))
 
