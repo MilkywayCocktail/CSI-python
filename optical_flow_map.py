@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 
 
-class OpticalFlow:
+class OpticalFlowMap:
 
     def __init__(self, file):
         self.file = file
@@ -49,5 +49,5 @@ class OpticalFlow:
 
 if __name__ == '__main__':
 
-    of = OpticalFlow("../sense/1202/T04.avi")
+    of = OpticalFlowMap("../sense/1202/T04.avi")
     of.run()

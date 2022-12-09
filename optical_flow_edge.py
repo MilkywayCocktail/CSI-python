@@ -19,7 +19,7 @@ feature_params = dict(maxCorners=500,
                       blockSize=7)
 
 
-class App:
+class OpticalFlowEdge:
     def __init__(self, video_src):
         self.track_len = 10
         self.detect_interval = 30
@@ -79,7 +79,7 @@ class App:
 
 if __name__ == '__main__':
 
-    c = App('../sense/1202/T03.avi')
-    c.run()
+    of = OpticalFlowEdge('../sense/1202/T03.avi')
+    of.run()
     print('Done')
     cv2.destroyAllWindows()

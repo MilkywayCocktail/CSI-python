@@ -7,7 +7,7 @@ import rosbag
 
 path = '../sense/1202/'
 source_name = 'T01.bag'
-export_name = 'T01_vmap.avi'
+export_name = 'T01_vmap_nc.avi'
 
 bag = rosbag.Bag(path + source_name, "r")
 
@@ -45,7 +45,7 @@ try:
             vmap = vmap / (timestamp - t1)
         t1 = timestamp
 
-        videowriter.write(cv2.applyColorMap(cv2.convertScaleAbs(vmap, alpha=0.03), cv2.COLORMAP_JET))
+        videowriter.write(cv2.convertScaleAbs(vmap, alpha=0.03))
 
         t_vmap = depth_image
 
