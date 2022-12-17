@@ -327,12 +327,14 @@ def dat2npy(filename, save_path):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
-    save_name = save_path + os.path.basename(filename)[3:-4] + "-csio"
+    save_name = save_path + os.path.basename(filename)[:-4] + "-csio"
     np.save(save_name,
             ((real_csilist, imag_csilist), uint_rssilist, int_noiselist, uint_agclist, timelist, datetimelist))
     # utils.save_by_joblib(
     #     (real_csilist, imag_csilist, uint_rssilist, int_noiselist, uint_agclist, timelist, datetimelist),
     #     filename.replace(".dat", ".dump"))
+
+    return real_csilist + 1.j * imag_csilist, timelist
 
 
 def load_npy(filename):

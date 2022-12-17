@@ -1,11 +1,10 @@
 import numpy as np
 import time
 import os
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import seaborn as sns
+import csi_loader
 import pycsi
 import myfunc
+import time
 from functools import wraps
 
 
@@ -23,7 +22,8 @@ class MyTest(object):
                  path=None,
                  batch=False,
                  func_index=0,
-                 func_name=None):
+                 func_name=None,
+                 sub_range=None):
 
         self.subject = subject
         self.reference = reference
@@ -33,6 +33,7 @@ class MyTest(object):
         self.batch_trigger = batch
         self.log = []
         self.testfunc = None
+        self.sub_range = sub_range
 
         self.methods = [method for method in dir(myfunc) if method.startswith('_T') is True]
         self.methods = {i: m for i, m in enumerate(self.methods)}
@@ -50,20 +51,25 @@ class MyTest(object):
             setattr(self, k, v)
 
     @staticmethod
-    def npzloader(input_name, input_path):
+    def npzloader(input_name, input_path, fc, bw):
         """
         A loader that loads npz files into MyCsi object.\n
         :param input_name: name of the MyCsi object (filename without '.npz')
         :param input_path: folder path of npz file (excluding filename)
+        :param fc: center frequency of CSI (in GHz)
+        :param bw: bandwidth of CSI (in MHz)
         :return: csi data loaded into MyCsi object
         """
         if input_path is None:
-            filepath = "npsave/" + input_name[:4] + '/csi/' + input_name + "-csis.npz"
+            print('Please specify path')
+            return
         else:
-            filepath = input_path + input_name + "-csis.npz"
+            filepath = input_path + input_name + '-csio.npy'
+            if not os.path.exists(filepath):
+                filepath = input_path + input_name + '-csis.npz'
+            _csi = pycsi.MyCsi(input_name, filepath, fc, bw)
+            _csi.load_data()
 
-        _csi = pycsi.MyCsi(input_name, filepath)
-        _csi.load_data()
         _csi.data.remove_inf_values()
         return _csi
 
@@ -89,10 +95,10 @@ class MyTest(object):
 
         return log_path + str(self.title) + '.txt'
 
-    def load_all_references(self, rearrange=False):
+    def load_all_references(self, fc, bw, rearrange=False):
         if self.reference is not None:
             for key, value in self.reference.items():
-                degref = value if isinstance(value, pycsi.MyCsi) else self.npzloader(value, self.path)
+                degref = value if isinstance(value, pycsi.MyCsi) else self.npzloader(value, self.path, fc, bw)
                 if rearrange is True:
                     degref.data.rearrange_antenna()
                 self.reference[key] = degref
@@ -101,21 +107,21 @@ class MyTest(object):
         for key, value in self.methods.items():
             print(key, ':', value)
 
-    def run(self, **kwargs):
+    def run(self, fc=5.67, bw=40, **kwargs):
         self.log.append(os.getcwd().replace('\\', '/') + "/logs/" + str(self.date) + '/' + self.title + '.txt')
         self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(
             self.select_func) + ' ----TEST START----')
 
-        print(self.title, "Test Start", time.asctime(time.localtime(time.time())))
+        print("######", self.title, "Test Start", time.asctime(time.localtime(time.time())))
 
         if self.batch_trigger is False and self.subject is not None:
-            self.load_all_references()
-            self.subject = self.npzloader(self.subject, self.path) \
+            self.load_all_references(fc, bw)
+            self.subject = self.npzloader(self.subject, self.path, fc, bw) \
                 if not isinstance(self.subject, pycsi.MyCsi) else self.subject
             self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
 
             self.testfunc = eval('myfunc.' + self.select_func +
-                                 '(test_title=self.title, reference=self.reference, subject=self.subject)')
+                                 '(test_title=self.title, reference=self   .reference, subject=self.subject)')
             self.testfunc.set_params(**kwargs)
             self.logger(self.testfunc.__dict__)
             self.logger(self.testfunc.func())
@@ -125,44 +131,63 @@ class MyTest(object):
             self.logger('----Batch process----')
 
             filenames = os.listdir(self.path)
-            self.load_all_references()
+            self.load_all_references(fc, bw)
 
             for file in filenames:
                 name = file[:-9]
 
-                self.subject = self.npzloader(name, self.path)
-                self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
+                if self.sub_range is not None and name[-3:] not in self.sub_range:
+                    continue
 
-                self.testfunc = eval('myfunc.' + self.select_func +
-                                     '(test_title=self.title, reference=self.reference, subject=self.subject)')
-                self.testfunc.set_params(**kwargs)
-                self.logger(self.testfunc.__dict__)
-                self.logger(self.testfunc.func())
+                else:
+                    self.subject = self.npzloader(name, self.path,fc, bw)
+                    self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
+
+                    self.testfunc = eval('myfunc.' + self.select_func +
+                                         '(test_title=self.title, reference=self.reference, subject=self.subject)')
+                    self.testfunc.set_params(**kwargs)
+                    self.logger(self.testfunc.__dict__)
+                    self.logger(self.testfunc.func())
 
             print("- Batch processing complete -")
 
         self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(
             self.select_func) + ' ----TEST FINISH----\n')
 
-        print(self.title, "Test Complete", time.asctime(time.localtime(time.time())))
+        print("######", self.title, "Test Complete", time.asctime(time.localtime(time.time())))
 
 
 if __name__ == '__main__':
 
-    sub = '1025A56'
+    sub = None
 
-    npzpath = '../npsave/1025/csi/'
+    npzpath = '../npsave/1205/'
 
-    cal = {'180': "1025A18",
-           '-30': "1025A33",
-           '-60': "1025A30",
-           '30': "1025A03",
-           '60': "1025A06"}
+    cal = {'0': '1128A00',
+           '30': '1128A01',
+           '60': '1128A02',
+           '-60': '1128A10',
+           '-30': '1128A11'}
 
-    test0 = MyTest()
-    test0.show_all_methods()
+    # sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
-    mytest = MyTest(title='phasediff-cal-san', date='1025', subject=sub, reference=cal, path=npzpath, batch=False,
+    # test0 = MyTest()
+    # test0.show_all_methods()
+
+    mytest = MyTest(title='Kim_phasediff', date='1129', subject=sub, reference=cal, path=npzpath, batch=True,
                     func_index=5)
-    mytest.run(ref_antenna=0, recursive=False, resample=True, sampling_rate=100, autosave=True,
-               method='calibration + sanitization', notion='_5cal_an0')
+    mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, resample=False, autosave=True,
+               method='calibration + sanitization', notion='_5cal')
+
+
+
+
+
+'''
+0 : _TestAoA
+1 : _TestAoADoppler
+2 : _TestAoAToF
+3 : _TestDoppler
+4 : _TestPhase
+5 : _TestPhaseDiff
+6 : _TestResampling'''

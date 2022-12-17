@@ -1,0 +1,580 @@
+2022-11-14 11:27:57_TestPhaseDiff ----TEST START----
+----Batch process----
+2022-11-14 11:28:08 1110A00
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A00
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A00
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 121656
+packet2 : 79510
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A00_5cal+san_self.png
+2022-11-14 11:28:23 1110A01
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A01
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A01
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 27351
+packet2 : 107744
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A01_5cal+san_self.png
+2022-11-14 11:28:39 1110A02
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A02
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A02
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 78655
+packet2 : 88927
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A02_5cal+san_self.png
+2022-11-14 11:28:53 1110A03
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A03
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A03
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 117132
+packet2 : 92509
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A03_5cal+san_self.png
+2022-11-14 11:29:08 1110A04
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A04
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A04
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 39048
+packet2 : 38762
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A04_5cal+san_self.png
+2022-11-14 11:29:23 1110A05
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A05
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A05
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 44545
+packet2 : 39918
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A05_5cal+san_self.png
+2022-11-14 11:29:37 1110A06
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A06
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A06
+ref_antenna : 1
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 66323
+packet2 : 87373
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A06_5cal+san_self.png
+2022-11-14 11:29:52 1110A07
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A07
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A07
+ref_antenna : 1
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 16904
+packet2 : 109769
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A07_5cal+san_self.png
+2022-11-14 11:30:07 1110A08
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A08
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A08
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 71841
+packet2 : 115875
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A08_5cal+san_self.png
+2022-11-14 11:30:21 1110A09
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A09
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A09
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 103868
+packet2 : 13456
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A09_5cal+san_self.png
+2022-11-14 11:30:36 1110A10
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A10
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A10
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 48755
+packet2 : 34313
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A10_5cal+san_self.png
+2022-11-14 11:30:52 1110A11
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A11
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A11
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 71490
+packet2 : 33345
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A11_5cal+san_self.png
+2022-11-14 11:31:07 1110A12
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A12
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A12
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 23708
+packet2 : 86207
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A12_5cal+san_self.png
+2022-11-14 11:31:21 1110A13
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A13
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A13
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 45583
+packet2 : 45409
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A13_5cal+san_self.png
+2022-11-14 11:31:38 1110A14
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A14
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A14
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 74117
+packet2 : 107388
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A14_5cal+san_self.png
+2022-11-14 11:31:54 1110A15
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A15
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A15
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 24287
+packet2 : 7401
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A15_5cal+san_self.png
+2022-11-14 11:32:10 1110A16
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A16
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A16
+ref_antenna : 0
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 54197
+packet2 : 43623
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A16_5cal+san_self.png
+2022-11-14 11:32:27 1110A17
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A17
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A17
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 88940
+packet2 : 61980
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A17_5cal+san_self.png
+2022-11-14 11:32:43 1110A18
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A18
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A18
+ref_antenna : 0
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 1979
+packet2 : 42214
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A18_5cal+san_self.png
+2022-11-14 11:32:59 1110A19
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A19
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A19
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 2353
+packet2 : 54746
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A19_5cal+san_self.png
+2022-11-14 11:33:17 1110A20
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A20
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A20
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 78653
+packet2 : 66935
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A20_5cal+san_self.png
+2022-11-14 11:33:32 1110A21
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A21
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A21
+ref_antenna : 0
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 66873
+packet2 : 44351
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A21_5cal+san_self.png
+2022-11-14 11:33:50 1110A22
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A22
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A22
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 20143
+packet2 : 41343
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A22_5cal+san_self.png
+2022-11-14 11:34:09 1110A23
+date : None
+title : A00-A11_phasediff_5cal_ref_self
+rearrange : False
+self_cal : False
+calibrate : False
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A23
+autosave : True
+notion : _5cal+san_self
+suptitle : 1110A23
+ref_antenna : 2
+antennas : [0, 1, 2]
+recursive : False
+packet1 : 120075
+packet2 : 30107
+method : calibration + sanitization
+title1 : Before
+title2 : After
+../visualization/1110/A00-A11_phasediff_5cal_ref_self/A23_5cal+san_self.png
+2022-11-14 11:34:23_TestPhaseDiff ----TEST FINISH----
+

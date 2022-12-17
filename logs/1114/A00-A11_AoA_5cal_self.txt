@@ -1,0 +1,558 @@
+2022-11-14 11:48:17_TestAoA ----TEST START----
+----Batch process----
+2022-11-14 11:48:27 1110A10
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A10
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1110//A10_aoa_5cal_self.png
+2022-11-14 11:49:42 1110A11
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1110A00, '30': MyCsi-1110A01, '60': MyCsi-1110A02, '-60': MyCsi-1110A10, '-30': MyCsi-1110A11}
+subject : MyCsi-1110A11
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1110//A11_aoa_5cal_self.png
+2022-11-14 11:50:56_TestAoA ----TEST FINISH----
+
+2022-11-15 16:49:29_TestAoA ----TEST START----
+----Batch process----
+2022-11-15 16:49:39 1114A00
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A00
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A00_aoa_5cal_self.png
+2022-11-15 16:50:50 1114A01
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A01
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A01_aoa_5cal_self.png
+2022-11-15 16:52:03 1114A02
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A02
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A02_aoa_5cal_self.png
+2022-11-15 16:53:14 1114A03
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A03
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A03_aoa_5cal_self.png
+2022-11-15 16:54:27 1114A04
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A04
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A04_aoa_5cal_self.png
+2022-11-15 16:55:38 1114A05
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A05
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A05_aoa_5cal_self.png
+2022-11-15 16:56:49 1114A06
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A06
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A06_aoa_5cal_self.png
+2022-11-15 16:58:05 1114A07
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A07
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A07_aoa_5cal_self.png
+2022-11-15 16:59:20 1114A08
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A08
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A08_aoa_5cal_self.png
+2022-11-15 17:00:32 1114A09
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A09
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A09_aoa_5cal_self.png
+2022-11-15 17:01:44 1114A10
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A10
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A10_aoa_5cal_self.png
+2022-11-15 17:02:57 1114A11
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A11
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A11_aoa_5cal_self.png
+2022-11-15 17:04:08_TestAoA ----TEST FINISH----
+
+2022-11-15 18:08:05_TestAoA ----TEST START----
+----Batch process----
+2022-11-15 18:08:07 1114A00
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A00
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A00_aoa_5cal_self.png
+2022-11-15 18:09:28 1114A01
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A01
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A01_aoa_5cal_self.png
+2022-11-15 18:10:40 1114A02
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A02
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A02_aoa_5cal_self.png
+2022-11-15 18:11:52 1114A03
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A03
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A03_aoa_5cal_self.png
+2022-11-15 18:13:04 1114A04
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A04
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A04_aoa_5cal_self.png
+2022-11-15 18:14:18 1114A05
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A05
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A05_aoa_5cal_self.png
+2022-11-15 18:15:29 1114A06
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A06
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A06_aoa_5cal_self.png
+2022-11-15 18:16:40 1114A07
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A07
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A07_aoa_5cal_self.png
+2022-11-15 18:17:52 1114A08
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A08
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A08_aoa_5cal_self.png
+2022-11-15 18:19:05 1114A09
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A09
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A09_aoa_5cal_self.png
+2022-11-15 18:20:22 1114A10
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A10
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A10_aoa_5cal_self.png
+2022-11-15 18:21:33 1114A11
+date : None
+title : A00-A11_AoA_5cal_self
+rearrange : False
+self_cal : False
+calibrate : True
+sanitize : False
+extract : False
+resample : False
+sampling_rate : 0
+reference : {'0': MyCsi-1114A00, '30': MyCsi-1114A01, '60': MyCsi-1114A02, '-60': MyCsi-1114A10, '-30': MyCsi-1114A11}
+subject : MyCsi-1114A11
+autosave : True
+notion : _5cal_self
+suptitle : 
+threshold : 0
+smooth : False
+num_ticks : 11
+recursive : False
+method : calibration + sanitization
+../visualization/1114//A11_aoa_5cal_self.png
+2022-11-15 18:22:43_TestAoA ----TEST FINISH----
+

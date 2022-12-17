@@ -225,3 +225,29 @@ pycsi.py
 
 simulator.py
 - Modification: apply_aoa(), apply_tof, apply_doppler(), merged into apply_gt()
+
+# 1107
+
+pycsi.py
+- Modification: aoa_by_music(), parallelized
+- Modification: tof_by_music(), parallelized
+- Added parameter: raw_window, into doppler_by_music()
+
+simulator.py
+- Modification: apply_Doppler(), corrected method
+- Modification: DataSimulator, corrected self.timestamps
+
+# 1108
+
+simulator.py
+- Bugfix: apply_Doppler(), corrected mothod
+
+# 1109
+
+pycsi.py
+- Modification: doppler_by_music(), parallelized
+- Modification: aoa_tof_by_music(), parallelized
+- Modification: aoa_doppler_by_music(), parallelized (also fixed)
+
+simulator.py
+- Modification: apply_gt(), suported uncertain number of inputs
