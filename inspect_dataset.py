@@ -24,7 +24,7 @@ def asy(path):
     return
 
 
-ast('../dataset/1213/env/t.npy')
-asx('../dataset/1213/env/x.npy')
-asy('../dataset/1213/env/y.npy')
+ast('../dataset/1213/04/t.npy')
+asx('../dataset/1213/04/x.npy')
+asy('../dataset/1213/04/y.npy')
 

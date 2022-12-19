@@ -176,7 +176,10 @@ class Bag2Velocity(BagConverter):
                     vmap = vmap / (timestamp - t1)
                 t1 = timestamp
 
-                vmap = cv2.applyColorMap(cv2.convertScaleAbs(vmap, alpha=0.03), cv2.COLORMAP_JET)
+
+                vmap = cv2.applyColorMap(cv2.convertScaleAbs(vmap, alpha=0.6), cv2.COLORMAP_WINTER)
+                vmap = cv2.blur(vmap, (15, 15))
+                #vmap = cv2.bilateralFilter(vmap, 0, 100, 5)
                 self.videowriter.write(vmap)
 
                 t_vmap = depth_image
@@ -199,9 +202,9 @@ class Bag2Velocity(BagConverter):
 
 if __name__ == '__main__':
 
-    path = '../sense/1202/'
-    source_name = 'T01.bag'
-    export_name = 'T01_v_filtered.avi'
+    path = '../sense/1213/'
+    source_name = '121301.bag'
+    export_name = '121301_filtered.avi'
 
     con = Bag2Velocity(path, source_name, export_name, f=True)
     con.setup()
