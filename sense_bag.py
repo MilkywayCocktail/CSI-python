@@ -122,7 +122,7 @@ class MySense:
 
 if __name__ == '__main__':
 
-    path = '../sense/1124/'
+    path = '../sense/'
 
     sense = MySense(path)
     sense.setup()

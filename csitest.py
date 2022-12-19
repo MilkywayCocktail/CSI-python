@@ -159,9 +159,9 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = None
+    sub = "1213A06"
 
-    npzpath = '../npsave/1205/'
+    npzpath = '../npsave/1213/'
 
     cal = {'0': '1128A00',
            '30': '1128A01',
@@ -174,10 +174,10 @@ if __name__ == '__main__':
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    mytest = MyTest(title='Kim_phasediff', date='1129', subject=sub, reference=cal, path=npzpath, batch=True,
-                    func_index=5)
+    mytest = MyTest(title='A06_AoA', date='1213', subject=sub, reference=cal, path=npzpath, batch=False,
+                    func_index=0)
     mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, resample=False, autosave=True,
-               method='calibration + sanitization', notion='_5cal')
+               method='calibration + sanitization', notion='_raw')
 
 
 
