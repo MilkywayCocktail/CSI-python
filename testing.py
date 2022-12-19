@@ -9,6 +9,5 @@ import csi_loader
 
 import rosbag
 
-bag = rosbag.Bag('../sense/1202/T01.bag', 'r')
-info = bag.g
-print(info)
+ts = np.load('../dataset/env/t.npy')
+print(len(ts))

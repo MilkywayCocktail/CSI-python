@@ -52,10 +52,10 @@ class MyDataMaker:
 
     def __init__(self, paths: list, total_frames: int):
         self.paths = paths
+        self.total_frames = total_frames
         self.video_stream = self.__setup_video_stream__()
         self.csi_stream = self.__setup_csi_stream__()
         self.result = self.__init_data__()
-        self.total_frames = total_frames
 
     def __len__(self):
         return self.total_frames
@@ -85,6 +85,8 @@ class MyDataMaker:
 
     def save(self, save_name: str):
         try:
+            print('Starting making...')
+
             t_tmp = 0
             t1 = 0
             t_vmap = np.zeros((120, 200))
@@ -102,12 +104,13 @@ class MyDataMaker:
                 depth_image = cv2.resize(depth_image, (200, 120), interpolation=cv2.INTER_AREA)
 
                 frame_timestamp = frames.timestamp
-                self.result['t'][i] = frame_timestamp
 
                 if t_tmp == 0:
                     t_tmp = frame_timestamp
                 frame_timestamp = frame_timestamp - t_tmp
-                print(frame_timestamp)
+                print('\r',
+                      "\033[32mWriting frame " + str(i) + " timestamp " + str(frame_timestamp) + "\033[0m", end='')
+                self.result['t'][i] = frame_timestamp
 
                 vmap = depth_image - t_vmap
                 if t1 != 0:
@@ -117,7 +120,7 @@ class MyDataMaker:
                 self.result['y'][i, :] = vmap
                 t_vmap = depth_image
 
-                csi_index = np.searchsorted(self.csi_stream['time'])
+                csi_index = np.searchsorted(self.csi_stream['time'], frame_timestamp)
                 abs_chunk = np.squeeze(self.csi_stream['abs'][csi_index: csi_index + 33, :, :, 0])
                 abs_chunk = abs_chunk.reshape(33, 90).T
                 phase_chunk = np.squeeze(self.csi_stream['phase'][csi_index: csi_index + 33, :, :, 0])
@@ -142,7 +145,11 @@ class MyDataMaker:
             np.save(path + 'y.npy', self.result['y'])
             np.save(path + 't.npy', self.result['t'])
 
+            print("\nAll chunks saved!")
+
 
 if __name__ == '__main__':
 
-    paths = ['../npsave/1213A00-csio.npy', '../sense/1213/']
+    paths = ['../sense/1213/1213env.bag', '../npsave/1213/1213A00-csio.npy']
+    mkdata = MyDataMaker(paths, 300)
+    mkdata.save('1213/env')
