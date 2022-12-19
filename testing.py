@@ -9,5 +9,5 @@ import csi_loader
 
 import rosbag
 
-ts = np.load('../dataset/env/t.npy')
-print(len(ts))
+ts = np.load('../dataset/1213/env/t.npy')
+print(ts)

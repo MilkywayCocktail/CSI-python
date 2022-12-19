@@ -150,6 +150,6 @@ class MyDataMaker:
 
 if __name__ == '__main__':
 
-    paths = ['../sense/1213/1213env.bag', '../npsave/1213/1213A00-csio.npy']
-    mkdata = MyDataMaker(paths, 300)
-    mkdata.save('1213/env')
+    paths = ['../sense/1213/121304.bag', '../npsave/1213/1213A04-csio.npy']
+    mkdata = MyDataMaker(paths, 1800)
+    mkdata.save('1213/04')
