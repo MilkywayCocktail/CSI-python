@@ -35,8 +35,36 @@ def my_filter(frame):
     return result_frame
 
 
-def spatial_smooth(frame):
-    frame = cv2.blur(frame)
+def circle_mask(border, cutoff):
+    mask = np.zeros((border, border))
+    for i in range(border):
+        for j in range(border):
+            arm = np.power(i - border, 2) + np.power(j - border / 2, 2)
+            mask[i, j] = 1 if arm <= np.power(cutoff, 2) else 0
+
+    return mask
+
+
+def low_pass_filter(patch, mask):
+    p = np.fft.fft2(patch)
+    pshift = np.fft.fftshift(p)
+    filtered = np.multiply(pshift, mask)
+    repatchshift = np.fft.ifftshift(filtered)
+    repatch = np.fft.ifft2(repatchshift)
+
+    return np.abs(repatch)
+
+
+def spatial_smooth(frame, kernel=(80, 80), step=(10, 5)):
+    w_iter = (frame.shape[1] - kernel[0]) // step[0]
+    h_iter = (frame.shape[0] - kernel[1]) // step[1]
+    for i in range(h_iter):
+        for j in range(w_iter):
+            patch = frame[i * step[1]: i * step[1] + kernel[1], j * step[0]: j * step[0] + kernel[0]]
+
+            frame[i * step[1]: i * step[1] + kernel[1],
+                  j * step[0]: j * step[0] + kernel[0]] = low_pass_filter(patch, circle_mask(80, 25))
+
     return frame
 
 
@@ -48,7 +76,8 @@ def run(in_path, total_frames: int):
     config.enable_device_from_file(in_path, False)
     config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
 
-    pipeline.start(config)
+    profile = pipeline.start(config)
+    profile.get_device().as_playback().set_real_time(False)
 
     try:
         t_tmp = 0
@@ -69,19 +98,20 @@ def run(in_path, total_frames: int):
             timestamp = timestamp - t_tmp
             print(timestamp)
 
-            vmap = depth_image
-            # if t1 != 0:
-            #    vmap = vmap / (timestamp - t1)
+            vmap = depth_image - t_vmap
+            if t1 != 0:
+               vmap = vmap / (timestamp - t1)
             t1 = timestamp
 
-            vmap = cv2.convertScaleAbs(vmap, alpha=0.03)
-            vmap = cv2.bilateralFilter(vmap, 5, 5, 9)
+            vmap = spatial_smooth(vmap)
+            vmap = cv2.convertScaleAbs(vmap, alpha=0.4)
+            #vmap = cv2.bilateralFilter(vmap, 50, 100, 5)
 
             # vmap = cv2.bilateralFilter(vmap, 0, 100, 5)
             # vmap = cv2.blur(vmap, (15, 15))
             # vmap = cv2.bilateralFilter(vmap, 0, 100, 5)
 
-            # t_vmap = depth_image
+            t_vmap = depth_image
 
             cv2.namedWindow('Velocity Image', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('Velocity Image', vmap)
