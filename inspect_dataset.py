@@ -15,7 +15,7 @@ def asx(path):
 def asy(path):
     vmap = np.load(path)
     for i in range(len(vmap)):
-        img = cv2.applyColorMap(cv2.convertScaleAbs(vmap[i], alpha=0.03), cv2.COLORMAP_JET)
+        img = cv2.convertScaleAbs(vmap[i], alpha=0.03)
         cv2.namedWindow('Velocity Image', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('Velocity Image', img)
         key = cv2.waitKey(1) & 0xFF

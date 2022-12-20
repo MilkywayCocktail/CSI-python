@@ -1,0 +1,103 @@
+import pyrealsense2 as rs
+import numpy as np
+import cv2
+import os
+
+
+def my_filter(frame):
+    hole_filling = rs.hole_filling_filter()
+
+    decimate = rs.decimation_filter()
+    decimate.set_option(rs.option.filter_magnitude, 1)
+
+    spatial = rs.spatial_filter()
+    spatial.set_option(rs.option.filter_magnitude, 2)
+    spatial.set_option(rs.option.filter_smooth_alpha, 0.5)
+    spatial.set_option(rs.option.filter_smooth_delta, 50)
+    # spatial.set_option(rs.option.holes_fill, 3)
+
+    temporal = rs.temporal_filter()
+    temporal.set_option(rs.option.filter_smooth_alpha, 0.5)
+    temporal.set_option(rs.option.filter_smooth_delta, 20)
+    # temporal.set_option(rs.option.holes_fill, 3)
+
+    depth_to_disparity = rs.disparity_transform(True)
+    disparity_to_depth = rs.disparity_transform(False)
+
+    filter_frame = decimate.process(frame)
+    filter_frame = depth_to_disparity.process(filter_frame)
+    filter_frame = temporal.process(filter_frame)
+    filter_frame = spatial.process(filter_frame)
+
+    filter_frame = disparity_to_depth.process(filter_frame)
+    filter_frame = hole_filling.process(filter_frame)
+    result_frame = filter_frame.as_depth_frame()
+    return result_frame
+
+
+def spatial_smooth(frame):
+    frame = cv2.blur(frame)
+    return frame
+
+
+def run(in_path, total_frames: int):
+    chunk = np.zeros((total_frames, 480, 848))
+
+    pipeline = rs.pipeline()
+    config = rs.config()
+    config.enable_device_from_file(in_path, False)
+    config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
+
+    pipeline.start(config)
+
+    try:
+        t_tmp = 0
+        t1 = 0
+        t_vmap = np.zeros((480, 848))
+
+        while True:
+            frames = pipeline.wait_for_frames()
+            depth_frame = frames.get_depth_frame()
+            if not depth_frame:
+                continue
+            depth_frame = my_filter(depth_frame)
+            depth_image = np.asanyarray(depth_frame.get_data())
+
+            timestamp = frames.timestamp
+            if t_tmp == 0:
+                t_tmp = timestamp
+            timestamp = timestamp - t_tmp
+            print(timestamp)
+
+            vmap = depth_image
+            # if t1 != 0:
+            #    vmap = vmap / (timestamp - t1)
+            t1 = timestamp
+
+            vmap = cv2.convertScaleAbs(vmap, alpha=0.03)
+            vmap = cv2.bilateralFilter(vmap, 5, 5, 9)
+
+            # vmap = cv2.bilateralFilter(vmap, 0, 100, 5)
+            # vmap = cv2.blur(vmap, (15, 15))
+            # vmap = cv2.bilateralFilter(vmap, 0, 100, 5)
+
+            # t_vmap = depth_image
+
+            cv2.namedWindow('Velocity Image', cv2.WINDOW_AUTOSIZE)
+            cv2.imshow('Velocity Image', vmap)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+
+    except RuntimeError:
+        print("Read finished!")
+        pipeline.stop()
+
+    finally:
+        cv2.destroyAllWindows()
+
+        print("Saved!")
+
+
+if __name__ == '__main__':
+    run('../sense/1213/121302.bag', 300)
