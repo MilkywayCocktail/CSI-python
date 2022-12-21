@@ -117,7 +117,7 @@ class MyDataMaker:
                     vmap = vmap / (frame_timestamp - t1)
                 t1 = frame_timestamp
 
-                self.result['y'][i, :] = vmap
+                self.result['y'][i, :] = depth_image
                 t_vmap = depth_image
 
                 csi_index = np.searchsorted(self.csi_stream['time'], frame_timestamp)
@@ -152,4 +152,4 @@ if __name__ == '__main__':
 
     paths = ['../sense/1213/121304.bag', '../npsave/1213/1213A04-csio.npy']
     mkdata = MyDataMaker(paths, 1800)
-    mkdata.save('1213/04')
+    mkdata.save('1213/depth/04')

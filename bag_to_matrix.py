@@ -39,7 +39,7 @@ def circle_mask(border, cutoff):
     mask = np.zeros((border, border))
     for i in range(border):
         for j in range(border):
-            arm = np.power(i - border, 2) + np.power(j - border / 2, 2)
+            arm = np.power(i - border / 2, 2) + np.power(j - border / 2, 2)
             mask[i, j] = 1 if arm <= np.power(cutoff, 2) else 0
 
     return mask
@@ -56,16 +56,28 @@ def low_pass_filter(patch, mask):
 
 
 def spatial_smooth(frame, kernel=(80, 80), step=(10, 5)):
+    out_frame = np.zeros_like(frame)
     w_iter = (frame.shape[1] - kernel[0]) // step[0]
     h_iter = (frame.shape[0] - kernel[1]) // step[1]
+    rows = (0, 0)
+    cols = (0, 0)
+
     for i in range(h_iter):
         for j in range(w_iter):
-            patch = frame[i * step[1]: i * step[1] + kernel[1], j * step[0]: j * step[0] + kernel[0]]
+            rows = (i * step[1], i * step[1] + kernel[1])
+            cols = (j * step[0], j * step[0] + kernel[0])
 
-            frame[i * step[1]: i * step[1] + kernel[1],
-                  j * step[0]: j * step[0] + kernel[0]] = low_pass_filter(patch, circle_mask(80, 25))
+            if i == h_iter - 1:
+                rows = (frame.shape[0] - kernel[1], frame.shape[0])
+            if j == w_iter - 1:
+                cols = (frame.shape[1] - kernel[0], frame.shape[1])
 
-    return frame
+            patch = frame[rows[0]: rows[1], cols[0]: cols[1]]
+
+            out_frame[rows[0]: rows[1],
+                      cols[0]: cols[1]] = low_pass_filter(patch, circle_mask(80, 25))
+
+    return out_frame
 
 
 def run(in_path, total_frames: int):
@@ -103,7 +115,7 @@ def run(in_path, total_frames: int):
                vmap = vmap / (timestamp - t1)
             t1 = timestamp
 
-            vmap = spatial_smooth(vmap)
+            #vmap = spatial_smooth(vmap)
             vmap = cv2.convertScaleAbs(vmap, alpha=0.4)
             #vmap = cv2.bilateralFilter(vmap, 50, 100, 5)
 
