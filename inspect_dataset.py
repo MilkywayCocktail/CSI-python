@@ -24,7 +24,7 @@ def asy(path):
     return
 
 
-ast('../dataset/1213/depth/01/t.npy')
-asx('../dataset/1213/depth/01/x.npy')
-asy('../dataset/1213/depth/01/y.npy')
+ast('../dataset/1213/velocity/01_t.npy')
+asx('../dataset/1213/velocity/01_x.npy')
+asy('../dataset/1213/velocity/01_y.npy')
 
