@@ -121,7 +121,7 @@ class MyCsi(object):
                 self.data.amp = np.abs(csi).swapaxes(1, 3)
                 self.data.phase = np.angle(csi).swapaxes(1, 3)
                 self.data.length = len(t)
-                self.data.timestamps = t
+                self.data.timestamps = np.array(t)
                 self.data.sampling_rate = self.data.length / self.data.timestamps[-1]
                 print(self.name, "npy load complete", time.asctime(time.localtime(time.time())))
 
@@ -346,7 +346,7 @@ class MyCsi(object):
         def view_phase_diff(self, packet1=None, packet2=None, ref_antenna=None,
                             autosave=False, notion='', folder_name=''):
 
-            if ref_antenna is None:
+            if ref_antenna == 'strong':
                 ref_antenna = np.argmax(self.show_antenna_strength())
             if packet1 is None:
                 packet1 = np.random.randint(self.length)
@@ -354,21 +354,21 @@ class MyCsi(object):
                 packet2 = np.random.randint(self.length)
 
             antennas = list(range(self.nrx))
-            antennas.remove(int(ref_antenna))
+            #antennas.remove(int(ref_antenna))
             recon = self.commonfunc.reconstruct_csi
             csi = recon(self.amp, self.phase)
-            phase_diff = np.unwrap(np.angle(csi * csi[:, :, ref_antenna, :][:, :, np.newaxis, :].conj()), axis=1)
+            #phase_diff = np.unwrap(np.angle(csi * csi[:, :, ref_antenna, :][:, :, np.newaxis, :].conj()), axis=1)
 
             plt.title("Phase Difference of " + str(self.name))
-            plt.plot(phase_diff[packet1, :, antennas[0], 0],
-                     label='antenna' + str(antennas[0]) + '-' + str(ref_antenna) + ' #' + str(packet1), color='b')
-            plt.plot(phase_diff[packet1, :, antennas[1], 0],
-                     label='antenna' + str(antennas[1]) + '-' + str(ref_antenna) + ' #' + str(packet1), color='r')
-            plt.plot(phase_diff[packet2, :, antennas[0], 0],
-                     label='antenna' + str(antennas[0]) + '-' + str(ref_antenna) + ' #' + str(packet2), color='b',
+            plt.plot(np.unwrap(np.angle(csi[packet1, :, 0, :] * csi[packet1, :, 1, :].conj()), axis=1),
+                     label='antenna 0-1 #' + str(packet1), color='b')
+            plt.plot(np.unwrap(np.angle(csi[packet2, :, 1, :] * csi[packet2, :, 2, :].conj()), axis=1),
+                     label='antenna 1-2 #' + str(packet1), color='r')
+            plt.plot(np.unwrap(np.angle(csi[packet1, :, 0, :] * csi[packet1, :, 1, :].conj()), axis=1),
+                     label='antenna 0-1 #' + str(packet2), color='b',
                      linestyle='--')
-            plt.plot(phase_diff[packet2, :, antennas[1], 0],
-                     label='antenna' + str(antennas[1]) + '-' + str(ref_antenna) + ' #' + str(packet2), color='r',
+            plt.plot(np.unwrap(np.angle(csi[packet2, :, 1, :] * csi[packet2, :, 2, :].conj()), axis=1),
+                     label='antenna 1-2 #' + str(packet2), color='r',
                      linestyle='--')
             plt.xlabel('#Subcarrier', loc='right')
             plt.ylabel('PhaseDiff / $rad$')

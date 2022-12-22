@@ -103,11 +103,11 @@ class MyFunc(object):
 class PhaseCompare(MyFunc):
     def __init__(self, *args, **kwargs):
         MyFunc.__init__(self, *args, **kwargs)
-        self.ref_antenna = np.argmax(self.subject.data.show_antenna_strength())
+        self.ref_antenna = 1
         self.antennas = list(range(self.subject.nrx))
         self.recursive = False
-        self.packet1 = np.random.randint(self.subject.data.length)
-        self.packet2 = np.random.randint(self.subject.data.length)
+        self.packet1 = int(self.subject.data.length / 2)
+        self.packet2 = int(self.subject.data.length / 2) + 1
         self.method = 'calibration'
         self.title1 = 'Before'
         self.title2 = 'After'
@@ -134,8 +134,8 @@ class PhaseCompare(MyFunc):
         for i in range(count):
 
             if count == 1:
-                self.packet1 = np.random.randint(self.subject.data.length)
-                self.packet2 = np.random.randint(self.subject.data.length)
+                self.packet1 = int(self.subject.data.length / 2)
+                self.packet2 = int(self.subject.data.length / 2) + 10
             else:
                 self.suptitle += "_" + str(i)
                 self.packet1 = i
@@ -204,18 +204,18 @@ class _TestPhaseDiff(PhaseCompare):
     def mysubplot(self, axis, title, phase):
 
         axis.set_title(title)
-        axis.plot(phase[self.packet1, :, self.antennas[0], 0],
-                  label='antenna' + str(self.antennas[0]) + '-' + str(self.ref_antenna) + ' #' + str(self.packet1),
+        axis.plot(phase[0][self.packet1],
+                  label='antenna 0-1 #' + str(self.packet1),
                   color='b')
-        axis.plot(phase[self.packet1, :, self.antennas[1], 0],
-                  label='antenna' + str(self.antennas[1]) + '-' + str(self.ref_antenna) + ' #' + str(self.packet1),
+        axis.plot(phase[1][self.packet1],
+                  label='antenna 1-2 #' + str(self.packet1),
                   color='r')
-        axis.plot(phase[self.packet2, :, self.antennas[0], 0],
-                  label='antenna' + str(self.antennas[0]) + '-' + str(self.ref_antenna) + ' #' + str(self.packet2),
+        axis.plot(phase[0][self.packet2],
+                  label='antenna 0-1 #' + str(self.packet2),
                   color='b',
                   linestyle='--')
-        axis.plot(phase[self.packet2, :, self.antennas[1], 0],
-                  label='antenna' + str(self.antennas[1]) + '-' + str(self.ref_antenna) + ' #' + str(self.packet2),
+        axis.plot(phase[1][self.packet2],
+                  label='antenna 1-2 #' + str(self.packet2),
                   color='r',
                   linestyle='--')
         axis.set_xlabel('#Subcarrier', loc='right')
@@ -224,12 +224,16 @@ class _TestPhaseDiff(PhaseCompare):
 
     def get_phase(self):
         csi = self.subject.data.amp * np.exp(1.j * self.subject.data.phase)
-        phase_diff = np.unwrap(np.angle(csi * csi[:, :, self.ref_antenna, :][:, :, np.newaxis, :].conj()), axis=1)
-        return phase_diff
+        phase_diff1 = np.unwrap(np.angle(csi[:, :, 0, :] * csi[:, :, 1, :].conj()), axis=1)
+        phase_diff2 = np.unwrap(np.angle(csi[:, :, 1, :] * csi[:, :, 2, :].conj()), axis=1)
+        print('0-1:', phase_diff1[self.packet1])
+        print('1-2:', phase_diff2[self.packet1])
+        return [phase_diff1, phase_diff2]
 
     def antenna_list(self):
-        self.antennas.remove(int(self.ref_antenna))
-        self.suptitle = self.subject.name + '_ref' + str(self.ref_antenna)
+        #self.antennas.remove(int(self.ref_antenna))
+        #self.suptitle = self.subject.name + '_ref' + str(self.ref_antenna)
+        pass
 
 
 @CountClass

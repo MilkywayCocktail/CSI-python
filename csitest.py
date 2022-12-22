@@ -159,25 +159,21 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = None
+    sub = "1222A59"
 
-    npzpath = '../npsave/1205/'
+    npzpath = '../npsave/1222/'
 
-    cal = {'0': '1128A00',
-           '30': '1128A01',
-           '60': '1128A02',
-           '-60': '1128A10',
-           '-30': '1128A11'}
+    cal = {'0': '1222A50'}
 
     # sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    mytest = MyTest(title='Kim_phasediff', date='1129', subject=sub, reference=cal, path=npzpath, batch=True,
+    mytest = MyTest(title='A50-phase', date='1222', subject=sub, reference=cal, path=npzpath, batch=False,
                     func_index=5)
-    mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, resample=False, autosave=True,
-               method='calibration + sanitization', notion='_5cal')
+    mytest.run(fc=5.26, bw=20, calibrate=False, recursive=False, autosave=True,
+               method='calibration + sanitization', notion='_cal')
 
 
 
