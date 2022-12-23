@@ -80,8 +80,8 @@ def spatial_smooth(frame, kernel=(80, 80), step=(10, 5)):
     return out_frame
 
 
-def run(in_path, total_frames: int):
-    chunk = np.zeros((total_frames, 480, 848))
+def run(in_path, out_path):
+    chunk = []
 
     pipeline = rs.pipeline()
     config = rs.config()
@@ -91,21 +91,19 @@ def run(in_path, total_frames: int):
     profile = pipeline.start(config)
     profile.get_device().as_playback().set_real_time(False)
 
-    histogram = []
-    i = 0
     try:
         t_tmp = 0
         t1 = 0
         t_vmap = np.zeros((480, 848))
 
-        for i in range(total_frames):
+        while True:
             frames = pipeline.wait_for_frames()
             depth_frame = frames.get_depth_frame()
             if not depth_frame:
                 continue
             depth_frame = my_filter(depth_frame)
             depth_image = np.asanyarray(depth_frame.get_data())
-            point = np.max(depth_image)
+            chunk.append(depth_image)
 
             timestamp = frames.timestamp
             if t_tmp == 0:
@@ -120,7 +118,7 @@ def run(in_path, total_frames: int):
 
             #vmap = spatial_smooth(vmap)
             vmap = cv2.convertScaleAbs(vmap, alpha=0.4)
-            depth_image = cv2.convertScaleAbs(depth_image, alpha=0.2)
+            depth_image = cv2.convertScaleAbs(depth_image, alpha=0.02)
 
             #vmap = cv2.bilateralFilter(vmap, 50, 100, 5)
 
@@ -129,8 +127,6 @@ def run(in_path, total_frames: int):
             # vmap = cv2.bilateralFilter(vmap, 0, 100, 5)
 
             t_vmap = depth_image
-            histogram.append(point)
-
 
             cv2.namedWindow('Velocity Image', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('Velocity Image', depth_image)
@@ -144,10 +140,10 @@ def run(in_path, total_frames: int):
 
     finally:
         cv2.destroyAllWindows()
-        np.save('chunk.npy', chunk.astype(np.uint16))
-
-        print(histogram)
+        chunk = np.array(chunk)
+        np.save(out_path, chunk.astype(np.uint16))
 
 
 if __name__ == '__main__':
-    run('../sense/1213/1213env.bag', 300)
+    run('../sense/1213/121303.bag', '../dataset/compressed/121303.npy')
+    run('../sense/1213/121304.bag', '../dataset/compressed/121304.npy')
