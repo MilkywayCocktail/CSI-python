@@ -13,6 +13,7 @@ import csi_loader
 import numpy as np
 import sys
 import os
+import make_dataset_preprocess_csi
 
 
 def my_filter(frame):
@@ -73,8 +74,7 @@ class MyDataMaker:
     def __setup_csi_stream__(self):
         with HiddenPrints():
             csi, timestamps, i, j = csi_loader.load_npy(self.paths[1])
-            return {'abs': np.abs(csi).swapaxes(1, 3),
-                    'phase': np.angle(csi).swapaxes(1, 3),
+            return {'csi': csi,
                     'time': timestamps-timestamps[0]}
 
     def __init_data__(self):
@@ -121,13 +121,11 @@ class MyDataMaker:
                 t_vmap = depth_image
 
                 csi_index = np.searchsorted(self.csi_stream['time'], frame_timestamp)
-                abs_chunk = np.squeeze(self.csi_stream['abs'][csi_index: csi_index + 33, :, :, 0])
-                abs_chunk = abs_chunk.reshape(33, 90).T
-                phase_chunk = np.squeeze(self.csi_stream['phase'][csi_index: csi_index + 33, :, :, 0])
-                phase_chunk = phase_chunk.reshape(33, 90).T
+                csi_chunk = np.squeeze(self.csi_stream['csi'][csi_index: csi_index + 33, :, :, 0])
+                csi_dyn_chunk = make_dataset_preprocess_csi.windowed_dynamic(csi_chunk).reshape(33, 90).T
 
-                self.result['x'][i, 0, :, :] = abs_chunk
-                self.result['x'][i, 1, :, :] = phase_chunk
+                self.result['x'][i, 0, :, :] = np.abs(csi_dyn_chunk)
+                self.result['x'][i, 1, :, :] = np.angle(csi_dyn_chunk)
 
         except RuntimeError:
             print("Read finished!")
