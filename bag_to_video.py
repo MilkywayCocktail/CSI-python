@@ -206,8 +206,8 @@ if __name__ == '__main__':
 
     path = '../sense/1213/'
     source_name = '121303.bag'
-    export_name = '121303_filtered.avi'
+    export_name = '121303.avi'
 
-    con = Bag2Velocity(path, source_name, export_name, f=True)
+    con = Bag2Color(path, source_name, export_name, f=True)
     con.setup()
     con.run()

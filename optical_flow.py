@@ -203,7 +203,7 @@ class OpticalFlowMask:
     def __init__(self, file):
         self.file = file
 
-    def run(self):
+    def run(self, savepath):
         print(self.file, "processing...")
         cap = cv2.VideoCapture(self.file)
 
@@ -213,7 +213,7 @@ class OpticalFlowMask:
         hsv[..., 1] = 255
 
         fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
-        videowriter = cv2.VideoWriter('../sense/T04_OF_M.avi', fourcc, 30, (1280, 720))
+        videowriter = cv2.VideoWriter(savepath, fourcc, 30, (1280, 720))
 
         while (1):
             ret, frame2 = cap.read()
@@ -257,7 +257,7 @@ class OpticalFlowMask:
 
 if __name__ == '__main__':
 
-    of = OpticalFlowFeature('../sense/1202/T04.avi')
-    of.run()
+    of = OpticalFlowMask('../sense/1213/121303.avi')
+    of.run('../sense/1213/121303_OFM.avi')
     print('Done')
     cv2.destroyAllWindows()

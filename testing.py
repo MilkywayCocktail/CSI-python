@@ -14,7 +14,7 @@ import tqdm
 # d = np.load(f)
 # print(d.shape)
 
-f = "../dataset/compressed/121301.npy"
+f = "../dataset/compressed/1213env.npy"
 d = np.load(f)
 print(d.shape)
 time_window = 10

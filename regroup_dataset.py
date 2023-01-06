@@ -3,6 +3,7 @@ import numpy as np
 
 
 def run(datapath):
+    # Initial cell shapes
     x = np.zeros((1, 2, 90, 33))
     y = np.zeros((1, 120, 200))
     t = np.zeros(1)
