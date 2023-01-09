@@ -74,7 +74,7 @@ class MyDataMaker:
     def __setup_csi_stream__(self):
         with HiddenPrints():
             csi, timestamps, i, j = csi_loader.load_npy(self.paths[1])
-            return {'csi': csi,
+            return {'csi': csi.swapaxes(1, 3),
                     'time': timestamps-timestamps[0]}
 
     def __init_data__(self):
@@ -121,8 +121,8 @@ class MyDataMaker:
                 t_vmap = depth_image
 
                 csi_index = np.searchsorted(self.csi_stream['time'], frame_timestamp)
-                csi_chunk = np.squeeze(self.csi_stream['csi'][csi_index: csi_index + 33, :, :, 0])
-                csi_dyn_chunk = make_dataset_preprocess_csi.windowed_dynamic(csi_chunk).reshape(33, 90).T
+                csi_chunk = self.csi_stream['csi'][csi_index: csi_index + 33, :, :, 0]
+                csi_dyn_chunk = csi_chunk.reshape(33, 90).T
 
                 self.result['x'][i, 0, :, :] = np.abs(csi_dyn_chunk)
                 self.result['x'][i, 1, :, :] = np.angle(csi_dyn_chunk)
@@ -134,14 +134,14 @@ class MyDataMaker:
             self.result['y'][0] = self.result['y'][1]
             self.video_stream.stop()
 
-            path = '../dataset/' + save_name + '/'
+            path = '../dataset/' + save_name
 
             if not os.path.exists(path):
                 os.makedirs(path)
 
-            np.save(path + 'x.npy', self.result['x'])
-            np.save(path + 'y.npy', self.result['y'])
-            np.save(path + 't.npy', self.result['t'])
+            np.save(path + '_x.npy', self.result['x'])
+            np.save(path + '_y.npy', self.result['y'])
+            np.save(path + '_t.npy', self.result['t'])
 
             print("\nAll chunks saved!")
 
@@ -150,4 +150,4 @@ if __name__ == '__main__':
 
     paths = ['../sense/1213/121304.bag', '../npsave/1213/1213A04-csio.npy']
     mkdata = MyDataMaker(paths, 1800)
-    mkdata.save('1213/depth/04')
+    mkdata.save('1213/make00/04')

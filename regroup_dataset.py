@@ -31,7 +31,7 @@ def run(datapath):
 
     print(x.shape, y.shape, t.shape)
 
-    savepath = '../dataset/concat/1213/depth_3m/'
+    savepath = '../dataset/1213/make00_finished/'
     if not os.path.exists(savepath):
         os.makedirs(savepath)
 
@@ -42,4 +42,4 @@ def run(datapath):
     print("All saved!")
 
 
-run('../dataset/1213/depth/')
+run('../dataset/1213/make00/')
