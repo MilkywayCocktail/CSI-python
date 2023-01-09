@@ -2,8 +2,18 @@ import numpy as np
 import tqdm
 
 
-def mask_by_depth():
-    pass
+def mask_by_depth(data):
+    median = np.median(data, axis=0)
+    threshold = median * 0.5
+
+    out = np.zeros_like(data)
+
+    for i in tqdm.tqdm(range(len(data))):
+        mask = data[i] < threshold
+        masked = data[i] * mask
+        out[i] = masked
+
+    return out
 
 
 def run(in_path, out_path):
