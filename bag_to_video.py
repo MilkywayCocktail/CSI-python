@@ -135,7 +135,7 @@ class Bag2Depth(BagConverter):
         return frame
 
     def colorize(self, image):
-        image = cv2.applyColorMap(cv2.convertScaleAbs(image, alpha=0.03), cv2.COLORMAP_JET)
+        image = cv2.applyColorMap(cv2.convertScaleAbs(image, alpha=0.03), cv2.COLORMAP_BONE)
         return image
 
 
@@ -205,9 +205,9 @@ class Bag2Velocity(BagConverter):
 if __name__ == '__main__':
 
     path = '../sense/1213/'
-    source_name = '121303.bag'
-    export_name = '121303.avi'
+    source_name = '121304.bag'
+    export_name = '121304.avi'
 
-    con = Bag2Color(path, source_name, export_name, f=True)
+    con = Bag2Depth(path, source_name, export_name, f=True)
     con.setup()
     con.run()

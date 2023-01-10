@@ -7,7 +7,7 @@ import csi_loader
 
 def windowed_dynamic(in_csi):
     # in_csi = np.squeeze(in_csi)
-    phase_diff = in_csi * in_csi[..., 0, :][..., np.newaxis].conj().repeat(3, axis=2)
+    phase_diff = in_csi * in_csi[..., 0][..., np.newaxis].conj().repeat(3, axis=2)
     static = np.mean(phase_diff, axis=0)
     dynamic = in_csi - static
     return dynamic

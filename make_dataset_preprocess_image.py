@@ -22,7 +22,9 @@ def align_channels(frames, show=True):
 
 
 def mask(image, background, show=True):
-    image_masked = np.array(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY) - cv2.cvtColor(background, cv2.COLOR_RGB2GRAY))
+    #image_masked = np.array(cv2.cvtColor(image, cv2.COLOR_RGB2GRAY) - cv2.cvtColor(background, cv2.COLOR_RGB2GRAY))
+    image_masked = np.array(image - background)
+
     #m = image_masked < 160
     #mage_masked = image_masked * m
 
@@ -44,12 +46,17 @@ def make_masked(in_path, out_path, background, length):
     bg = cv2.imread(background)
 
     try:
+        i = 0
+        backSub = cv2.bgsegm.createBackgroundSubtractorGMG()
         while True:
             frames = pipeline.wait_for_frames()
             if not frames:
                 continue
             color_image = align_channels(frames, show=False)
-            masked_image = mask(color_image, bg)
+            fgMask = backSub.apply(color_image)
+            cv2.imshow('FG Mask', fgMask)
+            key = cv2.waitKey(1) & 0xFF
+            i += 1
 
     except RuntimeError:
         print("Read finished!")
@@ -98,5 +105,5 @@ def make_background(in_path, out_path, length):
 
 
 if __name__ == '__main__':
-    make_masked('../sense/1213/121303.bag', '../sense/1213/', '../sense/1213/env_new.jpg', length=1800)
+    make_masked('../sense/1213/121304.bag', '../sense/1213/masked_rgb/', '../sense/1213/env_new.jpg', length=1800)
     #make_background('../sense/1213/1213env.bag', '../sense/1213/env_new.jpg', 300)

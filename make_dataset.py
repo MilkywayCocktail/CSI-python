@@ -122,7 +122,7 @@ class MyDataMaker:
 
                 csi_index = np.searchsorted(self.csi_stream['time'], frame_timestamp)
                 csi_chunk = self.csi_stream['csi'][csi_index: csi_index + 33, :, :, 0]
-                csi_dyn_chunk = csi_chunk.reshape(33, 90).T
+                csi_dyn_chunk = make_dataset_preprocess_csi.windowed_dynamic(csi_chunk).reshape(33, 90).T
 
                 self.result['x'][i, 0, :, :] = np.abs(csi_dyn_chunk)
                 self.result['x'][i, 1, :, :] = np.angle(csi_dyn_chunk)
@@ -148,6 +148,6 @@ class MyDataMaker:
 
 if __name__ == '__main__':
 
-    paths = ['../sense/1213/121304.bag', '../npsave/1213/1213A04-csio.npy']
-    mkdata = MyDataMaker(paths, 1800)
-    mkdata.save('1213/make00/04')
+    paths = ['../sense/1213/1213env.bag', '../npsave/1213/1213A00-csio.npy']
+    mkdata = MyDataMaker(paths, 300)
+    mkdata.save('1213/make00/00')
