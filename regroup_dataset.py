@@ -2,17 +2,17 @@ import os
 import numpy as np
 
 
-def run(datapath):
+def regroup(in_path, out_path, scope: set):
     # Initial cell shapes
     x = np.zeros((1, 2, 90, 33))
     y = np.zeros((1, 120, 200))
     t = np.zeros(1)
 
-    filenames = os.listdir(datapath)
+    filenames = os.listdir(in_path)
     for file in filenames:
 
-        if file[:2] in ('00', '01', '04'):
-            tmp = np.load(datapath + file)
+        if file[:2] in scope:
+            tmp = np.load(in_path + file)
 
             print(file)
 
@@ -31,15 +31,16 @@ def run(datapath):
 
     print(x.shape, y.shape, t.shape)
 
-    savepath = '../dataset/1213/make00_finished/'
-    if not os.path.exists(savepath):
-        os.makedirs(savepath)
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
 
-    np.save(savepath + 'x.npy', x)
-    np.save(savepath + 'y.npy', y)
-    np.save(savepath + 't.npy', t)
+    np.save(out_path + 'x.npy', x)
+    np.save(out_path + 'y.npy', y)
+    np.save(out_path + 't.npy', t)
 
     print("All saved!")
 
 
-run('../dataset/1213/make00/')
+if __name__ == '__main__':
+    # regroup()
+    pass
