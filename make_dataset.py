@@ -163,6 +163,7 @@ class MyDataMaker:
                 else:
                     csi_chunk = csi_chunk.reshape(33, 90).T
 
+                # Store in two channels
                 self.result['x'][i, 0, :, :] = np.abs(csi_chunk)
                 self.result['x'][i, 1, :, :] = np.angle(csi_chunk)
 
@@ -193,6 +194,7 @@ class MyDataMaker:
 
     def compress_y(self):
         self.result['y'] = self.result['y'].astype(np.uint16)
+        print("Compress finished!")
 
     def playback_y(self, save_path=None, save_name='new.avi'):
         save_flag = False
@@ -205,14 +207,16 @@ class MyDataMaker:
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
             videowriter = cv2.VideoWriter(save_path + save_name, fourcc, 30, img_size)
 
-        for i in range(self.total_frames):
+        for i in tqdm.tqdm(range(self.total_frames)):
+            if self.result['y'].dypte == 'uint16':
+                image = (self.result['y'][i]/256).astype('uint8')
+                cv2.imshow('Image', image)
+            else:
+                image = cv2.convertScaleAbs(self.result['y'][i], alpha=0.02)
+                cv2.imshow('Image', image)
             if save_flag is True:
                 videowriter.write(image)
-            if self.result['y'].dypte == 'uint16':
-                cv2.imshow('Image', (image/256).astype('uint8'))
-            else:
-                image = cv2.convertScaleAbs(image, alpha=0.02)
-                cv2.imshow('Image', image)
+
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 break
@@ -222,7 +226,7 @@ class MyDataMaker:
             if save_flag is True:
                 videowriter.release()
 
-    def save(self, save_path='../dataset/', save_name=None):
+    def save_dataset(self, save_path='../dataset/', save_name=None):
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
@@ -231,7 +235,7 @@ class MyDataMaker:
         np.save(save_path + save_name + '_y.npy', self.result['y'])
         np.save(save_path + save_name + '_t.npy', self.result['t'])
 
-        print("\nAll chunks saved!")
+        print("All chunks saved!")
 
 
 if __name__ == '__main__':
@@ -239,3 +243,5 @@ if __name__ == '__main__':
     paths = ['../sense/1213/1213env.bag', '../npsave/1213/1213A00-csio.npy']
     mkdata = MyDataMaker(paths, 300)
     mkdata.match_xy()
+    mkdata.depth_mask()
+    mkdata.save_dataset(save_path='../dataset/1213/make00', save_name='00')

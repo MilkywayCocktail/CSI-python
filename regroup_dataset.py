@@ -42,5 +42,5 @@ def regroup(in_path, out_path, scope: set):
 
 
 if __name__ == '__main__':
-    # regroup()
+    # regroup(in_path, out_path, scope=('00','01','04))
     pass
