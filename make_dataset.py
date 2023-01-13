@@ -5,7 +5,7 @@ import csi_loader
 import numpy as np
 import sys
 import os
-import make_dataset_preprocess_csi
+import tqdm
 
 
 def my_filter(frame):
@@ -87,7 +87,8 @@ class MyDataMaker:
         x_csi = np.zeros((self.total_frames, 2, 90, 33))
         y_vmap = np.zeros((self.total_frames, 120, 200))
         t_list = np.zeros(self.total_frames)
-        return {'x': x_csi, 'y': y_vmap, 't': t_list}
+        index_list = np.zeros(self.total_frames)
+        return {'x': x_csi, 'y': y_vmap, 't': t_list, 'i': index_list}
 
     def __get_image__(self, mode):
         frames = self.video_stream.wait_for_frames()
@@ -107,7 +108,7 @@ class MyDataMaker:
 
         return image, frame_timestamp
 
-    def playback(self, mode='depth', save_path=None, save_name='new.avi'):
+    def playback_raw(self, mode='depth', save_path=None, save_name='new.avi'):
         save_flag = False
         if save_path is not None and save_name is not None:
             save_flag = True
@@ -141,47 +142,100 @@ class MyDataMaker:
                 if save_flag is True:
                     videowriter.release()
 
-    def export_matrix(self):
-        pass
-
-    def make(self, mode='depth', save_path='../dataset/', save_name=None):
+    def match_xy(self, mode='depth', resize=None, dynamic_csi=True):
         try:
             print('Starting making...')
 
-            for i in range(self.total_frames):
+            for i in tqdm.tqdm(range(self.total_frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
 
-                print('\r',
-                      "\033[32mWriting frame " + str(i) + " timestamp " + str(frame_timestamp) + "\033[0m", end='')
                 self.result['t'][i] = frame_timestamp
-                self.result['y'][i, :] = image
+
+                if isinstance(resize, set) and len(resize)==2:
+                    image = cv2.resize(image, resize, interpolation=cv2.INTER_AREA)
+                self.result['y'][i, ...] = image
 
                 csi_index = np.searchsorted(self.csi_stream['time'], frame_timestamp)
+                self.result['i'][i] = csi_index
                 csi_chunk = self.csi_stream['csi'][csi_index: csi_index + 33, :, :, 0]
-                csi_dyn_chunk = make_dataset_preprocess_csi.windowed_dynamic(csi_chunk).reshape(33, 90).T
+                if dynamic_csi is True:
+                    csi_chunk = self.windowed_dynamic(csi_chunk).reshape(33, 90).T
+                else:
+                    csi_chunk = csi_chunk.reshape(33, 90).T
 
-                self.result['x'][i, 0, :, :] = np.abs(csi_dyn_chunk)
-                self.result['x'][i, 1, :, :] = np.angle(csi_dyn_chunk)
+                self.result['x'][i, 0, :, :] = np.abs(csi_chunk)
+                self.result['x'][i, 1, :, :] = np.angle(csi_chunk)
 
         except RuntimeError:
-            print("Read finished!")
+            print("Match finished!")
 
         finally:
-            self.result['y'][0] = self.result['y'][1]
             self.video_stream.stop()
 
+    @staticmethod
+    def windowed_dynamic(in_csi):
+        # in_csi = np.squeeze(in_csi)
+        phase_diff = in_csi * in_csi[..., 0][..., np.newaxis].conj().repeat(3, axis=2)
+        static = np.mean(phase_diff, axis=0)
+        dynamic = in_csi - static
+        return dynamic
+
+    def depth_mask(self):
+        median = np.median(self.result['y'], axis=0)
+        threshold = median * 0.5
+
+        for i in tqdm.tqdm(range(len(self.result['y']))):
+            mask = self.result['y'][i] < threshold
+            masked = self.result['y'][i] * mask
+            self.result['y'][i] = masked
+
+        print("Mask finished!")
+
+    def compress_y(self):
+        self.result['y'] = self.result['y'].astype(np.uint16)
+
+    def playback_y(self, save_path=None, save_name='new.avi'):
+        save_flag = False
+        if save_path is not None and save_name is not None:
+            save_flag = True
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
 
-            np.save(save_path + save_name + '_x.npy', self.result['x'])
-            np.save(save_path + save_name + '_y.npy', self.result['y'])
-            np.save(save_path + save_name + '_t.npy', self.result['t'])
+            img_size = (self.result['y'].shape[1], self.result['y'].shape[0])
+            fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
+            videowriter = cv2.VideoWriter(save_path + save_name, fourcc, 30, img_size)
 
-            print("\nAll chunks saved!")
+        for i in range(self.total_frames):
+            if save_flag is True:
+                videowriter.write(image)
+            if self.result['y'].dypte == 'uint16':
+                cv2.imshow('Image', (image/256).astype('uint8'))
+            else:
+                image = cv2.convertScaleAbs(image, alpha=0.02)
+                cv2.imshow('Image', image)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+
+            print("Read finished!")
+            self.video_stream.stop()
+            if save_flag is True:
+                videowriter.release()
+
+    def save(self, save_path='../dataset/', save_name=None):
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        np.save(save_path + save_name + '_x.npy', self.result['x'])
+        np.save(save_path + save_name + '_y.npy', self.result['y'])
+        np.save(save_path + save_name + '_t.npy', self.result['t'])
+
+        print("\nAll chunks saved!")
 
 
 if __name__ == '__main__':
 
     paths = ['../sense/1213/1213env.bag', '../npsave/1213/1213A00-csio.npy']
     mkdata = MyDataMaker(paths, 300)
-    mkdata.make(save_path='1213/make01/', save_name='00')
+    mkdata.match_xy()
