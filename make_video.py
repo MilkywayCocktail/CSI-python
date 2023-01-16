@@ -1,14 +1,14 @@
 import os
 import cv2
 
-impath = '../dataset/m'
+impath = '../dataset/view/'
 
 videopath = '../dataset/'
 
 if not os.path.exists(videopath):
     os.makedirs(videopath)
 
-fps = 20
+fps = 30
 
 frames = sorted(os.listdir(impath), key=lambda x: eval(x[:-3]))
 

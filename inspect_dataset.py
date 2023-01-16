@@ -20,14 +20,14 @@ def asy(path):
         img = cv2.convertScaleAbs(vmap[i], alpha=0.03)
         cv2.namedWindow('Velocity Image', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('Velocity Image', img)
-        cv2.imwrite('../dataset/' + str(i).zfill(4) + '.jpg', img)
+        cv2.imwrite('../dataset/view/' + str(i).zfill(4) + '.jpg', img)
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
     return
 
 
-asy('../dataset/1213/masked_depth/01_y.npy')
+asy('../dataset/1213/make00_finished/y.npy')
 #asx('../dataset/1213/masked_depth/01_x.npy')
-#asy('../dataset/1213/masked_depth/01_y.npy')
+#ast('../dataset/1213/masked_depth/01_t.npy')
 
