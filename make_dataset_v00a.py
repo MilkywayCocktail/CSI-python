@@ -40,4 +40,5 @@ def make_coordinates(path):
 
 
 a = make_coordinates('../dataset/1213/make00_finished/y.npy')
+a[a>3500] = 3500
 np.save('../dataset/coord.npy', a)
