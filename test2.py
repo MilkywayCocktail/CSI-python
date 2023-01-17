@@ -14,8 +14,8 @@ plt.show()
 for i in range(len(a)):
     x = a[i][0]
     y = a[i][1]
-    if a[i][2] >= 3500:
+    if a[i][2] >= 4000:
         plt.scatter(x, y, color=(0, 1, 1))
     else:
-        plt.scatter(x, y, color=(a[i][2]/3500, 0.2, 0.2))
+        plt.scatter(x, y, color=(a[i][2]/4000, 0.2, 0.2))
 plt.show()
