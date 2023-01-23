@@ -107,8 +107,9 @@ class MyMaskbyCV(MyMask):
                     continue
                 depth_frame = frames.get_depth_frame()
                 depth_image = np.asanyarray(depth_frame.get_data())
-                # color_image = align_channels(frames, show=False)
-                fgMask = self.algo.apply((depth_image/256).astype('uint8'))
+                color_image = align_channels(frames, show=False)
+                #fgMask = self.algo.apply((depth_image/256).astype('uint8'))
+                fgMask = self.algo.apply(color_image)
                 cv2.imshow('FG Mask', fgMask)
                 key = cv2.waitKey(1) & 0xFF
                 i += 1
@@ -124,6 +125,6 @@ class MyMaskbyCV(MyMask):
 if __name__ == '__main__':
     #in_path = '../dataset/compressed/121304.npy'
     #out_path = '../dataset/compressed/121304_masked.npy'
-    masker = MyMaskbyCV('GMG', None)
+    masker = MyMaskbyCV('MOG2', None)
     masker.run('../sense/1213/121304.bag')
 

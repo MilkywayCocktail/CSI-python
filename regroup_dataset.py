@@ -2,10 +2,10 @@ import os
 import numpy as np
 
 
-def regroup(in_path, out_path, scope: set):
+def regroup(in_path, out_path, scope: tuple):
     # Initial cell shapes
     x = np.zeros((1, 2, 90, 33))
-    y = np.zeros((1, 120, 200))
+    y = np.zeros((1, 128, 128))
     t = np.zeros(1)
 
     filenames = os.listdir(in_path)
@@ -42,5 +42,4 @@ def regroup(in_path, out_path, scope: set):
 
 
 if __name__ == '__main__':
-    # regroup(in_path, out_path, scope=('00','01','04))
-    pass
+    regroup('../dataset/1213/make02/', '../dataset/1213/make02_finished/', scope=('00', '01', '04'))

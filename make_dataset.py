@@ -46,12 +46,12 @@ class HiddenPrints:
 
 class MyDataMaker:
 
-    def __init__(self, paths: list, total_frames: int):
+    def __init__(self, paths: list, total_frames: int, aspect_ratio: tuple):
         self.paths = paths
         self.total_frames = total_frames
         self.video_stream = self.__setup_video_stream__()
         self.csi_stream = self.__setup_csi_stream__()
-        self.result = self.__init_data__()
+        self.result = self.__init_data__(aspect_ratio=aspect_ratio)
 
     def __len__(self):
         return self.total_frames
@@ -63,6 +63,7 @@ class MyDataMaker:
         config.enable_all_streams()
         profile = pipeline.start(config)
         profile.get_device().as_playback().set_real_time(False)
+        print("Bag stream set")
 
         return pipeline
 
@@ -80,15 +81,17 @@ class MyDataMaker:
             print("File type not supported")
             return 1
 
+        print("CSI loaded")
         return {'csi': csi.swapaxes(1, 3),
                 'time': timestamps - timestamps[0]}
 
-    def __init_data__(self):
+    def __init_data__(self, aspect_ratio):
+        # aspect_ratio = (width, height)
         x_csi = np.zeros((self.total_frames, 2, 90, 33))
-        y_vmap = np.zeros((self.total_frames, 120, 200))
+        y_dmap = np.zeros((self.total_frames, aspect_ratio[1], aspect_ratio[0]))
         t_list = np.zeros(self.total_frames)
         index_list = np.zeros(self.total_frames)
-        return {'x': x_csi, 'y': y_vmap, 't': t_list, 'i': index_list}
+        return {'x': x_csi, 'y': y_dmap, 't': t_list, 'i': index_list}
 
     def __get_image__(self, mode):
         frames = self.video_stream.wait_for_frames()
@@ -142,22 +145,31 @@ class MyDataMaker:
                 if save_flag is True:
                     videowriter.release()
 
-    def match_xy(self, mode='depth', resize=None, dynamic_csi=True):
+    def match_xy(self, mode='depth', resize=None, dynamic_csi=True, show_img=True):
+        print('Starting making...')
         try:
-            print('Starting making...')
+            tmp_timestamp = 0
 
             for i in tqdm.tqdm(range(self.total_frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
 
                 self.result['t'][i] = frame_timestamp
+                if i == 0:
+                    tmp_timestamp = frame_timestamp
+                timestamp = frame_timestamp - tmp_timestamp
 
-                if isinstance(resize, set) and len(resize)==2:
+                if isinstance(resize, tuple) and len(resize) == 2:
                     image = cv2.resize(image, resize, interpolation=cv2.INTER_AREA)
                 self.result['y'][i, ...] = image
+                if show_img is True:
+                    cv2.imshow('Image', image)
+                    key = cv2.waitKey(1) & 0xFF
 
-                csi_index = np.searchsorted(self.csi_stream['time'], frame_timestamp)
+                csi_index = np.searchsorted(self.csi_stream['time'], timestamp)
                 self.result['i'][i] = csi_index
+
                 csi_chunk = self.csi_stream['csi'][csi_index: csi_index + 33, :, :, 0]
+
                 if dynamic_csi is True:
                     csi_chunk = self.windowed_dynamic(csi_chunk).reshape(33, 90).T
                 else:
@@ -208,40 +220,41 @@ class MyDataMaker:
             videowriter = cv2.VideoWriter(save_path + save_name, fourcc, 30, img_size)
 
         for i in tqdm.tqdm(range(self.total_frames)):
-            if self.result['y'].dypte == 'uint16':
+            if self.result['y'].dtype == 'uint16':
                 image = (self.result['y'][i]/256).astype('uint8')
                 cv2.imshow('Image', image)
+
             else:
                 image = cv2.convertScaleAbs(self.result['y'][i], alpha=0.02)
                 cv2.imshow('Image', image)
+
+            key = cv2.waitKey(1) & 0xFF
+
             if save_flag is True:
                 videowriter.write(image)
 
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                break
-
-            print("Read finished!")
-            self.video_stream.stop()
-            if save_flag is True:
-                videowriter.release()
+        print("Read finished!")
+        if save_flag is True:
+            videowriter.release()
 
     def save_dataset(self, save_path='../dataset/', save_name=None):
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        np.save(save_path + save_name + '_x.npy', self.result['x'])
-        np.save(save_path + save_name + '_y.npy', self.result['y'])
-        np.save(save_path + save_name + '_t.npy', self.result['t'])
+        np.save(os.path.join(save_path, save_name + '_x.npy'), self.result['x'])
+        np.save(os.path.join(save_path, save_name + '_y.npy'), self.result['y'])
+        np.save(os.path.join(save_path, save_name + '_t.npy'), self.result['t'])
 
         print("All chunks saved!")
 
 
 if __name__ == '__main__':
 
-    paths = ['../sense/1213/1213env.bag', '../npsave/1213/1213A00-csio.npy']
-    mkdata = MyDataMaker(paths, 300)
-    mkdata.match_xy()
+    paths = ['../sense/1213/121304.bag', '../npsave/1213/1213A04-csio.npy']
+    mkdata = MyDataMaker(paths, 1800, (128, 128))
+    mkdata.match_xy(resize=(128, 128))
     mkdata.depth_mask()
-    mkdata.save_dataset(save_path='../dataset/1213/make00', save_name='00')
+    mkdata.playback_y()
+    mkdata.save_dataset(save_path='../dataset/1213/make02/', save_name='04')
+
