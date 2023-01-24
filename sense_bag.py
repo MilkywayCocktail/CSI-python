@@ -1,7 +1,7 @@
 import cv2
 import pyrealsense2 as rs
 import numpy as np
-import time
+import datetime
 import os
 
 
@@ -62,11 +62,11 @@ class MySense:
 
     class _Recorder:
 
-        def __init__(self, pipeline, config, savepath, vis):
+        def __init__(self, pipeline, config, savepath, localtime=True):
             self.pipeline = pipeline
             self.config = config
             self.savepath = savepath
-            self.vis = vis
+            self.localtime = localtime
 
         def __enter__(self):
             print("\033[32mRecording in process...\033[0m")
@@ -75,40 +75,24 @@ class MySense:
         def record(self, name, length, height, width):
 
             timefile = None
-            img_path = None
 
             self.config.enable_record_to_file(self.savepath + name + '.bag')
             profile = self.pipeline.start(self.config)
 
-            if self.vis is True:
+            if self.localtime is True:
                 timefile = open(path + name + '_timestamps.txt', mode='a', encoding='utf-8')
-                timefile.write("Timestamps in miliseconds\n")
-                img_path = self.savepath + name + '/'
-                if not os.path.exists(img_path):
-                    os.makedirs(img_path)
-
-            t0 = int(round(time.time() * 1000))
 
             for i in range(length):
 
                 frames = self.pipeline.wait_for_frames()
-                t = int(round(time.time() * 1000)) - t0
+                timestamp = datetime.datetime.now()
 
-                if self.vis is True:
-                    #    depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03),
-                    #    cv2.COLORMAP_JET)
-
-                    img_name = str(i).zfill(5) + '.jpg'
-                    depth_frame = frames.get_depth_frame()
-                    depth_image = np.asanyarray(depth_frame.get_data())
-                    transfer_image = depth_image // 10
-                    #    cv2.imwrite(path + 'img' + fname, depth_image)
-                    cv2.imwrite(img_path + '_timg' + img_name, transfer_image)
-                    timefile.write(str(t) + '\n')
+                if self.localtime is True:
+                    timefile.write(str(timestamp) + '\n')
 
                 print('\r', i + 1, "of", length, "recorded", end='')
 
-            if self.vis is True:
+            if self.localtime is True:
                 timefile.close()
 
         def __exit__(self, exc_type, exc_val, exc_tb):
@@ -122,7 +106,7 @@ class MySense:
 
 if __name__ == '__main__':
 
-    path = '../sense/'
+    path = '../sense/0124/'
 
     sense = MySense(path)
     sense.setup()
