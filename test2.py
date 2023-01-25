@@ -1,21 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from datetime import datetime
+import time
+np.set_printoptions(suppress=True)
 
-a = np.load('../dataset/coord.npy')
-print(a.shape)
+file = '../sense/0124/03_timestamps.txt'
+result = '../sense/0124/03_timediff.txt'
 
-#a[a > 3500] = 0
-dm = np.max(a, axis=0)[2]
-print(dm)
+f = open(file, mode='r', encoding='utf-8')
+r = open(result, mode='w+', encoding='utf-8')
 
-plt.hist(a[:,2], bins=100)
-plt.show()
+out = np.array(f.readlines())
+start = None
+for i in range(len(out)):
+    if start is None:
+        start = datetime.strptime(out[i].strip(), "%Y-%m-%d %H:%M:%S.%f").timestamp()
+    out[i] = datetime.strptime(out[i].strip(), "%Y-%m-%d %H:%M:%S.%f").timestamp() - start
 
-for i in range(len(a)):
-    x = a[i][0]
-    y = a[i][1]
-    if a[i][2] >= 4000:
-        plt.scatter(x, y, color=(0, 1, 1))
-    else:
-        plt.scatter(x, y, color=(a[i][2]/4000, 0.2, 0.2))
-plt.show()
+print(out)
+np.savetxt(result, out, fmt='%s')

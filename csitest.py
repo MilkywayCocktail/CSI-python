@@ -170,9 +170,9 @@ if __name__ == '__main__':
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    mytest = MyTest(title='A50-phase', date='1222', subject=sub, reference=cal, path=npzpath, batch=False,
+    mytest = MyTest(title='aoa-doppler', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
                     func_index=5)
-    mytest.run(fc=5.26, bw=20, calibrate=False, recursive=False, autosave=True,
+    mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, autosave=True,
                method='calibration + sanitization', notion='_cal')
 
 
