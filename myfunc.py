@@ -366,7 +366,7 @@ class _TestAoAToF(MyFunc):
         return_name = []
 
         for i, spectrum in enumerate(self.subject.data.spectrum):
-            return_name = self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
+            return_name = self.subject.data.view_spectrum(self.threshold, i, None, self.num_ticks, self.autosave,
                                                           self.notion + '_' + str(i).zfill(5), self.title)
 
         return return_name
@@ -405,7 +405,7 @@ class _TestAoADoppler(MyFunc):
         return_name = []
 
         for i, spectrum in enumerate(self.subject.data.spectrum):
-            return_name = self.subject.data.view_spectrum(self.threshold, spectrum, self.num_ticks, self.autosave,
+            return_name = self.subject.data.view_spectrum(self.threshold, i, None, self.num_ticks, self.autosave,
                                                           self.notion + '_' + str(i).zfill(5), self.title)
 
         return return_name

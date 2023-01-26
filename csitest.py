@@ -159,7 +159,7 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = "0124A00"
+    sub = "0124A01"
 
     npzpath = '../npsave/0124/'
 
