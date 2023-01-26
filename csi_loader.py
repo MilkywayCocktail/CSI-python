@@ -335,7 +335,7 @@ def dat2npy(filename, save_path, autosave=True):
     #     (real_csilist, imag_csilist, uint_rssilist, int_noiselist, uint_agclist, timelist, datetimelist),
     #     filename.replace(".dat", ".dump"))
 
-    return real_csilist + 1.j * imag_csilist, timelist
+    return real_csilist.swapaxes(1, 3) + 1.j * imag_csilist.swapaxes(1, 3), timelist
 
 
 def load_npy(filename):

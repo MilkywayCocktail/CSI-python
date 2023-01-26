@@ -159,11 +159,11 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = "1222A59"
+    sub = "0124A00"
 
-    npzpath = '../npsave/1222/'
+    npzpath = '../npsave/0124/'
 
-    cal = {'0': '1222A50'}
+    cal = {'0': '0124A00'}
 
     # sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
@@ -171,9 +171,9 @@ if __name__ == '__main__':
     # test0.show_all_methods()
 
     mytest = MyTest(title='aoa-doppler', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
-                    func_index=5)
+                    func_index=1)
     mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, autosave=True,
-               method='calibration + sanitization', notion='_cal')
+               method='calibration + sanitization', notion='_raw')
 
 
 

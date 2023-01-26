@@ -907,8 +907,8 @@ class MyCsi(object):
 
     def aoa_doppler_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
                              input_velocity_list=np.arange(-5, 5.05, 0.05),
-                             window_length=500,
-                             stride=500,
+                             window_length=100,
+                             stride=100,
                              raw_timestamps=False,
                              raw_window=False):
         """

@@ -242,6 +242,7 @@ class _TestResampling(MyFunc):
     def __init__(self, *args, **kwargs):
         MyFunc.__init__(self, *args, **kwargs)
 
+        self.resample = True
         self.sampling_rate = 100
         self.antenna = 0
         self.subcarrier = 0
@@ -383,10 +384,9 @@ class _TestAoADoppler(MyFunc):
         self.start = 0
         self.end = self.subject.data.length
         self.self_cal = True
-        self.resample = True
-        self.sampling_rate = 100
+        self.resample = False
+        self.sampling_rate = 0
         self.num_ticks = 11
-        self.self_cal = True
 
     def __str__(self):
         return 'Plot AoA-Doppler Spectrum'

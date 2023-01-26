@@ -241,8 +241,8 @@ if __name__ == '__main__':
     ipo2 = 3.10
 
     gt1 = GroundTruth(length=10000).aoa
-    gt1.set_constant(10)
-    #gt1.interpolate(5)
+    gt1.random_points(7)
+    gt1.interpolate()
     #gt1.show()
 
     #gt2 = GroundTruth(length=10000).aoa
@@ -256,14 +256,14 @@ if __name__ == '__main__':
     data.apply_gt(gt1)
     #data.add_ipo(ipo1, ipo2)
 
-    simu = data.derive_MyCsi('1222GT0')
+    simu = data.derive_MyCsi('0126GT0')
     #plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
     #plt.title("Phase with IPO")
     #plt.show()
     simu.data.view_phase_diff()
     simu.aoa_by_music()
     simu.data.view_spectrum(10)
-    simu.save_csi('1222G10')
+    simu.save_csi('0126G00')
 
 #    for i, spectrum in enumerate(simu.data.spectrum):
 #        simu.data.view_spectrum(sid=i, autosave=True, folder_name='GT3', notion='_' + str(i))
