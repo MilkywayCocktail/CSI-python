@@ -311,7 +311,7 @@ class _TestDoppler(MyFunc):
     def __init__(self, *args, **kwargs):
         MyFunc.__init__(self, *args, **kwargs)
 
-        self.resample = True
+        self.resample = False
         self.sampling_rate = 100
         self.threshold = 0
         self.window_length = 500

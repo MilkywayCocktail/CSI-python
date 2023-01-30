@@ -31,7 +31,6 @@ class MyTest(object):
         self.title = str(title)
         self.path = path
         self.batch_trigger = batch
-        self.log = []
         self.testfunc = None
         self.sub_range = sub_range
 
@@ -79,7 +78,7 @@ class MyTest(object):
         :param args: any information
         :return: updated log
         """
-        log_path = os.getcwd().replace('\\', '/') + "/logs/" + str(self.date) + '/'
+        log_path = "../logs/" + str(self.date) + '/'
 
         if not os.path.exists(log_path):
             os.makedirs(log_path)
@@ -108,7 +107,6 @@ class MyTest(object):
             print(key, ':', value)
 
     def run(self, fc=5.67, bw=40, **kwargs):
-        self.log.append(os.getcwd().replace('\\', '/') + "/logs/" + str(self.date) + '/' + self.title + '.txt')
         self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(
             self.select_func) + ' ----TEST START----')
 
