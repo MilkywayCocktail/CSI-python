@@ -157,7 +157,7 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = "0124A03"
+    sub = "0124A00"
 
     npzpath = '../npsave/0124/'
 
@@ -168,10 +168,10 @@ if __name__ == '__main__':
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    mytest = MyTest(title='aoa-doppler', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
-                    func_index=1)
+    mytest = MyTest(title='aoa', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
+                    func_index=0)
     mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, autosave=True,
-               method='calibration + sanitization', notion='_raw')
+               method='calibration + sanitization', notion='_dyn')
 
 
 

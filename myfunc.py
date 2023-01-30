@@ -300,6 +300,7 @@ class _TestAoA(MyFunc):
     def func(self):
 
         self.preprocess()
+        self.subject.extract_dynamic()
         self.subject.aoa_by_music(smooth=self.smooth)
 
         return self.subject.data.view_spectrum(self.threshold, 0, None, self.num_ticks, self.autosave, self.notion)
