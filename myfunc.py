@@ -314,9 +314,9 @@ class _TestDoppler(MyFunc):
 
         self.resample = False
         self.sampling_rate = 100
-        self.threshold = 0
-        self.window_length = 500
-        self.stride = 500
+        self.threshold = -4
+        self.window_length = 100
+        self.stride = 100
         self.num_ticks = 11
 
     def __str__(self):

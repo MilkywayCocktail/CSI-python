@@ -168,9 +168,9 @@ if __name__ == '__main__':
     # test0.show_all_methods()
 
     mytest = MyTest(title='aoa', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
-                    func_index=0)
+                    func_index=3)
     mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, autosave=True,
-               method='calibration + sanitization', notion='_dyn')
+               method='calibration + sanitization', notion='_dyn_100')
 
 
 

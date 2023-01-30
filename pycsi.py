@@ -621,7 +621,7 @@ class MyCsi(object):
                 labels = indices
 
             else:
-                labels = [float('%.3f' % input_timestamps[x]) for x in indices]
+                labels = [float('%.1f' % input_timestamps[x]) for x in indices]
 
             return indices, labels
 
@@ -743,8 +743,8 @@ class MyCsi(object):
             print(e)
 
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.05, 0.05),
-                         window_length=500,
-                         stride=500,
+                         window_length=100,
+                         stride=100,
                          raw_timestamps=False,
                          raw_window=False):
         """
