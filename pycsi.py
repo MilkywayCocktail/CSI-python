@@ -121,7 +121,7 @@ class MyCsi(object):
                 self.data.amp = np.abs(csi).swapaxes(1, 3)
                 self.data.phase = np.angle(csi).swapaxes(1, 3)
                 self.data.length = len(t)
-                self.data.timestamps = np.array(t)
+                self.data.timestamps = (t - t[0]) / 1e3
                 self.data.sampling_rate = self.data.length / self.data.timestamps[-1]
                 print(self.name, "npy load complete", time.asctime(time.localtime(time.time())))
 

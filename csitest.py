@@ -69,7 +69,6 @@ class MyTest(object):
             _csi = pycsi.MyCsi(input_name, filepath, fc, bw)
             _csi.load_data()
 
-        _csi.data.remove_inf_values()
         return _csi
 
     def logger(self, *args):
