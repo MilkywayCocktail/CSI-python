@@ -325,7 +325,9 @@ class _TestDoppler(MyFunc):
 
         self.preprocess()
 
-        self.subject.doppler_by_music(resample=self.sampling_rate, window_length=self.window_length, stride=self.stride)
+        self.subject.extract_dynamic()
+
+        self.subject.doppler_by_music(window_length=self.window_length, stride=self.stride)
 
         return self.subject.data.view_spectrum(self.threshold, 0, None, self.num_ticks, self.autosave, self.notion)
 

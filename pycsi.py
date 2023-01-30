@@ -1142,11 +1142,12 @@ class MyCsi(object):
                 raise ArgError("window_length: " + str(window_length) + "\nPlease specify an integer larger than 0 and"
                                                                         "not larger than data length")
 
-            strengths = self.data.show_antenna_strength()
-            ref_antenna = np.argmax(strengths)
+            if reference_antenna is None:
+                strengths = self.data.show_antenna_strength()
+                reference_antenna = np.argmax(strengths)
 
             complex_csi = recon(self.data.amp, self.data.phase)
-            conjugate_csi = np.conjugate(complex_csi[:, :, ref_antenna, None]).repeat(3, axis=2)
+            conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, None]).repeat(3, axis=2)
             hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx))
 
             if mode == 'overall':
