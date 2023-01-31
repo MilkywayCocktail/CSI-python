@@ -352,7 +352,7 @@ def load_npy(filename):
         timelist = timelist[:minlen]
         rssilist = rssilist[:minlen]
 
-    return csilist, timelist, rssilist, datetimelist
+    return csilist.swapaxes(1, 3), timelist, rssilist, datetimelist
 
 
 if __name__ == "__main__":

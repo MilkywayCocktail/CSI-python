@@ -1,9 +1,8 @@
 import csi_loader
 import numpy as np
+import os
 
-file = '../npsave/0124/0124A00-csio.npy'
-a, b, c, d = csi_loader.load_npy(file)
-b = np.array(b) / 1e3
-b = b - b[0]
+save_path = "../dataset/012/o-csi.npy"
 
-print(b[:10])
+if not os.path.exists(save_path):
+    os.makedirs(save_path)

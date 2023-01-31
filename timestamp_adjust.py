@@ -40,8 +40,8 @@ def compensate(in_path, out_path, offset):
 file = '../sense/0124/03_timestamps.txt'
 result = '../sense/0124/03_timediff.txt'
 
-file2 = '../data/0124/csi0124A00_time.txt'
-result2 = '../data/0124/csi0124A00_time_mod.txt'
+file2 = '../data/0124/csi0124A01_time.txt'
+result2 = '../data/0124/csi0124A01_time_mod.txt'
 
 compensate(file2, result2, '19.54')
 

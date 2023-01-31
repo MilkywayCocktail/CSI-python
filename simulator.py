@@ -97,8 +97,8 @@ class _GTAoA(GroundTruth):
     def __init__(self, *args, **kwargs):
         GroundTruth.__init__(self, *args, **kwargs)
         self.category = 'AoA'
-        self.span = np.arange(-180, 181, 1)
-        self.ylim = (-181, 181)
+        self.span = np.arange(-90, 91, 1)
+        self.ylim = (-91, 91)
         self.ylabel = "AoA / $deg$"
 
 
@@ -123,24 +123,13 @@ class _GTDoppler(GroundTruth):
 
 class DataSimulator:
 
-    def __init__(self, length=10000, sampling_rate=3000):
-        self.nrx = 3
-        self.ntx = 1
-        self.nsub = 30
-        self.center_freq = 5.68e+09
-        self.lightspeed = 299792458
-        self.dist_antenna = self.lightspeed / self.center_freq / 2.
-        self.bandwidth = 20e+06
-        self.delta_subfreq = 3.125e+05
+    def __init__(self, configs:pycsi.MyConfigs, length=10000):
+        self.configs = configs
         self.length = length
-        self.sampling_rate = sampling_rate
         self.amp = None
         self.phase = None
         self.csi = None
-        self.timestamps = np.arange(0, self.length, 1.) / self.sampling_rate
-        self.subfreq_list = np.arange(self.center_freq - 58 * self.delta_subfreq,
-                                      self.center_freq + 62 * self.delta_subfreq,
-                                      4 * self.delta_subfreq).reshape(-1, 1)
+        self.timestamps = np.arange(0, self.length, 1.) / self.configs.sampling_rate
 
     def set_params(self, **kwargs):
         for k, v in kwargs.items():
@@ -148,9 +137,9 @@ class DataSimulator:
 
     def add_baseband(self):
         try:
-            self.amp = np.ones((self.length, self.nsub, self.nrx, self.ntx))
-            self.timestamps = np.arange(0, self.length) / self.sampling_rate
-            self.phase = np.zeros((self.length, self.nsub, self.nrx, self.ntx))
+            self.amp = np.ones((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx))
+            self.timestamps = np.arange(0, self.length) / self.configs.sampling_rate
+            self.phase = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx))
             self.csi = self.amp * np.exp(1.j * self.phase)
             print("Baseband established!")
         except:
@@ -161,7 +150,7 @@ class DataSimulator:
             snr = 10 ** (snr/10.0)
             signal_p = np.sum(self.amp ** 2) / self.length
             noise_p = signal_p / snr
-            noise = np.random.randn(self.length, self.nsub, self.nrx, self.ntx) * np.sqrt(noise_p)
+            noise = np.random.randn(self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx) * np.sqrt(noise_p)
             self.amp += np.abs(noise)
             print("White noise added!")
         except:
@@ -183,18 +172,18 @@ class DataSimulator:
 
         def apply_AoA():
 
-            antenna_list = np.arange(0, self.nrx, 1.).reshape(1, -1)
+            antenna_list = np.arange(0, self.configs.nrx, 1.).reshape(1, -1)
             for i, gt in enumerate(ground_truth.y):
-                frame = np.squeeze(np.exp((-2.j * np.pi * self.dist_antenna * np.sin(
-                    gt * np.pi / 180) * self.subfreq_list / self.lightspeed).dot(antenna_list)))
-                csi[i] = frame[:, :, np.newaxis].repeat(self.ntx, axis=2)
+                frame = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * np.sin(
+                    gt * np.pi / 180) * self.configs.subfreq_list / self.configs.lightspeed).dot(antenna_list)))
+                csi[i] = frame[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
 
             return csi
 
         def apply_ToF():
             for i, gt in enumerate(ground_truth.y):
-                frame = np.squeeze(np.exp(-2.j * np.pi * self.subfreq_list * gt))
-                csi[i] = frame[:, np.newaxis, np.newaxis].repeat(self.nrx, axis=1).repeat(self.ntx, axis=2)
+                frame = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * gt))
+                csi[i] = frame[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
 
             return csi
 
@@ -202,19 +191,19 @@ class DataSimulator:
 
             for i, gt in enumerate(ground_truth.y):
 
-                frame = np.squeeze(np.exp(-2.j * np.pi * self.subfreq_list *
-                                          gt / self.lightspeed / self.sampling_rate))
+                frame = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list *
+                                          gt / self.configs.lightspeed / self.configs.sampling_rate))
 
                 if i > 0:
                     csi[i] = csi[i - 1] * frame[:, np.newaxis, np.newaxis].repeat(
-                        self.nrx, axis=1).repeat(self.ntx, axis=2)
+                        self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
                 else:
                     csi[i] = frame[:, np.newaxis, np.newaxis].repeat(
-                        self.nrx, axis=1).repeat(self.ntx, axis=2)
+                        self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
 
             return csi
 
-        csi = np.ones((self.length, self.nsub, self.nrx, self.ntx)) * (0 + 0.j)
+        csi = np.ones((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx)) * (0 + 0.j)
 
         for ground_truth in args:
             if not isinstance(ground_truth, GroundTruth):
@@ -228,9 +217,9 @@ class DataSimulator:
                 self.amp += np.abs(csi)
                 self.phase += np.angle(csi)
 
-    def derive_MyCsi(self, name):
+    def derive_MyCsi(self, configs, name):
 
-        _csi = pycsi.MyCsi(name)
+        _csi = pycsi.MyCsi(configs, name)
         _csi.load_lists(amp=self.amp, phase=self.phase, timelist=self.timestamps)
         return _csi
 
@@ -240,30 +229,35 @@ if __name__ == '__main__':
     ipo1 = -2.33
     ipo2 = 3.10
 
-    gt1 = GroundTruth(length=10000).aoa
+    gt1 = GroundTruth(length=10000).doppler
     gt1.random_points(7)
     gt1.interpolate()
-    #gt1.show()
+    gt1.show()
 
     #gt2 = GroundTruth(length=10000).aoa
     #gt2.set_constant()
     #gt2.interpolate()
     # gt2.show()
 
-    data = DataSimulator(length=10000)
+    configs = pycsi.MyConfigs(center_freq=5.32, bandwidth=20)
+    data = DataSimulator(configs, length=10000)
     data.add_baseband()
+    print(data.amp.shape)
     #data.add_noise()
     data.apply_gt(gt1)
     #data.add_ipo(ipo1, ipo2)
 
-    simu = data.derive_MyCsi('0126GT0')
+    simu = data.derive_MyCsi(configs, '0126GT1')
     #plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
     #plt.title("Phase with IPO")
     #plt.show()
-    simu.data.view_phase_diff()
-    simu.aoa_by_music()
-    simu.data.view_spectrum(10)
-    simu.save_csi('0126G00')
+    #simu.view_phase_diff()
+    #simu.extract_dynamic()
+    simu.doppler_by_music(raw_window=True)
+    simu.viewer.view(threshold=-4.4)
+    #simu.save_csi('0126G00')
+    simu.doppler_by_music(raw_window=False)
+    simu.viewer.view(threshold=-4.4)
 
 #    for i, spectrum in enumerate(simu.data.spectrum):
 #        simu.data.view_spectrum(sid=i, autosave=True, folder_name='GT3', notion='_' + str(i))

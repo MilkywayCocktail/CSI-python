@@ -25,7 +25,6 @@ class MyFunc(object):
 
         self.date = data_date
         self.title = str(test_title)
-        self.rearrange = False
         self.self_cal = False
         self.calibrate = False
         self.sanitize = False
@@ -42,12 +41,6 @@ class MyFunc(object):
         return 'My Test Functions'
 
     def preprocess(self):
-        if self.rearrange is True:
-
-            self.subject.data.rearrange_antenna()
-
-            for value in self.reference.values():
-                value.data.rearrange_antenna()
 
         if self.self_cal is True:
             self.subject.self_calibrate()
@@ -303,7 +296,7 @@ class _TestAoA(MyFunc):
         self.subject.extract_dynamic()
         self.subject.aoa_by_music(smooth=self.smooth)
 
-        return self.subject.data.view_spectrum(self.threshold, 0, None, self.num_ticks, self.autosave, self.notion)
+        return self.subject.viewer.view(threshold=self.threshold, autosave=self.autosave, notion=self.notion)
 
 
 @CountClass
@@ -314,9 +307,9 @@ class _TestDoppler(MyFunc):
 
         self.resample = False
         self.sampling_rate = 100
-        self.threshold = 0
-        self.window_length = 500
-        self.stride = 500
+        self.threshold = -4.4
+        self.window_length = 100
+        self.stride = 100
         self.num_ticks = 11
 
     def __str__(self):
@@ -326,11 +319,11 @@ class _TestDoppler(MyFunc):
 
         self.preprocess()
 
-        self.subject.extract_dynamic()
+        #self.subject.extract_dynamic()
 
-        self.subject.doppler_by_music(window_length=self.window_length, stride=self.stride)
+        self.subject.doppler_by_music(window_length=self.window_length, stride=self.stride, raw_window=False)
 
-        return self.subject.data.view_spectrum(self.threshold, 0, None, self.num_ticks, self.autosave, self.notion)
+        return self.subject.viewer.view(threshold=self.threshold, autosave=self.autosave, notion=self.notion)
 
 
 @CountClass
