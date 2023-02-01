@@ -166,13 +166,10 @@ if __name__ == '__main__':
 
     expconfig = pycsi.MyConfigs(center_freq=5.32, bandwidth=20)
 
-    mytest = MyTest(title='aoa', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
-                    func_index=0)
+    mytest = MyTest(title='aoa_doppler', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
+                    func_index=1)
     mytest.run(expconfig, calibrate=False, recursive=False, autosave=True,
-               method='calibration + sanitization', notion='_windowed_dyn')
-
-
-
+               method='calibration + sanitization', notion='_wdyn')
 
 
 '''

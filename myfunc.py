@@ -334,8 +334,6 @@ class _TestAoAToF(MyFunc):
         MyFunc.__init__(self, *args, **kwargs)
 
         self.threshold = 0
-        self.start = 0
-        self.end = self.subject.data.length
         self.calibrate = True
         self.sanitize = True
         self.extract = True
@@ -351,16 +349,11 @@ class _TestAoAToF(MyFunc):
 
         self.preprocess()
 
-        if 0 <= self.start <= self.end <= self.subject.data.length:
-            self.subject.data.length = self.end - self.start
-            self.subject.data.amp = self.subject.data.amp[self.start: self.end]
-            self.subject.data.phase = self.subject.data.phase[self.start: self.end]
-
         self.subject.aoa_tof_by_music()
 
         return_name = []
 
-        for i, spectrum in enumerate(self.subject.data.spectrum):
+        for i, spectrum in enumerate(self.subject.spectrum):
             return_name = self.subject.viewer.view(
                 threshold=self.threshold, sid=i, notion=self.notion + '_' + str(i).zfill(5), autosave=self.autosave)
 
@@ -376,9 +369,7 @@ class _TestAoADoppler(MyFunc):
         MyFunc.__init__(self, *args, **kwargs)
 
         self.threshold = 0
-        self.start = 0
-        self.end = self.subject.data.length
-        self.self_cal = True
+        self.self_cal = False
         self.resample = False
         self.sampling_rate = 0
         self.num_ticks = 11
@@ -390,16 +381,11 @@ class _TestAoADoppler(MyFunc):
 
         self.preprocess()
 
-        if 0 <= self.start <= self.end <= self.subject.data.length:
-            self.subject.data.length = self.end - self.start
-            self.subject.data.amp = self.subject.data.amp[self.start: self.end]
-            self.subject.data.phase = self.subject.data.phase[self.start: self.end]
-
         self.subject.aoa_doppler_by_music()
 
         return_name = []
 
-        for i, spectrum in enumerate(self.subject.data.spectrum):
+        for i, spectrum in enumerate(self.subject.spectrum):
             return_name = self.subject.viewer.view(
                 threshold=self.threshold, sid=i, notion=self.notion + '_' + str(i).zfill(5), autosave=self.autosave)
 

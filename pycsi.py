@@ -138,7 +138,7 @@ class MySpectrumViewer:
         self.num_ticks = num_ticks
         self.algorithm = None
 
-    def view(self, threshold=0, autosave=False, notion='', folder_name='', *args, **kwargs):
+    def view(self, threshold=0, autosave=False, *args, **kwargs):
         print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
 
         try:
@@ -162,16 +162,18 @@ class MySpectrumViewer:
             return "No saving"
 
         elif autosave is True:
-            save_path = "../visualization/" + self.name[:4] + '/' + str(folder_name) + '/'
+            notion = str(kwargs['notion']) if 'notion' in kwargs.keys() else ''
+            folder = str(kwargs['folder']) if 'folder' in kwargs.keys() else ''
+            save_path = "../visualization/" + self.name[:4] + '/' + folder + '/'
+            save_name = save_path + self.name[4:] + self.algorithm + notion + '.png'
 
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
 
-            savename = save_path + self.name[4:] + self.algorithm + str(notion) + '.png'
-            plt.savefig(savename, bbox_inches='tight')
-            print(self.name, "saved as", savename, time.asctime(time.localtime(time.time())))
+            plt.savefig(save_name, bbox_inches='tight')
+            print(self.name, "saved as", save_name, time.asctime(time.localtime(time.time())))
             plt.close()
-            return savename
+            return save_name
 
         else:
             raise ArgError("autosave\nPlease specify autosave=\"True\" or \"False\"")
@@ -309,7 +311,9 @@ class AoADopplerViewer(MySpectrumViewer):
         ax.set_xlabel("Velocity / $m/s$")
         ax.set_ylabel("AoA / $deg$")
         plt.title(self.name + " AoA-Doppler Spectrum" + str(notion))
-        ax.collections[0].colorbar.set_label('Power / $dB$')
+        cb = ax.collections[0].colorbar
+        cb.set_label('Power / $dB$')
+        cb.set_yticklabels(["{.2f}".format(i) for i in cb.get_ticks()])
 
 
 class MyCsi:
@@ -700,6 +704,7 @@ class MyCsi:
         ntx = self.configs.ntx
         recon = self.commonfunc.reconstruct_csi
         noise = self.commonfunc.noise_space
+        dynamic = self.commonfunc.windowed_dynamic
 
         print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
@@ -732,7 +737,7 @@ class MyCsi:
                     noise_space = noise(csi_windowed[:, :, pick_antenna].T, ntx)
                 else:
                     # Using windowed dynamic extraction
-                    csi_dynamic = self.commonfunc.windowed_dynamic(csi_windowed)
+                    csi_dynamic = dynamic(csi_windowed)
                     noise_space = noise(csi_dynamic[:, :, pick_antenna].T, ntx)
 
                 if raw_timestamps is True:
@@ -865,6 +870,7 @@ class MyCsi:
         nsub = self.configs.nsub
         recon = self.commonfunc.reconstruct_csi
         noise = self.commonfunc.noise_space
+        dynamic = self.commonfunc.windowed_dynamic
 
         print(self.name, "AoA-Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
@@ -891,16 +897,14 @@ class MyCsi:
             # Using windowed dynamic extraction
             for i in range((self.length - window_length) // stride):
 
-                csi_windowed = csi[i * stride: i * stride + window_length, :, :]
+                csi_windowed = csi[i * stride: i * stride + window_length]
 
                 if raw_window is True:
-                    csi_dynamic = csi_windowed
+                    noise_space = noise(csi_windowed.swapaxes(0, 1).reshape(nsub, window_length * nrx), ntx)
                 else:
                     # Using windowed dynamic extraction
-                    csi_dynamic = csi_windowed - np.mean(csi_windowed, axis=0)
-
-                csi_dynamic = csi_dynamic.swapaxes(0, 1).reshape(nsub, window_length * nrx)
-                noise_space = noise(csi_dynamic, ntx)
+                    csi_dynamic = dynamic(csi_windowed)
+                    noise_space = noise(csi_dynamic.swapaxes(0, 1).reshape(nsub, window_length * nrx), ntx)
 
                 if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
@@ -920,8 +924,7 @@ class MyCsi:
                     spectrum[i, :, j] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
             self.spectrum = np.log(spectrum)
-            self.viewer = AoADopplerViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps,
-                                           xlabels=temp_timestamps)
+            self.viewer = AoADopplerViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps)
             print(self.name, "AoA-Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
