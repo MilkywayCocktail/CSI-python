@@ -783,7 +783,7 @@ class MyCsi:
                     temp_amp = self.amp[i]
                     temp_phase = self.phase[i]
 
-                csi = np.squeeze(recon(temp_amp, temp_phase)).reshape(1, -1)  # nrx * nsub columns
+                csi = recon(temp_amp, temp_phase, squeeze=True).reshape(1, -1)  # nrx * nsub columns
                 noise_space = noise(csi, ntx)
 
                 for j, tof in enumerate(dt_list):
@@ -856,7 +856,7 @@ class MyCsi:
             spectrum = np.zeros(((self.length - window_length) // stride, len(input_theta_list),
                                  len(input_velocity_list)))
             temp_timestamps = np.zeros((self.length - window_length) // stride)
-            csi = np.squeeze(recon(self.amp, self.phase))
+            csi = recon(self.amp, self.phase, squeeze=True)
 
             # Using windowed dynamic extraction
             for i in range((self.length - window_length) // stride):
