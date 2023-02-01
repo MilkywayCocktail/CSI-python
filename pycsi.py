@@ -123,12 +123,9 @@ class MyCommonFuncs:
 
     @staticmethod
     def windowed_dynamic(input_csi):
-        conjugate_csi = np.conjugate(input_csi[:, :, 0, None]).repeat(3, axis=2)
-        hc = (input_csi * conjugate_csi).reshape((-1, 30, 3))
-        average_hc = np.mean(hc, axis=0).reshape((1, 30, 3)).repeat(len(input_csi), axis=0)
-        #phase_diff = input_csi * input_csi[:, :, 0][..., np.newaxis].conj().repeat(3, axis=2)
-        #static = np.mean(phase_diff, axis=0)
-        dynamic = input_csi - average_hc * 0.2
+        phase_diff = input_csi * input_csi[:, :, 0][..., np.newaxis].conj().repeat(3, axis=2)
+        static = np.mean(phase_diff, axis=0)
+        dynamic = phase_diff - static
         return dynamic
 
 
@@ -487,6 +484,39 @@ class MyCsi:
                  linestyle='--')
         plt.plot(np.unwrap(np.angle(csi[packet2, :, 1] * csi[packet2, :, 2].conj())),
                  label='antenna 1-2 #' + str(packet2), color='r',
+                 linestyle='--')
+        plt.xlabel('#Subcarrier', loc='right')
+        plt.ylabel('PhaseDiff / $rad$')
+        plt.legend()
+
+        if autosave is True:
+            save_path = "../visualization/" + self.name[:4] + '/' + folder_name + '/'
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            save_name = save_path + self.name[4:] + notion + '.png'
+            plt.savefig(save_name)
+            print(self.name, "saved as", save_name, time.asctime(time.localtime(time.time())))
+            plt.close()
+            return save_name
+
+        else:
+            plt.show()
+            return 'No saving'
+
+    def phasediff_pseudo_spectrum(self, subcarrier=0, autosave=False, notion='', folder_name=''):
+
+        csi = self.commonfunc.reconstruct_csi(self.amp, self.phase)
+
+        plt.title("Phase Difference of " + str(self.name))
+        plt.plot(np.unwrap(np.angle(csi[:, subcarrier, 0] * csi[:, subcarrier, 1].conj())),
+                 label='antenna 0-1 An' + str(subcarrier), color='b')
+        plt.plot(np.unwrap(np.angle(csi[:, subcarrier, 1] * csi[:, subcarrier, 2].conj())),
+                 label='antenna 1-2 An' + str(subcarrier), color='r')
+        plt.plot(np.unwrap(np.angle(csi[:, subcarrier, 0] * csi[:, subcarrier, 1].conj())),
+                 label='antenna 0-1 An' + str(subcarrier), color='b',
+                 linestyle='--')
+        plt.plot(np.unwrap(np.angle(csi[:, subcarrier, 1] * csi[:, subcarrier, 2].conj())),
+                 label='antenna 1-2 An' + str(subcarrier), color='r',
                  linestyle='--')
         plt.xlabel('#Subcarrier', loc='right')
         plt.ylabel('PhaseDiff / $rad$')

@@ -320,7 +320,7 @@ class _TestDoppler(MyFunc):
 
         self.subject.extract_dynamic()
 
-        self.subject.doppler_by_music(window_length=self.window_length, stride=self.stride, raw_window=True)
+        self.subject.doppler_by_music(window_length=self.window_length, stride=self.stride, raw_window=False)
 
         return self.subject.viewer.view(threshold=self.threshold, notion=self.notion, autosave=self.autosave)
 

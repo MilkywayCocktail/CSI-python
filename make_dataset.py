@@ -190,7 +190,7 @@ class MyDataMaker:
         # in_csi = np.squeeze(in_csi)
         phase_diff = in_csi * in_csi[..., 0][..., np.newaxis].conj().repeat(3, axis=2)
         static = np.mean(phase_diff, axis=0)
-        dynamic = in_csi - static
+        dynamic = phase_diff - static
         return dynamic
 
     def depth_mask(self):

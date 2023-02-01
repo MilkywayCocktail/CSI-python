@@ -169,7 +169,7 @@ if __name__ == '__main__':
     mytest = MyTest(title='aoa', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
                     func_index=0)
     mytest.run(expconfig, calibrate=False, recursive=False, autosave=True,
-               method='calibration + sanitization', notion='_dyn')
+               method='calibration + sanitization', notion='_windowed_dyn')
 
 
 
