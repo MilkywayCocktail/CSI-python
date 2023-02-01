@@ -50,12 +50,13 @@ class MyTest(object):
             setattr(self, k, v)
 
     @staticmethod
-    def npzloader(input_name, input_path, configs):
+    def npzloader(input_name, input_path, fc, bw):
         """
         A loader that loads npz files into MyCsi object.\n
         :param input_name: name of the MyCsi object (filename without '.npz')
         :param input_path: folder path of npz file (excluding filename)
-        :param configs: MyConfigs object
+        :param fc: center frequency of CSI (in GHz)
+        :param bw: bandwidth of CSI (in MHz)
         :return: csi data loaded into MyCsi object
         """
         if input_path is None:
@@ -65,7 +66,7 @@ class MyTest(object):
             filepath = input_path + input_name + '-csio.npy'
             if not os.path.exists(filepath):
                 filepath = input_path + input_name + '-csis.npz'
-            _csi = pycsi.MyCsi(configs=configs, input_name=input_name, path=filepath)
+            _csi = pycsi.MyCsi(input_name, filepath, fc, bw)
             _csi.load_data()
 
         return _csi
@@ -96,21 +97,23 @@ class MyTest(object):
         if self.reference is not None:
             for key, value in self.reference.items():
                 degref = value if isinstance(value, pycsi.MyCsi) else self.npzloader(value, self.path, fc, bw)
+                if rearrange is True:
+                    degref.data.rearrange_antenna()
                 self.reference[key] = degref
 
     def show_all_methods(self):
         for key, value in self.methods.items():
             print(key, ':', value)
 
-    def run(self, configs, **kwargs):
+    def run(self, fc=5.67, bw=40, **kwargs):
         self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + str(
             self.select_func) + ' ----TEST START----')
 
         print("######", self.title, "Test Start", time.asctime(time.localtime(time.time())))
 
         if self.batch_trigger is False and self.subject is not None:
-            #self.load_all_references(configs)
-            self.subject = self.npzloader(self.subject, self.path, configs) \
+            self.load_all_references(fc, bw)
+            self.subject = self.npzloader(self.subject, self.path, fc, bw) \
                 if not isinstance(self.subject, pycsi.MyCsi) else self.subject
             self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
 
@@ -125,7 +128,7 @@ class MyTest(object):
             self.logger('----Batch process----')
 
             filenames = os.listdir(self.path)
-            #self.load_all_references(configs)
+            self.load_all_references(fc, bw)
 
             for file in filenames:
                 name = file[:-9]
@@ -134,7 +137,7 @@ class MyTest(object):
                     continue
 
                 else:
-                    self.subject = self.npzloader(name, self.path, configs)
+                    self.subject = self.npzloader(name, self.path,fc, bw)
                     self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
 
                     self.testfunc = eval('myfunc.' + self.select_func +
@@ -153,7 +156,7 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = "0124A02"
+    sub = "0124A00"
 
     npzpath = '../npsave/0124/'
 
@@ -164,12 +167,10 @@ if __name__ == '__main__':
     # test0 = MyTest()
     # test0.show_all_methods()
 
-    expconfig = pycsi.MyConfigs(center_freq=5.32, bandwidth=20)
-
-    mytest = MyTest(title='doppler', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
+    mytest = MyTest(title='aoa', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
                     func_index=3)
-    mytest.run(configs=expconfig, calibrate=False, recursive=False, autosave=True,
-               method='calibration + sanitization', notion='_dyn')
+    mytest.run(fc=5.32, bw=20, calibrate=False, recursive=False, autosave=True,
+               method='calibration + sanitization', notion='_dyn_100')
 
 
 
