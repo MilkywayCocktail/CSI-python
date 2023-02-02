@@ -2,7 +2,7 @@ import os
 import cv2
 import time
 
-impath = '../visualization/0124/00/'
+impath = '../visualization/0124/03/'
 
 videopath = '../visualization/0124/aoa-doppler/'
 
@@ -16,7 +16,7 @@ frames = sorted(os.listdir(impath), key=lambda x: eval(x[-8:-3]))
 img = cv2.imread(os.path.join(impath, frames[0]))
 imgsize = (img.shape[1], img.shape[0])
 
-videoname = 'A00_1'
+videoname = 'A03'
 videopath = os.path.join(videopath, videoname + '.avi')
 
 fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')

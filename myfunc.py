@@ -281,8 +281,8 @@ class _TestAoA(MyFunc):
     def __init__(self, *args, **kwargs):
         MyFunc.__init__(self, *args, **kwargs)
 
-        self.threshold = 0
-        self.calibrate = True
+        self.threshold = 3
+        self.calibrate = False
         self.smooth = False
         self.num_ticks = 11
 
@@ -292,7 +292,9 @@ class _TestAoA(MyFunc):
     def func(self):
 
         self.preprocess()
-        self.subject.extract_dynamic()
+        self.subject.extract_dynamic(mode='running')
+        e = np.mean(self.subject.amp * np.exp(1.j * self.subject.phase), axis=0)
+        print(e)
         self.subject.aoa_by_music(smooth=self.smooth)
 
         return self.subject.viewer.view(threshold=self.threshold, notion=self.notion, autosave=self.autosave)

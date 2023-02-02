@@ -163,14 +163,14 @@ class MySpectrumViewer:
 
         elif autosave is True:
             notion = str(kwargs['notion']) if 'notion' in kwargs.keys() else ''
-            folder = str(kwargs['folder']) if 'folder' in kwargs.keys() else ''
-            save_path = "../visualization/" + self.name[:4] + '/' + folder + '/'
-            save_name = save_path + self.name[4:] + self.algorithm + notion + '.png'
+            folder = str(kwargs['folder']) + '/' if 'folder' in kwargs.keys() else ''
+            save_path = os.path.join("../visualization", self.name[:4], folder)
+            save_name = self.name[4:] + self.algorithm + notion + '.png'
 
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
 
-            plt.savefig(save_name, bbox_inches='tight')
+            plt.savefig(os.path.join(save_path, save_name), bbox_inches='tight')
             print(self.name, "saved as", save_name, time.asctime(time.localtime(time.time())))
             plt.close()
             return save_name
@@ -313,7 +313,7 @@ class AoADopplerViewer(MySpectrumViewer):
         plt.title(self.name + " AoA-Doppler Spectrum" + str(notion))
         cb = ax.collections[0].colorbar
         cb.set_label('Power / $dB$')
-        cb.set_yticklabels(["{.2f}".format(i) for i in cb.get_ticks()])
+        cb.ax.set_yticklabels(["{:.2f}".format(i) for i in cb.get_ticks()])
 
 
 class MyCsi:
@@ -1047,7 +1047,7 @@ class MyCsi:
         except ArgError as e:
             print(e, "\nPlease specify an integer from 0~2")
 
-    def extract_dynamic(self, mode='overall', window_length=31, reference_antenna=0):
+    def extract_dynamic(self, mode='overall', window_length=11, reference_antenna=0):
         """
         Removes the static component from csi.\n
         :param mode: 'overall' or 'running' (in terms of averaging) or 'highpass'. Default is 'overall'
@@ -1077,7 +1077,7 @@ class MyCsi:
                 strengths = self.show_antenna_strength()
                 reference_antenna = np.argmax(strengths)
 
-            complex_csi = recon(self.amp, self.phase)
+            complex_csi = recon(self.amp, self.phase, squeeze=True)
             conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, None]).repeat(3, axis=2)
             hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx))
 
@@ -1085,8 +1085,8 @@ class MyCsi:
                 average_hc = np.mean(hc, axis=0).reshape((1, nsub, nrx)).repeat(self.length, axis=0)
 
             elif mode == 'running':
-                average_hc = np.array([[np.convolve(np.squeeze(hc[:, sub, antenna, :]),
-                                        np.ones(window_length) / window_length, mode='same')
+                average_hc = np.array([[np.convolve(hc[:, sub, antenna], np.ones(window_length) / window_length,
+                                                    mode='same')
                                         for sub in range(nsub)]
                                       for antenna in range(nrx)]).swapaxes(0, 2).reshape((-1, nsub, nrx))
             elif mode == 'highpass':
