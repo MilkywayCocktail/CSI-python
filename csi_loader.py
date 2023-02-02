@@ -286,9 +286,9 @@ def dat2npy(filename, save_path, autosave=True):
     print('csi load time: ' + str((datetime.datetime.now() - now).total_seconds()) + '[s]')
     print(str(len(csilist)) + 'packets')
 
-    if os.path.exists(filename.replace('.dat', '_adjusted_time.txt')):
-        print('loading from adjusted_time.txt')
-        datetimelist = load_datetime(filename.replace('.dat', '_adjusted_time.txt'))
+    if os.path.exists(filename.replace('.dat', '_time_mod.txt')):
+        print('loading from time_mod.txt')
+        datetimelist = load_datetime(filename.replace('.dat', '_time_mod.txt'))
     elif os.path.exists(filename.replace('.dat', '_time.txt')):
         print('loading from time.txt')
         datetimelist = load_datetime(filename.replace('.dat', '_time.txt'))

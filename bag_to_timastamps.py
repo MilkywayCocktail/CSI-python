@@ -18,7 +18,7 @@ for file in filenames:
         profile = pipeline.start(config)
         profile.get_device().as_playback().set_real_time(False)
 
-        timefile = open(path + file[:-4] + '_cameratime.txt', mode='w+', encoding='utf-8')
+        timefile = open(path + file[:-4] + '_cameratime2.txt', mode='w+', encoding='utf-8')
         difffile = open(path + file[:-4] + '_cameratimediff.txt', mode='w+', encoding='utf-8')
         start = None
         try:
