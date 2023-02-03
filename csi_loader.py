@@ -153,7 +153,10 @@ def remove_sm_list(csilist, ratelist=None, isHT40=None):
 
 def load_datetime(filename):
     lines = np.loadtxt(filename, delimiter='\t', dtype=np.str)
-    timelist = [datetime.datetime.strptime(lines[i], '%Y/%m/%d %H:%M:%S.%f') for i in range(len(lines))]
+    try:
+        timelist = [datetime.datetime.strptime(lines[i], '%Y/%m/%d %H:%M:%S.%f') for i in range(len(lines))]
+    except Exception:
+        timelist = [datetime.datetime.strptime(lines[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(lines))]
 
     return timelist
 

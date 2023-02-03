@@ -81,8 +81,8 @@ file3 = '../sense/0124/00_cameratime.txt'
 file4 = '../sense/0124/00_timestamps.txt'
 result3 = '../sense/0124/00_camtime_mod.txt'
 
-#compensate(file2, result2, '19.54')
+compensate(file2, result2, '19.54')
 
 #calculate_timediff(file, result)
 
-calibrate_lag(file3, file4, result3)
+#calibrate_lag(file3, file4, result3)
