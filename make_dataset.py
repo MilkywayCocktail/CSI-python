@@ -49,7 +49,7 @@ class HiddenPrints:
 class MyDataMaker:
 
     def __init__(self, paths: list, total_frames: int, img_size: tuple):
-        #paths = [bag path, local timestamp path, CSI path]
+        # paths = [bag path, local timestamp path, CSI path, CSI timestamp path]
         self.paths = paths
         self.total_frames = total_frames
         self.img_size = img_size
@@ -83,19 +83,26 @@ class MyDataMaker:
 
         if file[-3:] == 'npy':
             with HiddenPrints():
-                csi, time_csi, i, j = csi_loader.load_npy(self.paths[2])
+                csi, _, i, j = csi_loader.load_npy(self.paths[2])
 
         elif file[-3:] == 'dat':
             with HiddenPrints():
-                csi, time_csi = csi_loader.dat2npy(self.paths[2], '', autosave=False)
+                csi, _ = csi_loader.dat2npy(self.paths[2], '', autosave=False)
 
         else:
             print("File type not supported")
             return 1
 
+        csi_tf = open(self.paths[3], mode='r', encoding='utf-8')
+        csi_time = csi_tf.readlines()
+        csi_timestamp = np.zeros(len(csi_time))
+        for i in range(len(csi_time)):
+            csi_timestamp[i] = datetime.timestamp(datetime.strptime(csi_time[i].strip(), "%Y/%m/%d %H:%M:%S.%f"))
+        csi_tf.close()
+
         print('Done')
         return {'csi': csi,
-                'time': time_csi}
+                'time': csi_timestamp}  # absolute timestamp
 
     def __init_data__(self):
         # img_size = (width, height)
@@ -107,10 +114,10 @@ class MyDataMaker:
 
     def __get_image__(self, mode):
         frames = self.video_stream.wait_for_frames()
-          # Camera timestamps in us
+
         if mode == 'depth':
             depth_frame = frames.get_depth_frame()
-            frame_timestamp = depth_frame.get_timestamp() / 1000
+            frame_timestamp = depth_frame.get_timestamp() / 1000  # Camera timestamps in us
             if not depth_frame:
                 eval('continue')
             depth_frame = my_filter(depth_frame)
@@ -169,7 +176,6 @@ class MyDataMaker:
                 image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
                 self.result['y'][i, ...] = image
 
-                print(datetime.fromtimestamp(frame_timestamp))
                 if show_img is True:
                     cv2.imshow('Image', image)
                     key = cv2.waitKey(1) & 0xFF
@@ -187,23 +193,25 @@ class MyDataMaker:
 
         print('Calibrating camera time against local time file...', end='')
         for i in range(self.total_frames):
-            t1 = datetime.fromtimestamp(self.result['t'][i])
-            t2 = datetime.strptime(self.timestamps[i].strip(), "%Y-%m-%d %H:%M:%S.%f")
-            temp_lag[i] = (t1 - t2).seconds
+            cam_time = datetime.fromtimestamp(self.result['t'][i])
+            local_time = datetime.strptime(self.timestamps[i].strip(), "%Y-%m-%d %H:%M:%S.%f")
+            temp_lag[i] = (cam_time - local_time).seconds
 
         lag = dt.timedelta(seconds=np.mean(temp_lag))
 
         for i in range(self.total_frames):
-            print(datetime.fromtimestamp(self.result['t'][i]) - lag)
             self.result['t'][i] = datetime.timestamp(datetime.fromtimestamp(self.result['t'][i]) - lag)
         print('Done')
 
         print('Matching CSI frames...', end='')
         for i in range(self.total_frames):
+            print(self.result['t'][i])
+
             csi_index = np.searchsorted(self.csi_stream['time'], self.result['t'][i])
             self.result['i'][i] = csi_index
-
+            print(csi_index)
             csi_chunk = self.csi_stream['csi'][csi_index: csi_index + 33, :, :, 0]
+            print(csi_chunk.shape)
 
             if dynamic_csi is True:
                 csi_chunk = self.windowed_dynamic(csi_chunk).reshape(33, 90).T
@@ -283,15 +291,16 @@ class MyDataMaker:
 
 if __name__ == '__main__':
 
-    sub = '00'
-    length = 300
+    sub = '01'
+    length = 3000
 
     path = [os.path.join('../sense/0124', sub + '.bag'),
             os.path.join('../sense/0124', sub + '_timestamps.txt'),
-            os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy')]
+            os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy'),
+            os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt')]
     mkdata = MyDataMaker(path, length, (128, 128))
     mkdata.export_y(show_img=False)
-    #mkdata.export_x()
+    mkdata.export_x()
     #print(mkdata.result['t'])
     #mkdata.depth_mask()
     #mkdata.playback_y()
