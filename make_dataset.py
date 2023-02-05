@@ -97,7 +97,7 @@ class MyDataMaker:
         csi_time = csi_tf.readlines()
         csi_timestamp = np.zeros(len(csi_time))
         for i in range(len(csi_time)):
-            csi_timestamp[i] = datetime.timestamp(datetime.strptime(csi_time[i].strip(), "%Y/%m/%d %H:%M:%S.%f"))
+            csi_timestamp[i] = datetime.timestamp(datetime.strptime(csi_time[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
         csi_tf.close()
 
         print('Done')
@@ -193,25 +193,21 @@ class MyDataMaker:
 
         print('Calibrating camera time against local time file...', end='')
         for i in range(self.total_frames):
-            cam_time = datetime.fromtimestamp(self.result['t'][i])
-            local_time = datetime.strptime(self.timestamps[i].strip(), "%Y-%m-%d %H:%M:%S.%f")
-            temp_lag[i] = (cam_time - local_time).seconds
+            temp_lag[i] = self.calculate_timedelta(self.result['t'][i], self.timestamps[i])
 
-        lag = dt.timedelta(seconds=np.mean(temp_lag))
+        lag = np.mean(temp_lag)
+        print('lag=', lag)
 
         for i in range(self.total_frames):
-            self.result['t'][i] = datetime.timestamp(datetime.fromtimestamp(self.result['t'][i]) - lag)
+            self.result['t'][i] = self.result['t'][i] - lag
         print('Done')
 
         print('Matching CSI frames...', end='')
         for i in range(self.total_frames):
-            print(self.result['t'][i])
 
             csi_index = np.searchsorted(self.csi_stream['time'], self.result['t'][i])
             self.result['i'][i] = csi_index
-            print(csi_index)
             csi_chunk = self.csi_stream['csi'][csi_index: csi_index + 33, :, :, 0]
-            print(csi_chunk.shape)
 
             if dynamic_csi is True:
                 csi_chunk = self.windowed_dynamic(csi_chunk).reshape(33, 90).T
@@ -232,6 +228,19 @@ class MyDataMaker:
         static = np.mean(phase_diff, axis=0)
         dynamic = phase_diff - static
         return dynamic
+
+    @staticmethod
+    def calculate_timedelta(time1, time2):
+
+        tmp = []
+        for t in (time1, time2):
+            if isinstance(t, str):
+                tmp.append(datetime.timestamp(datetime.strptime(t.strip(), "%Y-%m-%d %H:%M:%S.%f")))
+            elif isinstance(t, float):
+                tmp.append(t)
+
+        time_delta = tmp[0] - tmp[1]
+        return time_delta
 
     def depth_mask(self):
         median = np.median(self.result['y'], axis=0)
@@ -257,18 +266,18 @@ class MyDataMaker:
 
             img_size = (self.result['y'].shape[1], self.result['y'].shape[0])
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
-            videowriter = cv2.VideoWriter(save_path + save_name, fourcc, 30, img_size)
+            videowriter = cv2.VideoWriter(save_path + save_name, fourcc, 10, img_size)
 
         for i in tqdm.tqdm(range(self.total_frames)):
             if self.result['y'].dtype == 'uint16':
                 image = (self.result['y'][i]/256).astype('uint8')
                 cv2.imshow('Image', image)
+                key = cv2.waitKey(1) & 0xFF
 
             else:
                 image = cv2.convertScaleAbs(self.result['y'][i], alpha=0.02)
                 cv2.imshow('Image', image)
-
-            key = cv2.waitKey(1) & 0xFF
+                key = cv2.waitKey(1) & 0xFF
 
             if save_flag is True:
                 videowriter.write(image)
@@ -291,18 +300,18 @@ class MyDataMaker:
 
 if __name__ == '__main__':
 
-    sub = '01'
-    length = 3000
+    sub = '03'
+    length = 1800
 
     path = [os.path.join('../sense/0124', sub + '.bag'),
             os.path.join('../sense/0124', sub + '_timestamps.txt'),
             os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy'),
             os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt')]
-    mkdata = MyDataMaker(path, length, (128, 128))
+    mkdata = MyDataMaker(path, length, (848, 480))
     mkdata.export_y(show_img=False)
     mkdata.export_x()
-    #print(mkdata.result['t'])
-    #mkdata.depth_mask()
+    #print(mkdata.result['i'])
+    mkdata.depth_mask()
     #mkdata.playback_y()
-    #mkdata.save_dataset(save_path=os.path.join('../dataset/0124', 'make' + sub), save_name=sub)
+    mkdata.save_dataset(save_path=os.path.join('../dataset/0124', 'make01'), save_name=sub)
 

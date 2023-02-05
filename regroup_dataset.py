@@ -42,4 +42,4 @@ def regroup(in_path, out_path, scope: tuple):
 
 
 if __name__ == '__main__':
-    regroup('../dataset/1213/make02/', '../dataset/1213/make02_finished/', scope=('00', '01', '04'))
+    regroup('../dataset/0124/make00/', '../dataset/0124/make00_finished/', scope=('00', '01', '02', '03'))

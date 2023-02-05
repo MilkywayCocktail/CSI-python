@@ -1,8 +1,12 @@
 import csi_loader
 import numpy as np
-import os
+import datetime
 
-save_path = "../dataset/012/o-csi.npy"
+t1 = '2023-01-24 17:38:04.621438'
+t2 = '2023-01-24 17:38:04.720080'
 
-if not os.path.exists(save_path):
-    os.makedirs(save_path)
+time1 = datetime.datetime.strptime(t1.strip(), "%Y-%m-%d %H:%M:%S.%f")
+time2 = datetime.datetime.strptime(t2.strip(), "%Y-%m-%d %H:%M:%S.%f")
+
+print((time1 - time2).days)
+print((time2 - time1).microseconds / 1000)

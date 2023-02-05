@@ -39,7 +39,7 @@ def make_coordinates(path):
     return out
 
 
-a = make_coordinates('../dataset/1213/make02_finished/x.npy')
+a = make_coordinates('../dataset/0124/make00_finished/x.npy')
 # a = np.load('../dataset/1213/make01_finished/y.npy')
 a[a>4000] = 4000
-np.save('../dataset/1213/make02_finished/y.npy', a)
+np.save('../dataset/0124/make01_finished/y.npy', a)

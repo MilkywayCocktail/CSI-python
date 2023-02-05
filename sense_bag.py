@@ -80,7 +80,7 @@ class MySense:
             profile = self.pipeline.start(self.config)
 
             if self.localtime is True:
-                timefile = open(path + name + '_timestamps.txt', mode='w+', encoding='utf-8')
+                timefile = open(path + name + '_timestamps.txt', mode='w', encoding='utf-8')
 
             for i in range(length):
 

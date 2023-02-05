@@ -40,6 +40,7 @@ def compensate(in_path, out_path, offset):
 def calibrate_lag(in_path1, in_path2, out_path):
     """
     Calibrates timestamps of in_path1 against in_path2.
+    Warning: -1day not solved!
     """
     f1 = open(in_path1, mode='r', encoding='utf-8')
     f2 = open(in_path2, mode='r', encoding='utf-8')
