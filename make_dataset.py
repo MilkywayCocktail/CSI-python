@@ -5,7 +5,7 @@ import csi_loader
 import numpy as np
 import sys
 import os
-import tqdm
+from tqdm import tqdm
 from datetime import datetime
 import datetime as dt
 
@@ -49,8 +49,13 @@ class HiddenPrints:
 class MyDataMaker:
 
     def __init__(self, paths: list, total_frames: int, img_size: tuple, sample_length=33):
-        # paths = [bag path, local timestamp path, CSI path, CSI timestamp path]
-        # timestamps is the local time; works as reference time
+        """
+        :param paths: [bag path, local timestamp path, CSI path, CSI timestamp path]
+        :param total_frames: Preset length of camera record
+        :param img_size: resize camera images
+        :param sample_length: how many packets in one CSI sample
+        """
+
         self.paths = paths
         self.total_frames = total_frames
         self.img_size = img_size
@@ -63,6 +68,7 @@ class MyDataMaker:
         return self.total_frames
 
     def __setup_video_stream__(self):
+        # timestamps is the local time; works as reference time
         print('Setting camera stream...', end='')
         pipeline = rs.pipeline()
         config = rs.config()
@@ -107,11 +113,12 @@ class MyDataMaker:
 
     def __init_data__(self):
         # img_size = (width, height)
-        x_csi = np.zeros((self.total_frames, 2, 90, self.sample_length))
-        y_dmap = np.zeros((self.total_frames, self.img_size[1], self.img_size[0]))
-        t_list = np.zeros(self.total_frames)
-        index_list = np.zeros(self.total_frames)
-        return {'x': x_csi, 'y': y_dmap, 't': t_list, 'i': index_list}
+        csi = np.zeros((self.total_frames, 2, 90, self.sample_length))
+        images = np.zeros((self.total_frames, self.img_size[1], self.img_size[0]))
+        timestamps = np.zeros(self.total_frames)
+        indices = np.zeros(self.total_frames)
+        coordinates = np.zeros((self.total_frames, 3))
+        return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices, 'cod': coordinates}
 
     def __get_image__(self, mode):
         frames = self.video_stream.wait_for_frames()
@@ -167,47 +174,89 @@ class MyDataMaker:
                 if save_flag is True:
                     videowriter.release()
 
-    def export_y(self, mode='depth', show_img=True):
-        #print('Starting exporting y...')
+    def export_image(self, mode='depth', show_img=False):
+        tqdm.write('Starting exporting image...')
         try:
-            for i in tqdm.tqdm(range(self.total_frames)):
+            for i in tqdm(range(self.total_frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
 
-                self.result['t'][i] = frame_timestamp
+                self.result['tim'][i] = frame_timestamp
                 image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
-                self.result['y'][i, ...] = image
+                self.result['img'][i, ...] = image
 
                 if show_img is True:
+                    cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
                     cv2.imshow('Image', image)
                     key = cv2.waitKey(1) & 0xFF
+                    if key == ord('q'):
+                        break
 
         except RuntimeError:
             pass
 
         finally:
-            print('y exported!')
+            print('image exported!')
             self.video_stream.stop()
 
-    def export_x(self, dynamic_csi=True):
-        print('Starting exporting x...')
+    def export_coordinate(self, show_img=False, min_area=400):
+        """
+        Requires export_image and depth_mask!
+        :param show_img: whether to show the coordinate with the image
+        :param min_area: a threshold set to filter out wrong bounding boxes
+        """
+        areas = np.zeros(self.total_frames)
+        for i in range(self.total_frames):
+            (T, timg) = cv2.threshold(self.result['img'][i].astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
+            contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            if len(contours) != 0:
+                contour = max(contours, key=lambda x: cv2.contourArea(x))
+                areas[i] = cv2.contourArea(contour)
+                x, y, w, h = cv2.boundingRect(contour)
+                xc, yc = int(x + w / 2), int(y + h / 2)
+
+                if show_img is True:
+                    img = cv2.rectangle(cv2.cvtColor(np.float32(self.result['img'][i]), cv2.COLOR_GRAY2BGR), (x, y), (x + w, y + h),
+                                        (0, 255, 0), 1)
+                    img = cv2.circle(img, (xc, yc), 1, (0, 0, 255), 4)
+
+                if areas[i] > min_area:
+                    self.result['cod'][i] = np.array([xc, yc, self.result['img'][i][yc, xc]])
+                else:
+                    self.result['cod'][i] = np.array([self.img_size[1]//2, self.img_size[0]//2, 0])
+            else:
+                img = self.result['img'][i]
+                self.result['cod'][i] = np.array([self.img_size[1]//2, self.img_size[0]//2, 0])
+
+            if show_img is True:
+                cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
+                cv2.imshow('Image', img)
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
+                    break
+
+    def export_csi(self, dynamic_csi=True):
+        """
+        Requires export_image
+        """
+        print('Starting exporting csi...')
         temp_lag = np.zeros(self.total_frames)
 
         print('Calibrating camera time against local time file...', end='')
         for i in range(self.total_frames):
-            temp_lag[i] = self.calculate_timedelta(self.result['t'][i], self.timestamps[i])
+            temp_lag[i] = self.calculate_timedelta(self.result['tim'][i], self.timestamps[i])
 
         lag = np.mean(temp_lag)
         print('lag=', lag)
 
         for i in range(self.total_frames):
-            self.result['t'][i] = self.result['t'][i] - lag
+            self.result['tim'][i] = self.result['tim'][i] - lag
         print('Done')
 
         print('Matching CSI frames...', end='')
         for i in range(self.total_frames):
 
-            csi_index = np.searchsorted(self.csi_stream['time'], self.result['t'][i])
-            self.result['i'][i] = csi_index
+            csi_index = np.searchsorted(self.csi_stream['time'], self.result['tim'][i])
+            self.result['ind'][i] = csi_index
             csi_chunk = self.csi_stream['csi'][csi_index: csi_index + self.sample_length, :, :, 0]
 
             if dynamic_csi is True:
@@ -216,8 +265,8 @@ class MyDataMaker:
                 csi_chunk = csi_chunk.reshape(self.sample_length, 90).T
 
             # Store in two channels
-            self.result['x'][i, 0, :, :] = np.abs(csi_chunk)
-            self.result['x'][i, 1, :, :] = np.angle(csi_chunk)
+            self.result['csi'][i, 0, :, :] = np.abs(csi_chunk)
+            self.result['csi'][i, 1, :, :] = np.angle(csi_chunk)
 
         print('Done')
         print('x exported!')
@@ -244,59 +293,63 @@ class MyDataMaker:
         return time_delta
 
     def depth_mask(self):
-        median = np.median(self.result['y'], axis=0)
+        tqdm.write("Masking...")
+        median = np.median(self.result['img'], axis=0)
         threshold = median * 0.5
 
-        for i in tqdm.tqdm(range(len(self.result['y']))):
-            mask = self.result['y'][i] < threshold
-            masked = self.result['y'][i] * mask
-            self.result['y'][i] = masked
+        for i in tqdm(range(len(self.result['img']))):
+            mask = self.result['img'][i] < threshold
+            masked = self.result['img'][i] * mask
+            self.result['img'][i] = masked
+        print("Done")
 
-        print("Mask finished!")
+    def compress_image(self):
+        print("Compressing...", end='')
+        self.result['img'] = self.result['img'].astype(np.uint16)
+        print("Done")
 
-    def compress_y(self):
-        self.result['y'] = self.result['y'].astype(np.uint16)
-        print("Compress finished!")
-
-    def playback_y(self, save_path=None, save_name='new.avi'):
+    def playback_image(self, save_path=None, save_name='new.avi'):
+        print("Reading...", end='')
         save_flag = False
         if save_path is not None and save_name is not None:
             save_flag = True
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
 
-            img_size = (self.result['y'].shape[1], self.result['y'].shape[0])
+            img_size = (self.result['img'].shape[1], self.result['img'].shape[0])
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
             videowriter = cv2.VideoWriter(save_path + save_name, fourcc, 10, img_size)
 
-        for i in tqdm.tqdm(range(self.total_frames)):
-            if self.result['y'].dtype == 'uint16':
-                image = (self.result['y'][i]/256).astype('uint8')
+        for i in tqdm(range(self.total_frames)):
+            if self.result['img'].dtype == 'uint16':
+                image = (self.result['img'][i]/256).astype('uint8')
+                cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
                 cv2.imshow('Image', image)
                 key = cv2.waitKey(1) & 0xFF
 
             else:
-                image = cv2.convertScaleAbs(self.result['y'][i], alpha=0.02)
+                image = cv2.convertScaleAbs(self.result['img'][i], alpha=0.02)
+                cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
                 cv2.imshow('Image', image)
                 key = cv2.waitKey(1) & 0xFF
 
             if save_flag is True:
                 videowriter.write(image)
+        print("Done")
 
-        print("Read finished!")
         if save_flag is True:
             videowriter.release()
 
-    def save_dataset(self, save_path='../dataset/', save_name=None):
-
+    def save_dataset(self, save_path, save_name, x, y, **kwargs):
+        print("Saving...", end='')
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        np.save(os.path.join(save_path, save_name + '_x.npy'), self.result['x'])
-        np.save(os.path.join(save_path, save_name + '_y.npy'), self.result['y'])
-        np.save(os.path.join(save_path, save_name + '_t.npy'), self.result['t'])
+        np.save(os.path.join(save_path, save_name + '_csi.npy'), self.result['csi'])
+        np.save(os.path.join(save_path, save_name + '_img.npy'), self.result['img'])
+        np.save(os.path.join(save_path, save_name + '_tim.npy'), self.result['tim'])
 
-        print("All chunks saved!")
+        print("Done")
 
 
 if __name__ == '__main__':
@@ -309,10 +362,9 @@ if __name__ == '__main__':
             os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy'),
             os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt')]
     mkdata = MyDataMaker(path, length, (848, 480))
-    mkdata.export_y(show_img=False)
-    mkdata.export_x()
-    #print(mkdata.result['i'])
+    mkdata.export_image(show_img=False)
     mkdata.depth_mask()
-    #mkdata.playback_y()
-    mkdata.save_dataset(save_path=os.path.join('../dataset/0124', 'make01'), save_name=sub)
+    mkdata.export_coordinate(show_img=True, min_area=50)
+    #print(mkdata.result['i'])
+    #mkdata.save_dataset(save_path=os.path.join('../dataset/0124', 'make01'), save_name=sub)
 
