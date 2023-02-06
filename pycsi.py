@@ -139,7 +139,7 @@ class MySpectrumViewer:
         self.algorithm = None
 
     def view(self, threshold=0, autosave=False, *args, **kwargs):
-        print(self.name, "plotting...", time.asctime(time.localtime(time.time())))
+        print(self.name, "plotting...", end='')
 
         try:
             if self.spectrum is None:
@@ -154,7 +154,7 @@ class MySpectrumViewer:
             if threshold != 0:
                 self.spectrum[self.spectrum > threshold] = threshold
             self.show(*args, **kwargs)
-            print(self.name, "plot complete", time.asctime(time.localtime(time.time())))
+            print("Done")
 
         if autosave is False:
             plt.tight_layout()
@@ -345,11 +345,12 @@ class MyCsi:
     def __repr__(self):
         return 'MyCsi-' + self.name
 
-    def load_data(self):
+    def load_data(self, slice_times=None):
         """
         Loads csi data into current MyCsi instance.\n
         Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).\n
-        :return: csi data
+        :param: slice_times: list of tuples indicating start and end timestamps
+        :return: csi data or sliced csi data
         """
         try:
             if self.path is None or not os.path.exists(self.path):
@@ -369,7 +370,6 @@ class MyCsi:
                 self.amp = np.abs(a)
                 self.phase = np.angle(a)
                 self.timestamps = (b - b[0]) / 1e6
-                print(self.name, "raw load complete", time.asctime(time.localtime(time.time())))
 
             elif self.path[-3:] == "npy":
                 print(self.name, "npy load start...", time.asctime(time.localtime(time.time())))
@@ -377,10 +377,25 @@ class MyCsi:
                 self.amp = np.abs(csi)
                 self.phase = np.angle(csi)
                 self.timestamps = (t - t[0]) / 1e6
-                print(self.name, "npy load complete", time.asctime(time.localtime(time.time())))
 
             self.length = len(self.amp)
             self.actual_sr = self.length / self.timestamps[-1]
+            print(self.name, "load complete", time.asctime(time.localtime(time.time())))
+
+            if slice_times is not None:
+                print('Slicing...', end='')
+                full = list(range(self.length))
+                ids = []
+                for (start, end) in slice_times:
+                    start_id = np.searchsorted(self.timestamps, start)
+                    end_id = np.searchsorted(self.timestamps, end)
+                    ids.extend(full[start_id:end_id])
+
+                self.amp = self.amp[ids]
+                self.phase = self.phase[ids]
+                self.timestamps = self.timestamps[ids]
+                self.length = len(self.amp)
+                print('Done')
 
     def load_lists(self, amp, phase, timelist):
         """
@@ -507,24 +522,27 @@ class MyCsi:
             plt.show()
             return 'No saving'
 
-    def phasediff_pseudo_spectrum(self, subcarrier=0, autosave=False, notion='', folder_name=''):
+    def phasediff_pseudo_spectrum(self, autosave=False, notion='', folder_name=''):
 
+        replace = MySpectrumViewer.replace
+        print(self.name, "Plotting phase difference...")
         csi = self.commonfunc.reconstruct_csi(self.amp, self.phase)
 
-        plt.title("Phase Difference of " + str(self.name))
-        plt.plot(np.unwrap(np.angle(csi[:, subcarrier, 0] * csi[:, subcarrier, 1].conj())),
-                 label='antenna 0-1 An' + str(subcarrier), color='b')
-        plt.plot(np.unwrap(np.angle(csi[:, subcarrier, 1] * csi[:, subcarrier, 2].conj())),
-                 label='antenna 1-2 An' + str(subcarrier), color='r')
-        plt.plot(np.unwrap(np.angle(csi[:, subcarrier, 0] * csi[:, subcarrier, 1].conj())),
-                 label='antenna 0-1 An' + str(subcarrier), color='b',
-                 linestyle='--')
-        plt.plot(np.unwrap(np.angle(csi[:, subcarrier, 1] * csi[:, subcarrier, 2].conj())),
-                 label='antenna 1-2 An' + str(subcarrier), color='r',
-                 linestyle='--')
-        plt.xlabel('#Subcarrier', loc='right')
-        plt.ylabel('PhaseDiff / $rad$')
-        plt.legend()
+        phasediff_12 = np.unwrap(np.angle(csi[:, :, 0] * csi[:, :, 1].conj())).swapaxes(0, 1)
+        phasediff_23 = np.unwrap(np.angle(csi[:, :, 1] * csi[:, :, 2].conj())).swapaxes(0, 1)
+
+        ax1 = plt.subplot(2, 1, 1)
+        ax1.set_title('Phasediff_0_1')
+        ax1 = sns.heatmap(phasediff_12)
+        #plt.xticks(replace(self.timestamps, 11))
+        ax1.set_xlabel('time / $ms$')
+
+        ax2 = plt.subplot(2, 1, 2)
+        ax2.set_title('Phasediff_1_2')
+        ax2 = sns.heatmap(phasediff_23)
+        #plt.xticks(replace(self.timestamps, 11))
+        ax2.set_xlabel('time / $ms$')
+        plt.suptitle(str(self.name) + ' Phase Difference Pseudo Spectrum')
 
         if autosave is True:
             save_path = "../visualization/" + self.name[:4] + '/' + folder_name + '/'
@@ -537,6 +555,7 @@ class MyCsi:
             return save_name
 
         else:
+            plt.tight_layout()
             plt.show()
             return 'No saving'
 
@@ -686,7 +705,7 @@ class MyCsi:
                          stride=100,
                          pick_antenna=1,
                          raw_timestamps=False,
-                         raw_window=True):
+                         raw_window=False):
         """
         Computes Doppler spectrum by MUSIC.\n
         Involves self-calibration, windowed dynamic component extraction and resampling (if specified).\n
@@ -940,6 +959,7 @@ class MyCsi:
         """
         recon = self.commonfunc.reconstruct_csi
 
+        print(self.name, "self calibrating...", end='')
         if ref_antenna is None:
             strengths = self.show_antenna_strength()
             ref_antenna = np.argmax(strengths)
@@ -950,6 +970,7 @@ class MyCsi:
         self.amp = np.abs(_csi)
         self.phase = np.angle(_csi)
 
+        print("Done")
         return _csi
 
     def sanitize_phase(self):
@@ -962,7 +983,7 @@ class MyCsi:
         nrx = self.configs.nrx
         nsub = self.configs.nsub
 
-        print(self.name, "apply SpotFi Algorithm1 to remove STO", time.asctime(time.localtime(time.time())))
+        print(self.name, "apply SpotFi Algorithm1 to remove STO...", end='')
 
         try:
             if self.phase is None:
@@ -977,6 +998,7 @@ class MyCsi:
 
             self.phase = np.unwrap(self.phase, axis=1) - np.arange(nsub).reshape(
                 (1, nsub, 1, 1)) * fit[:, 0].reshape(self.length, 1, 1, 1)
+            print("Done")
 
         except DataError as e:
             print(e, "\nPlease load data")
@@ -999,8 +1021,7 @@ class MyCsi:
         center_freq = self.configs.center_freq
         recon = self.commonfunc.reconstruct_csi
 
-        print(self.name, "apply phase calibration according to", str(cal_dict.keys())[10:-1], "...",
-              time.asctime(time.localtime(time.time())))
+        print(self.name, "apply phase calibration according to", str(cal_dict.keys())[10:-1], "...", end='')
 
         try:
             if self.phase is None:
@@ -1034,13 +1055,14 @@ class MyCsi:
                 ipo.append(ref_diff.reshape(-1, 1) * true_diff.conj())
 
             ipo = np.squeeze(np.mean(ipo, axis=0))
-            print(ipo)
 
             current_csi = recon(self.amp, self.phase)
             calibrated_csi = current_csi * ipo[np.newaxis, np.newaxis, :, np.newaxis].conj()
 
             self.amp = np.abs(calibrated_csi)
             self.phase = np.angle(calibrated_csi)
+            print("Done")
+            print(ipo)
 
         except DataError as e:
             print(e, "\nPlease load data")
@@ -1060,7 +1082,7 @@ class MyCsi:
         sampling_rate = self.configs.sampling_rate
         recon = self.commonfunc.reconstruct_csi
 
-        print(self.name, "apply dynamic component extraction...", time.asctime(time.localtime(time.time())))
+        print(self.name, "apply dynamic component extraction...", end='')
 
         try:
             if self.amp is None or self.phase is None:
@@ -1101,6 +1123,7 @@ class MyCsi:
             dynamic_csi = hc - average_hc
             self.amp = np.abs(dynamic_csi)
             self.phase = np.angle(dynamic_csi)
+            print("Done")
 
         except DataError as e:
             print(e, "\nPlease load data")
@@ -1115,13 +1138,13 @@ class MyCsi:
         Default is 100
         :return: Resampled csi data
         """
-        print(self.name, "resampling at " + str(sampling_rate) + "Hz...", time.asctime(time.localtime(time.time())))
+        print(self.name, "resampling at " + str(sampling_rate) + "Hz...", end='')
 
         try:
             if self.amp is None or self.phase is None:
                 raise DataError("csi data")
 
-            if not isinstance(sampling_rate, int):
+            if not isinstance(sampling_rate, int) or sampling_rate >= self.actual_sr:
                 raise ArgError("sampling_rate: " + str(sampling_rate))
 
             new_interval = 1. / sampling_rate
@@ -1147,7 +1170,25 @@ class MyCsi:
             self.length = new_length
             self.actual_sr = sampling_rate
 
+            print("Done")
+
         except DataError as e:
             print(e, "\nPlease load data")
         except ArgError as e:
-            print(e, "\nPlease specify an integer less than 3965")
+            print(e, "\nPlease specify an integer less than the current sampling rate")
+
+
+if __name__ == '__main__':
+
+    label03 = [(8.085, 10.987), (12.422, 14.79), (18.959, 21.862), (21.962, 24.963),
+               (28.769, 31.902), (32.669, 36.206), (39.675, 42.611), (43.645, 47.147),
+               (50.751, 53.485), (55.187, 57.988)]
+    label02 = [(4.447, 7.315), (8.451, 11.352), (14.587, 18.59), (20.157, 22.16),
+               (25.496, 29.397), (30.999, 33.767), (36.904, 40.473), (41.674, 44.108),
+               (47.244, 51.046), (53.615, 55.983)]
+    mycon = MyConfigs(5.32, 20)
+    mycsi = MyCsi(mycon, '0124A02', '../npsave/0124/0124A02-csio.npy')
+    mycsi.load_data(slice_times=label02)
+    #mycsi.phasediff_pseudo_spectrum(autosave=False)
+    mycsi.doppler_by_music()
+    mycsi.viewer.view(threshold=-4)

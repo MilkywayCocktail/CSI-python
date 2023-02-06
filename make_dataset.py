@@ -48,11 +48,13 @@ class HiddenPrints:
 
 class MyDataMaker:
 
-    def __init__(self, paths: list, total_frames: int, img_size: tuple):
+    def __init__(self, paths: list, total_frames: int, img_size: tuple, sample_length=33):
         # paths = [bag path, local timestamp path, CSI path, CSI timestamp path]
+        # timestamps is the local time; works as reference time
         self.paths = paths
         self.total_frames = total_frames
         self.img_size = img_size
+        self.sample_length = sample_length
         self.video_stream, self.timestamps = self.__setup_video_stream__()
         self.csi_stream = self.__setup_csi_stream__()
         self.result = self.__init_data__()
@@ -77,7 +79,6 @@ class MyDataMaker:
         return pipeline, local_time
 
     def __setup_csi_stream__(self):
-        # Please make sure you have calibrated CSI timestamps against local time.
         print('Setting CSI stream...', end='')
         file = os.path.basename(self.paths[2])
 
@@ -102,11 +103,11 @@ class MyDataMaker:
 
         print('Done')
         return {'csi': csi,
-                'time': csi_timestamp}  # absolute timestamp
+                'time': csi_timestamp}  # Calibrated CSI timestamp
 
     def __init_data__(self):
         # img_size = (width, height)
-        x_csi = np.zeros((self.total_frames, 2, 90, 33))
+        x_csi = np.zeros((self.total_frames, 2, 90, self.sample_length))
         y_dmap = np.zeros((self.total_frames, self.img_size[1], self.img_size[0]))
         t_list = np.zeros(self.total_frames)
         index_list = np.zeros(self.total_frames)
@@ -207,12 +208,12 @@ class MyDataMaker:
 
             csi_index = np.searchsorted(self.csi_stream['time'], self.result['t'][i])
             self.result['i'][i] = csi_index
-            csi_chunk = self.csi_stream['csi'][csi_index: csi_index + 33, :, :, 0]
+            csi_chunk = self.csi_stream['csi'][csi_index: csi_index + self.sample_length, :, :, 0]
 
             if dynamic_csi is True:
-                csi_chunk = self.windowed_dynamic(csi_chunk).reshape(33, 90).T
+                csi_chunk = self.windowed_dynamic(csi_chunk).reshape(self.sample_length, 90).T
             else:
-                csi_chunk = csi_chunk.reshape(33, 90).T
+                csi_chunk = csi_chunk.reshape(self.sample_length, 90).T
 
             # Store in two channels
             self.result['x'][i, 0, :, :] = np.abs(csi_chunk)
