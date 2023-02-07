@@ -198,9 +198,9 @@ class MyDataMaker:
             print('image exported!')
             self.video_stream.stop()
 
-    def export_coordinate(self, show_img=False, min_area=400):
+    def export_coordinate(self, show_img=False, min_area=100):
         """
-        Requires export_image and depth_mask!
+        Requires export_image and depth_mask!\n
         :param show_img: whether to show the coordinate with the image
         :param min_area: a threshold set to filter out wrong bounding boxes
         """
@@ -211,18 +211,21 @@ class MyDataMaker:
             if len(contours) != 0:
                 contour = max(contours, key=lambda x: cv2.contourArea(x))
                 areas[i] = cv2.contourArea(contour)
+                print(areas[i])
                 x, y, w, h = cv2.boundingRect(contour)
                 xc, yc = int(x + w / 2), int(y + h / 2)
 
-                if show_img is True:
-                    img = cv2.rectangle(cv2.cvtColor(np.float32(self.result['img'][i]), cv2.COLOR_GRAY2BGR), (x, y), (x + w, y + h),
-                                        (0, 255, 0), 1)
-                    img = cv2.circle(img, (xc, yc), 1, (0, 0, 255), 4)
-
                 if areas[i] > min_area:
                     self.result['cod'][i] = np.array([xc, yc, self.result['img'][i][yc, xc]])
+                    if show_img is True:
+                        img = cv2.rectangle(cv2.cvtColor(np.float32(self.result['img'][i]), cv2.COLOR_GRAY2BGR), (x, y),
+                                            (x + w, y + h),
+                                            (0, 255, 0), 1)
+                        img = cv2.circle(img, (xc, yc), 1, (0, 0, 255), 4)
                 else:
                     self.result['cod'][i] = np.array([self.img_size[1]//2, self.img_size[0]//2, 0])
+                    if show_img is True:
+                        img = cv2.cvtColor(np.float32(self.result['img'][i]), cv2.COLOR_GRAY2BGR)
             else:
                 img = self.result['img'][i]
                 self.result['cod'][i] = np.array([self.img_size[1]//2, self.img_size[0]//2, 0])
@@ -311,7 +314,7 @@ class MyDataMaker:
     def playback_image(self, save_path=None, save_name='new.avi'):
         print("Reading...", end='')
         save_flag = False
-        if save_path is not None and save_name is not None:
+        if save_path is not None and save_name is not None:  
             save_flag = True
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
@@ -340,15 +343,14 @@ class MyDataMaker:
         if save_flag is True:
             videowriter.release()
 
-    def save_dataset(self, save_path, save_name, x, y, **kwargs):
+    def save_dataset(self, save_path, save_name, *args):
         print("Saving...", end='')
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        np.save(os.path.join(save_path, save_name + '_csi.npy'), self.result['csi'])
-        np.save(os.path.join(save_path, save_name + '_img.npy'), self.result['img'])
-        np.save(os.path.join(save_path, save_name + '_tim.npy'), self.result['tim'])
-
+        for key in args:
+            if key in ('img', 'csi', 'tim', 'ind', 'cod'):
+                np.save(os.path.join(save_path, save_name + '_' + key + '.npy'), self.result[key])
         print("Done")
 
 
@@ -361,10 +363,10 @@ if __name__ == '__main__':
             os.path.join('../sense/0124', sub + '_timestamps.txt'),
             os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy'),
             os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt')]
-    mkdata = MyDataMaker(path, length, (848, 480))
+    mkdata = MyDataMaker(path, length, (848, 480), sample_length=100)
     mkdata.export_image(show_img=False)
     mkdata.depth_mask()
-    mkdata.export_coordinate(show_img=True, min_area=50)
+    mkdata.export_coordinate(show_img=True, min_area=3)
     #print(mkdata.result['i'])
-    #mkdata.save_dataset(save_path=os.path.join('../dataset/0124', 'make01'), save_name=sub)
+    mkdata.save_dataset('../dataset/0124/make01', sub, 'csi', 'cod')
 
