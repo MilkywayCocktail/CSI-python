@@ -21,13 +21,13 @@ def asy(path):
         cv2.namedWindow('Velocity Image', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('Velocity Image', img)
         #cv2.imwrite('../dataset/view/' + str(i).zfill(4) + '.jpg', img)
-        key = cv2.waitKey(1) & 0xFF
+        key = cv2.waitKey(33) & 0xFF
         if key == ord('q'):
             break
     return
 
 
-asy('../dataset/0124/make00/03_y.npy')
+asy('../dataset/0124/make02/03_dyn_img.npy')
 #asx('../dataset/1213/masked_depth/01_x.npy')
 #ast('../dataset/1213/masked_depth/01_t.npy')
 

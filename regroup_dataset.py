@@ -4,9 +4,12 @@ import numpy as np
 
 def regroup(in_path, out_path, scope: tuple):
     # Initial cell shapes
-    x = np.zeros((1, 2, 90, 33))
-    y = np.zeros((1, 128, 128))
-    t = np.zeros(1)
+    result = {'csi': np.zeros((1, 2, 90, 100)),
+            'img': np.zeros((1, 128, 128)),
+            'tim': np.zeros(1),
+            'cod': np.zeros((1, 3)),
+            'ind': np.zeros(1)
+            }
 
     filenames = os.listdir(in_path)
     for file in filenames:
@@ -15,31 +18,22 @@ def regroup(in_path, out_path, scope: tuple):
             tmp = np.load(in_path + file)
 
             print(file)
+            kind = file[-7:-4]
 
-            if file[-5] == 'x':
-                x = np.concatenate((x, tmp), axis=0)
-
-            elif file[-5] == 'y':
-                y = np.concatenate((y, tmp), axis=0)
-
-            elif file[-5] == 't':
-                t = np.concatenate((t, tmp), axis=0)
-
-    x = np.delete(x, 0, axis=0)
-    y = np.delete(y, 0, axis=0)
-    t = np.delete(t, 0, axis=0)
-
-    print(x.shape, y.shape, t.shape)
+            if kind in result.keys():
+                result[kind] = np.concatenate((result[kind], tmp), axis=0)
 
     if not os.path.exists(out_path):
         os.makedirs(out_path)
 
-    np.save(out_path + 'x.npy', x)
-    np.save(out_path + 'y.npy', y)
-    np.save(out_path + 't.npy', t)
+    for key in result.keys():
+        result[key] = np.delete(result[key], 0, axis=0)
+        print(len(result[key]))
+        if len(result[key]) != 0:
+            np.save(out_path + key + '.npy', result[key])
 
     print("All saved!")
 
 
 if __name__ == '__main__':
-    regroup('../dataset/0124/make00/', '../dataset/0124/make00_finished/', scope=('00', '01', '02', '03'))
+    regroup('../dataset/0124/make02/', '../dataset/0124/make02_finished/', scope=('02', '03'))
