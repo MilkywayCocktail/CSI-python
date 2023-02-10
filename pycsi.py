@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
 import csi_loader
+from label_converter import label_convert
 
 
 class MyException(Exception):
@@ -386,6 +387,8 @@ class MyCsi:
                 print('Slicing...', end='')
                 full = list(range(self.length))
                 ids = []
+                if isinstance(slice_times, str):
+                    slice_times = label_convert(slice_times, None)
                 for (start, end) in slice_times:
                     start_id = np.searchsorted(self.timestamps, start)
                     end_id = np.searchsorted(self.timestamps, end)
@@ -1180,15 +1183,10 @@ class MyCsi:
 
 if __name__ == '__main__':
 
-    label03 = [(8.085, 10.987), (12.422, 14.79), (18.959, 21.862), (21.962, 24.963),
-               (28.769, 31.902), (32.669, 36.206), (39.675, 42.611), (43.645, 47.147),
-               (50.751, 53.485), (55.187, 57.988)]
-    label02 = [(4.447, 7.315), (8.451, 11.352), (14.587, 18.59), (20.157, 22.16),
-               (25.496, 29.397), (30.999, 33.767), (36.904, 40.473), (41.674, 44.108),
-               (47.244, 51.046), (53.615, 55.983)]
+
     mycon = MyConfigs(5.32, 20)
-    mycsi = MyCsi(mycon, '0124A02', '../npsave/0124/0124A02-csio.npy')
-    mycsi.load_data(slice_times=label02)
+    mycsi = MyCsi(mycon, '0208A02', '../npsave/0208/0208A02-csio.npy')
+    mycsi.load_data(slice_times='../0208/02_labels.csv')
     #mycsi.phasediff_pseudo_spectrum(autosave=False)
     mycsi.doppler_by_music()
     mycsi.viewer.view(threshold=-4)

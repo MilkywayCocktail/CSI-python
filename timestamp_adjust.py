@@ -27,9 +27,14 @@ def compensate(in_path, out_path, offset):
     r = open(out_path, mode='w+', encoding='utf-8')
 
     out = np.array(f.readlines())
-    offset = datetime.timedelta(seconds=eval(offset))
+    offset = datetime.timedelta(microseconds=eval(offset) * 1e6)
     for i in range(len(out)):
         out[i] = datetime.datetime.strptime(out[i].strip(), "%Y/%m/%d %H:%M:%S.%f") - offset
+        try:
+            a = datetime.datetime.timestamp(datetime.datetime.strptime(out[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
+        except ValueError:
+            out[i] = datetime.datetime.strptime(
+                out[i].strip(), "%Y-%m-%d %H:%M:%S") + datetime.timedelta(microseconds=1)
 
     print(out)
     np.savetxt(out_path, out, fmt='%s')
@@ -70,19 +75,17 @@ def calibrate_lag(in_path1, in_path2, out_path):
     f2.close()
 
 
-
-
 file = '../sense/0124/03_timestamps.txt'
 result = '../sense/0124/03_timediff.txt'
 
-file2 = '../data/0124/csi0124A01_time.txt'
-result2 = '../data/0124/csi0124A01_time_mod.txt'
+file2 = '../data/0208/csi0208A10_time.txt'
+result2 = '../data/0208/csi0208A10_time_mod.txt'
 
 file3 = '../sense/0124/00_cameratime.txt'
 file4 = '../sense/0124/00_timestamps.txt'
 result3 = '../sense/0124/00_camtime_mod.txt'
 
-compensate(file2, result2, '19.54')
+compensate(file2, result2, '6.9')
 
 #calculate_timediff(file, result)
 

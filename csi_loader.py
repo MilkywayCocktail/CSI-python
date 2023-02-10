@@ -217,9 +217,9 @@ def load_csidata_with_timestamp(filename, rssi_agc=False, debug=False, *args, **
 
     #    los_csilist, tdomaincsilist=csitools.multipath_mitigation(csilist)
 
-    if os.path.exists(filename.replace('.dat', '_adjusted_time.txt')):
-        print('loading from adjusted_time.txt')
-        datetimelist = load_datetime(filename.replace('.dat', '_adjusted_time.txt'))
+    if os.path.exists(filename.replace('.dat', '_time_mod.txt')):
+        print('loading from time_mod.txt')
+        datetimelist = load_datetime(filename.replace('.dat', '_time_mod.txt'))
     elif os.path.exists(filename.replace('.dat', '_time.txt')):
         print('loading from time.txt')
         datetimelist = load_datetime(filename.replace('.dat', '_time.txt'))

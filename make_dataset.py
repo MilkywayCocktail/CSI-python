@@ -7,7 +7,6 @@ import sys
 import os
 from tqdm import tqdm
 from datetime import datetime
-import datetime as dt
 
 
 def my_filter(frame):
@@ -117,8 +116,7 @@ class MyDataMaker:
         images = np.zeros((self.total_frames, self.img_size[1], self.img_size[0]))
         timestamps = np.zeros(self.total_frames)
         indices = np.zeros(self.total_frames)
-        coordinates = np.zeros((self.total_frames, 3))
-        return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices, 'cod': coordinates}
+        return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices}
 
     def __get_image__(self, mode):
         frames = self.video_stream.wait_for_frames()
@@ -195,7 +193,6 @@ class MyDataMaker:
             pass
 
         finally:
-            tqdm.write('Image exported!')
             print('Calibrating camera time against local time file...', end='')
             temp_lag = np.zeros(self.total_frames)
             for i in range(self.total_frames):
@@ -209,48 +206,6 @@ class MyDataMaker:
 
             print('Done')
             self.video_stream.stop()
-
-    def export_coordinate(self, show_img=False, min_area=50):
-        """
-        Requires export_image and depth_mask!\n
-        :param show_img: whether to show the coordinate with the image
-        :param min_area: a threshold set to filter out wrong bounding boxes
-        """
-        tqdm.write('Starting exporting coordinate...')
-        areas = np.zeros(self.total_frames)
-        for i in tqdm(range(self.total_frames)):
-            img = None
-            (T, timg) = cv2.threshold(self.result['img'][i].astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
-            contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            if len(contours) != 0:
-                contour = max(contours, key=lambda x: cv2.contourArea(x))
-                areas[i] = cv2.contourArea(contour)
-
-                if areas[i] < min_area:
-                    print(areas[i])
-                    self.result['cod'][i] = np.array([self.img_size[1]//2, self.img_size[0]//2, 0])
-                    if show_img is True:
-                        img = self.result['img'][i]
-                else:
-                    x, y, w, h = cv2.boundingRect(contour)
-                    xc, yc = int(x + w / 2), int(y + h / 2)
-                    self.result['cod'][i] = np.array([xc, yc, self.result['img'][i][yc, xc]])
-                    if show_img is True:
-                        img = cv2.rectangle(cv2.cvtColor(np.float32(self.result['img'][i]), cv2.COLOR_GRAY2BGR),
-                                            (x, y),
-                                            (x + w, y + h),
-                                            (0, 255, 0), 1)
-                        img = cv2.circle(img, (xc, yc), 1, (0, 0, 255), 4)
-            else:
-                img = self.result['img'][i]
-                self.result['cod'][i] = np.array([self.img_size[1]//2, self.img_size[0]//2, 0])
-
-            if show_img is True:
-                cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
-                cv2.imshow('Image', img)
-                key = cv2.waitKey(33) & 0xFF
-                if key == ord('q'):
-                    break
 
     def export_csi(self, dynamic_csi=True):
         """
@@ -273,8 +228,16 @@ class MyDataMaker:
             self.result['csi'][i, 0, :, :] = np.abs(csi_chunk)
             self.result['csi'][i, 1, :, :] = np.angle(csi_chunk)
 
-    def slice_by_label(self, labels: list):
+    def slice_by_label(self, in_path):
         print('Slicing...', end='')
+        labels = []
+        with open(in_path) as f:
+            for i, line in enumerate(f):
+                if i > 0:
+                    labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
+
+        labels = np.array(labels)
+
         rel_timestamps = self.result['tim'] - self.result['tim'][0]
         full = list(range(self.total_frames))
         ids = []
@@ -363,7 +326,7 @@ class MyDataMaker:
             os.makedirs(save_path)
 
         for key in args:
-            if key in ('img', 'csi', 'tim', 'ind', 'cod'):
+            if key in self.result.keys():
                 np.save(os.path.join(save_path, save_name + '_' + key + '.npy'), self.result[key])
         print("Done")
 
