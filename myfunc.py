@@ -292,9 +292,6 @@ class _TestAoA(MyFunc):
     def func(self):
 
         self.preprocess()
-        self.subject.extract_dynamic(mode='running')
-        e = np.mean(self.subject.amp * np.exp(1.j * self.subject.phase), axis=0)
-        print(e)
         self.subject.aoa_by_music(smooth=self.smooth)
 
         return self.subject.viewer.view(threshold=self.threshold, notion=self.notion, autosave=self.autosave)

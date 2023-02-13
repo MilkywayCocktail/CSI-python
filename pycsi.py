@@ -1050,7 +1050,7 @@ class MyCsi:
                 ref_angle = eval(key)
 
                 ref_csi = recon(value.amp, value.phase)
-                ref_diff = np.mean(ref_csi * ref_csi[:, :, reference_antenna, :][:, :, np.newaxis, :].conj(),
+                ref_diff = np.mean(ref_csi * ref_csi[:, :, reference_antenna][:, :, np.newaxis].conj(),
                                    axis=(0, 1))
                 true_diff = np.exp([-1.j * 2 * np.pi * distance_antenna * antenna * center_freq * np.sin(
                     ref_angle * torad) / lightspeed for antenna in range(nrx)]).reshape(-1, 1)
@@ -1186,7 +1186,10 @@ if __name__ == '__main__':
 
     mycon = MyConfigs(5.32, 20)
     mycsi = MyCsi(mycon, '0208A02', '../npsave/0208/0208A02-csio.npy')
-    mycsi.load_data(slice_times='../0208/02_labels.csv')
+    mycsi.load_data(slice_times='../sense/0208/02_labels.csv')
+    ref = MyCsi(mycon, '0208A00', '../npsave/0208/0208A00-csio.npy')
+    ref.load_data()
+    mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0':ref})
     #mycsi.phasediff_pseudo_spectrum(autosave=False)
-    mycsi.doppler_by_music()
-    mycsi.viewer.view(threshold=-4)
+    mycsi.aoa_by_music()
+    mycsi.viewer.view()

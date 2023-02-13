@@ -92,10 +92,10 @@ class MyTest(object):
 
         return log_path + str(self.title) + '.txt'
 
-    def load_all_references(self, fc, bw, rearrange=False):
+    def load_all_references(self, config, rearrange=False):
         if self.reference is not None:
             for key, value in self.reference.items():
-                degref = value if isinstance(value, pycsi.MyCsi) else self.npzloader(value, self.path, fc, bw)
+                degref = value if isinstance(value, pycsi.MyCsi) else self.npzloader(config, value, self.path)
                 self.reference[key] = degref
 
     def show_all_methods(self):
@@ -109,7 +109,7 @@ class MyTest(object):
         print("######", self.title, "Test Start", time.asctime(time.localtime(time.time())))
 
         if self.batch_trigger is False and self.subject is not None:
-            #self.load_all_references(fc, bw)
+            self.load_all_references(configs)
             self.subject = self.npzloader(configs, self.subject, self.path) \
                 if not isinstance(self.subject, pycsi.MyCsi) else self.subject
             self.logger(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())) + ' ' + self.subject.name)
@@ -125,7 +125,7 @@ class MyTest(object):
             self.logger('----Batch process----')
 
             filenames = os.listdir(self.path)
-            #self.load_all_references(fc, bw)
+            self.load_all_references(configs)
 
             for file in filenames:
                 name = file[:-9]
@@ -153,11 +153,11 @@ class MyTest(object):
 
 if __name__ == '__main__':
 
-    sub = "0124A00"
+    sub = "0208A02"
 
-    npzpath = '../npsave/0124/'
+    npzpath = '../npsave/0208/'
 
-    cal = {'0': '0124A00'}
+    cal = {'0': '0208A00'}
 
     # sub_range = ['A' + str(x).zfill(2) for x in range(0, 12)]
 
@@ -166,10 +166,10 @@ if __name__ == '__main__':
 
     expconfig = pycsi.MyConfigs(center_freq=5.32, bandwidth=20)
 
-    mytest = MyTest(title='aoa_doppler', date='0124', subject=sub, reference=cal, path=npzpath, batch=False,
+    mytest = MyTest(title='aoa', date='0208', subject=sub, reference=cal, path=npzpath, batch=False,
                     func_index=0)
-    mytest.run(expconfig, calibrate=False, autosave=False,
-               method='calibration + sanitization', notion='_wdyn_11')
+    mytest.run(expconfig, calibrate=False, autosave=True,
+               method='calibration + sanitization', notion='_cal')
 
 
 '''

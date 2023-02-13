@@ -8,7 +8,8 @@ def regroup(in_path, out_path, scope: tuple):
             'img': np.zeros((1, 128, 128)),
             'tim': np.zeros(1),
             'cod': np.zeros((1, 3)),
-            'ind': np.zeros(1)
+            'ind': np.zeros(1),
+            'sid': np.zeros(1)
             }
 
     filenames = os.listdir(in_path)
@@ -28,12 +29,12 @@ def regroup(in_path, out_path, scope: tuple):
 
     for key in result.keys():
         result[key] = np.delete(result[key], 0, axis=0)
-        print(len(result[key]))
         if len(result[key]) != 0:
+            print(key, len(result[key]))
             np.save(out_path + key + '.npy', result[key])
 
     print("All saved!")
 
 
 if __name__ == '__main__':
-    regroup('../dataset/0124/make02/', '../dataset/0124/make02_finished/', scope=('02', '03'))
+    regroup('../dataset/0208/make00/', '../dataset/0208/make00_finished/', scope=('02', '03'))

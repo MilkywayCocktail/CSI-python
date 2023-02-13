@@ -62,6 +62,7 @@ class MyDataMaker:
         self.video_stream, self.timestamps = self.__setup_video_stream__()
         self.csi_stream = self.__setup_csi_stream__()
         self.result = self.__init_data__()
+        self.cal_cam = False
 
     def __len__(self):
         return self.total_frames
@@ -193,18 +194,7 @@ class MyDataMaker:
             pass
 
         finally:
-            print('Calibrating camera time against local time file...', end='')
-            temp_lag = np.zeros(self.total_frames)
-            for i in range(self.total_frames):
-                temp_lag[i] = self.calculate_timedelta(self.result['tim'][i], self.timestamps[i])
-
-            lag = np.mean(temp_lag)
-            print('lag=', lag)
-
-            for i in range(self.total_frames):
-                self.result['tim'][i] = self.result['tim'][i] - lag
-
-            print('Done')
+            self.calibrate_camtime()
             self.video_stream.stop()
 
     def export_csi(self, dynamic_csi=True):
@@ -228,10 +218,10 @@ class MyDataMaker:
             self.result['csi'][i, 0, :, :] = np.abs(csi_chunk)
             self.result['csi'][i, 1, :, :] = np.angle(csi_chunk)
 
-    def slice_by_label(self, in_path):
+    def slice_by_label(self):
         print('Slicing...', end='')
         labels = []
-        with open(in_path) as f:
+        with open(self.paths[4]) as f:
             for i, line in enumerate(f):
                 if i > 0:
                     labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
@@ -272,6 +262,21 @@ class MyDataMaker:
 
         time_delta = tmp[0] - tmp[1]
         return time_delta
+
+    def calibrate_camtime(self):
+        print('Calibrating camera time against local time file...', end='')
+        if self.cal_cam is False:
+            temp_lag = np.zeros(self.total_frames)
+            for i in range(self.total_frames):
+                temp_lag[i] = self.calculate_timedelta(self.result['tim'][i], self.timestamps[i])
+
+            lag = np.mean(temp_lag)
+            print('lag=', lag)
+
+            for i in range(self.total_frames):
+                self.result['tim'][i] = self.result['tim'][i] - lag
+            self.cal_cam = True
+        print('Done')
 
     def depth_mask(self):
         tqdm.write("Masking...")
@@ -339,7 +344,8 @@ if __name__ == '__main__':
     path = [os.path.join('../sense/0124', sub + '.bag'),
             os.path.join('../sense/0124', sub + '_timestamps.txt'),
             os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy'),
-            os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt')]
+            os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt'),
+            os.path.join('../sense/0124', sub + '_labels.csv')]
 
     label02 = [(4.447, 7.315), (8.451, 11.352), (14.587, 18.59), (20.157, 22.16),
                (25.496, 29.397), (30.999, 33.767), (36.904, 40.473), (41.674, 44.108),

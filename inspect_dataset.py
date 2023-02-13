@@ -27,7 +27,25 @@ def asy(path):
     return
 
 
-asy('../dataset/0124/make02/03_dyn_img.npy')
+def to_onehot(path, path2):
+    labels = np.load(path)
+    out = np.zeros((len(labels), 3))
+
+    for i in range(len(labels)):
+        if labels[i] == -1:
+            print("-1")
+            out[i] = [1, 0, 0]
+        elif labels[i] == 0:
+            print("0")
+            out[i] = [0, 1, 0]
+        elif labels[i] == 1:
+            print("1")
+            out[i] = [0, 0, 1]
+
+    np.save(path2, out)
+
+#asy('../dataset/0124/make02/03_dyn_img.npy')
 #asx('../dataset/1213/masked_depth/01_x.npy')
 #ast('../dataset/1213/masked_depth/01_t.npy')
+to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
 

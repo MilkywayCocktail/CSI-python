@@ -8,7 +8,7 @@ from make_dataset import MyDataMaker
 class MyDataMaker_v01b(MyDataMaker):
 
     def __init__(self, *args, **kwargs):
-        MyDataMaker.__init__(*args, **kwargs)
+        MyDataMaker.__init__(self, *args, **kwargs)
 
     def __init_data__(self):
         # img_size = (width, height)
@@ -31,24 +31,26 @@ class MyDataMaker_v01b(MyDataMaker):
         for i in tqdm(range(len(rel_timestamps))):
             for rows in sidelabels:
                 if rows[0] <= rel_timestamps[i] <= rows[1]:
-                    self.result['sid'] = rows[2]
+                    # print(rows[0], rel_timestamps[i], rows[1])
+                    self.result['sid'][i] = rows[2]
 
 
 if __name__ == '__main__':
 
-    sub = '02'
-    length = 1800
+    sub = '03'
+    length = 3000
 
-    path = [os.path.join('../sense/0124', sub + '.bag'),
-            os.path.join('../sense/0124', sub + '_timestamps.txt'),
-            os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy'),
-            os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt'),
+    path = [os.path.join('../sense/0208', sub + '.bag'),
+            os.path.join('../sense/0208', sub + '_timestamps.txt'),
+            os.path.join('../npsave/0208', '0208A' + sub + '-csio.npy'),
+            os.path.join('../data/0208', 'csi0208A' + sub + '_time_mod.txt'),
             os.path.join('../sense/0208', sub + '_labels.csv')]
 
-    mkdata = MyDataMaker_v01b(path, length, (128, 128), sample_length=100)
+    mkdata = MyDataMaker_v01b(paths=path, total_frames=length, img_size=(128, 128), sample_length=100)
     mkdata.export_image(show_img=False)
     mkdata.export_sidelabel()
     mkdata.export_csi()
     mkdata.slice_by_label()
-    mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0124/make02', sub + '_dyn', 'ind', 'csi', 'sid', 'tim')
+    print(mkdata.result['sid'])
+    #mkdata.playback_image()
+    mkdata.save_dataset('../dataset/0208/make00', sub + '_dyn', 'csi', 'sid')
