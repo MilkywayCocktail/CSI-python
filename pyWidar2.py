@@ -39,24 +39,40 @@ class MyWidar2:
         self.thetalist = np.deg2rad(np.arange(-0., 180., 1.))
         self.dopplerlist = np.arange(-5., 5., 0.01)
         self.window_length = 100
+        self.stride = 100
+        self.num_paths = 5
         self.steer_tof, self.steer_aoa, self.steer_doppler = self.__gen_steering_vector__()
 
     def __gen_steering_vector__(self):
+        sampling_rate = self.configs.sampling_rate
+        subfreqs = self.configs.subfreq_list
+        dist_antenna = self.configs.dist_antenna
+        antennas = self.antenna_list
+        center_freq = self.configs.center_freq
+        lightspeed = self.configs.lightspeed
+
         dt_list = self.taulist[::-1].reshape(-1, 1)
         theta_list = self.thetalist[::-1].reshape(-1, 1)
         velocity_list = self.dopplerlist[::-1].reshape(-1, 1)
-        delay_list = np.arange(0, self.window_length, 1.).reshape(-1, 1) / self.configs.sampling_rate
+        delays = np.arange(0, self.window_length, 1.).reshape(-1, 1) / sampling_rate
 
-        tof_vector = np.exp(-1.j * 2 * np.pi * dt_list.dot(self.configs.subfreq_list.T))
-        aoa_vector = np.exp(-1.j * 2 * np.pi * self.configs.dist_antenna * np.sin(theta_list).dot(
-            self.antenna_list.T) * self.configs.center_freq / self.configs.lightspeed)
-        doppler_vector = np.exp(-1.j * 2 * np.pi * self.configs.center_freq * velocity_list.dot(
-            delay_list.T) / self.configs.lightspeed)
+        tof_vector = np.exp(-1.j * 2 * np.pi * dt_list.dot(subfreqs.T))
+        aoa_vector = np.exp(-1.j * 2 * np.pi * dist_antenna * np.sin(theta_list).dot(
+            antennas.T) * center_freq / lightspeed)
+        doppler_vector = np.exp(-1.j * 2 * np.pi * center_freq * velocity_list.dot(
+            delays.T) / lightspeed)
 
         return tof_vector, aoa_vector, doppler_vector
 
+    def sage_algorithm(self):
+        estimates = np.empty((4, self.num_paths), dtype=complex)
+
     def sage(self):
-        pass
+        total_steps = (self.csi.length - self.window_length) // self.stride
+        estimates = np.empty((4, self.num_paths, 0))
+
+        for i in range(total_steps):
+            self.sage_algorithm()
 
     def run(self):
         if self.configs.ntx > 1:
