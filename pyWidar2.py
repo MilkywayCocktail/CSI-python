@@ -8,7 +8,28 @@ import csi_loader
 import pycsi
 
 
+class MyConfigsW2(pycsi.MyConfigs):
+    def __init__(self, *args, **kwargs):
+        pycsi.MyConfigs.__init__(self, *args, **kwargs)
+        self.antenna_list = np.arange(0, self.nrx, 1.).reshape(-1, 1)
+        self.taulist = np.arange(-100., 400., 1.) * (10. ** -9)
+        self.thetalist = np.deg2rad(np.arange(-0., 180., 1.))
+        self.dopplerlist = np.arange(-5., 5., 0.01)
+        self.window_length = 100
+        self.stride = 100
+        self.num_paths = 5
+
+
 class MyCsiW2(pycsi.MyCsi):
+    def __init__(self, configs: MyConfigsW2, input_name='', path=None):
+        """
+        Changed configs type to MyConfigsW2.\n
+        :param configs: MyConfigsW2 object
+        :param input_name: name of CSI sample
+        :param path: path of CSI
+        """
+        super(MyCsiW2, self).__init__(configs=configs, input_name=input_name, path=path)
+
     def self_calibrate(self, ref_antenna=None):
         """
         Overrode MyCsi.self_calibrate.\n
@@ -31,30 +52,23 @@ class MyCsiW2(pycsi.MyCsi):
 
 
 class MyWidar2:
-    def __init__(self, configs: pycsi.MyConfigs, csi: MyCsiW2):
+    def __init__(self, configs: MyConfigsW2, csi: MyCsiW2):
         self.configs = configs
         self.csi = csi
-        self.antenna_list = np.arange(0, self.nrx, 1.).reshape(-1, 1)
-        self.taulist = np.arange(-100., 400., 1.) * (10. ** -9)
-        self.thetalist = np.deg2rad(np.arange(-0., 180., 1.))
-        self.dopplerlist = np.arange(-5., 5., 0.01)
-        self.window_length = 100
-        self.stride = 100
-        self.num_paths = 5
         self.steer_tof, self.steer_aoa, self.steer_doppler = self.__gen_steering_vector__()
 
     def __gen_steering_vector__(self):
         sampling_rate = self.configs.sampling_rate
         subfreqs = self.configs.subfreq_list
         dist_antenna = self.configs.dist_antenna
-        antennas = self.antenna_list
+        antennas = self.configs.antenna_list
         center_freq = self.configs.center_freq
         lightspeed = self.configs.lightspeed
 
-        dt_list = self.taulist[::-1].reshape(-1, 1)
-        theta_list = self.thetalist[::-1].reshape(-1, 1)
-        velocity_list = self.dopplerlist[::-1].reshape(-1, 1)
-        delays = np.arange(0, self.window_length, 1.).reshape(-1, 1) / sampling_rate
+        dt_list = self.configs.taulist[::-1].reshape(-1, 1)
+        theta_list = self.configs.thetalist[::-1].reshape(-1, 1)
+        velocity_list = self.configs.dopplerlist[::-1].reshape(-1, 1)
+        delays = np.arange(0, self.configs.window_length, 1.).reshape(-1, 1) / sampling_rate
 
         tof_vector = np.exp(-1.j * 2 * np.pi * dt_list.dot(subfreqs.T))
         aoa_vector = np.exp(-1.j * 2 * np.pi * dist_antenna * np.sin(theta_list).dot(
@@ -65,11 +79,11 @@ class MyWidar2:
         return tof_vector, aoa_vector, doppler_vector
 
     def sage_algorithm(self):
-        estimates = np.empty((4, self.num_paths), dtype=complex)
+        estimates = np.empty((4, self.configs.num_paths), dtype=complex)
 
     def sage(self):
-        total_steps = (self.csi.length - self.window_length) // self.stride
-        estimates = np.empty((4, self.num_paths, 0))
+        total_steps = (self.csi.length - self.configs.window_length) // self.configs.stride
+        estimates = np.empty((4, self.configs.num_paths, 0))
 
         for i in range(total_steps):
             self.sage_algorithm()
@@ -82,3 +96,8 @@ class MyWidar2:
         self.csi.self_calibrate()
 
         self.sage()
+
+
+c = MyConfigsW2()
+
+p = MyCsiW2(configs=c)
