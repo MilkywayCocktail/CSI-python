@@ -4,12 +4,12 @@ import numpy as np
 
 def regroup(in_path, out_path, scope: tuple):
     # Initial cell shapes
-    result = {'csi': np.zeros((1, 2, 90, 100)),
+    result = {'csi': np.zeros((1, 2, 100, 30, 3)),
             'img': np.zeros((1, 128, 128)),
             'tim': np.zeros(1),
             'cod': np.zeros((1, 3)),
             'ind': np.zeros(1),
-            'sid': np.zeros(1)
+            'sid': np.zeros((1, 3))
             }
 
     filenames = os.listdir(in_path)
@@ -36,5 +36,13 @@ def regroup(in_path, out_path, scope: tuple):
     print("All saved!")
 
 
+def onehotscale(in_path, out_path):
+    labels = np.load(in_path)
+    labels = labels * 10
+    np.save(out_path, labels )
+    print("All saved!")
+
+
 if __name__ == '__main__':
-    regroup('../dataset/0208/make00/', '../dataset/0208/make00_finished/', scope=('02', '03'))
+    #regroup('../dataset/0208/make01/', '../dataset/0208/make01_finished/', scope=('02', '03'))
+    onehotscale('../dataset/0208/make00_finished/sid2.npy', '../dataset/0208/make00_finished/sid_10.npy')

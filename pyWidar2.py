@@ -9,15 +9,20 @@ import pycsi
 
 
 class MyConfigsW2(pycsi.MyConfigs):
-    def __init__(self, *args, **kwargs):
-        pycsi.MyConfigs.__init__(self, *args, **kwargs)
+    def __init__(self,
+                 center_freq=5.32, bandwidth=20, sampling_rate=1000,
+                 window_length=100, stride=100, num_paths=5):
+
+        super(MyConfigsW2, self).__init__(center_freq=center_freq, bandwidth=bandwidth, sampling_rate=sampling_rate)
         self.antenna_list = np.arange(0, self.nrx, 1.).reshape(-1, 1)
-        self.taulist = np.arange(-100., 400., 1.) * (10. ** -9)
-        self.thetalist = np.deg2rad(np.arange(-0., 180., 1.))
-        self.dopplerlist = np.arange(-5., 5., 0.01)
-        self.window_length = 100
-        self.stride = 100
-        self.num_paths = 5
+        self.toflist = np.arange(-1.e-7, 4.e-7, 1.e-9).reshape(-1, 1)
+        self.aoalist = np.deg2rad(np.arange(-0, 180, 1.)).reshape(-1, 1)
+        self.dopplerlist = np.arange(-5, 5, 0.01).reshape(-1, 1)
+        self.window_length = window_length
+        self.stride = stride
+        self.num_paths = num_paths
+        self.max_loop = 100
+        self.update_ratio = 1.
 
 
 class MyCsiW2(pycsi.MyCsi):
@@ -33,19 +38,20 @@ class MyCsiW2(pycsi.MyCsi):
     def self_calibrate(self, ref_antenna=None):
         """
         Overrode MyCsi.self_calibrate.\n
-        Calculates weighted multiplication of csi and its conjugate.\n
+        Preprocessing of Widar2.\n
         :param ref_antenna: No use.
         """
         recon = self.commonfunc.reconstruct_csi
         csi_ratio = np.mean(self.amp, axis=0) / np.std(self.amp, axis=0)
-        ant_ratio = np.mean(csi_ratio, axis=2)
+        ant_ratio = np.mean(csi_ratio, axis=0)
+        print(csi_ratio.shape)
         ref = np.argmax(ant_ratio)
 
         alpha = np.min(self.amp, axis=0)
         beta = np.sum(alpha) ** 2 / self.length * 1000
 
-        csi_ref = recon(self.amp[:, :, ref] + beta, self.phase[:, :, ref])[:, :, np.newaxis]
-        csi_cal = recon(self.amp - alpha, self.phase) * np.repeat(csi_ref.conj(), 3, axis=2)
+        csi_ref = recon(self.amp[:, :, ref] + beta, self.phase[:, :, ref], squeeze=False)[:, :, np.newaxis]
+        csi_cal = recon(self.amp - alpha, self.phase, squeeze=False) * np.repeat(csi_ref.conj(), 3, axis=2)
 
         self.amp = np.abs(csi_cal)
         self.phase = np.angle(csi_cal)
@@ -55,38 +61,144 @@ class MyWidar2:
     def __init__(self, configs: MyConfigsW2, csi: MyCsiW2):
         self.configs = configs
         self.csi = csi
+        self.total_steps = (self.csi.length - self.configs.window_length) // self.configs.stride
         self.steer_tof, self.steer_aoa, self.steer_doppler = self.__gen_steering_vector__()
+        self.estimates = self.__gen_estimates__()
+        self.arg_i = self.__gen_arg_indices__()
+        self.temp_estimates, self.temp_arg_i = self.__gen_temp_parameters__()
 
     def __gen_steering_vector__(self):
+
         sampling_rate = self.configs.sampling_rate
-        subfreqs = self.configs.subfreq_list
         dist_antenna = self.configs.dist_antenna
-        antennas = self.configs.antenna_list
         center_freq = self.configs.center_freq
         lightspeed = self.configs.lightspeed
 
-        dt_list = self.configs.taulist[::-1].reshape(-1, 1)
-        theta_list = self.configs.thetalist[::-1].reshape(-1, 1)
-        velocity_list = self.configs.dopplerlist[::-1].reshape(-1, 1)
+        subfreqs = self.configs.subfreq_list
+        antennas = self.configs.antenna_list
         delays = np.arange(0, self.configs.window_length, 1.).reshape(-1, 1) / sampling_rate
+        toflist = self.configs.toflist.reshape(-1, 1)
+        aoalist = self.configs.aoalist.reshape(-1, 1)
+        dopplerlist = self.configs.dopplerlist.reshape(-1, 1)
 
-        tof_vector = np.exp(-1.j * 2 * np.pi * dt_list.dot(subfreqs.T))
-        aoa_vector = np.exp(-1.j * 2 * np.pi * dist_antenna * np.sin(theta_list).dot(
+        tof_vector = np.exp(-1.j * 2 * np.pi * toflist.dot(subfreqs.T))
+        aoa_vector = np.exp(-1.j * 2 * np.pi * dist_antenna * np.sin(aoalist).dot(
             antennas.T) * center_freq / lightspeed)
-        doppler_vector = np.exp(-1.j * 2 * np.pi * center_freq * velocity_list.dot(
+        doppler_vector = np.exp(-1.j * 2 * np.pi * center_freq * dopplerlist.dot(
             delays.T) / lightspeed)
 
         return tof_vector, aoa_vector, doppler_vector
 
-    def sage_algorithm(self):
-        estimates = np.empty((4, self.configs.num_paths), dtype=complex)
+    def __gen_estimates__(self):
+        est = {'tof': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
+               'aoa': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
+               'doppler': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
+               'amplitude': np.zeros((self.total_steps, self.configs.num_paths))
+               }
+        return est
+
+    def __gen_arg_indices__(self):
+        toflist = self.configs.toflist
+        aoalist = self.configs.aoalist
+        dopplerlist = self.configs.dopplerlist
+
+        ini = {'tof': np.zeros((self.total_steps, self.configs.num_paths), dtype=int),
+               'aoa': np.zeros((self.total_steps, self.configs.num_paths), dtype=int),
+               'doppler': np.zeros((self.total_steps, self.configs.num_paths), dtype=int),
+               'amplitude': None
+               }
+        ini['tof'][:] = int(np.round((0 - toflist[0]) / (toflist[1] - toflist[0])))
+        ini['aoa'][:] = int(np.round((0 - aoalist[0]) / (aoalist[1] - aoalist[0])))
+        ini['doppler'][:] = int(np.round((0 - dopplerlist[0]) / (dopplerlist[1] - dopplerlist[0])))
+        return ini
+
+    def __gen_temp_parameters__(self):
+        _estimates = {'tof': np.zeros(self.configs.num_paths, dtype=complex),
+                      'aoa': np.zeros(self.configs.num_paths, dtype=complex),
+                      'doppler': np.zeros(self.configs.num_paths, dtype=complex),
+                      'amplitude': np.zeros(self.configs.num_paths, dtype=int),
+                      }
+        _arg_index = {'tof': np.zeros(self.configs.num_paths, dtype=int),
+                      'aoa': np.zeros(self.configs.num_paths, dtype=int),
+                      'doppler': np.zeros(self.configs.num_paths, dtype=int),
+                      'amplitude': None
+                      }
+        return _estimates, _arg_index
 
     def sage(self):
-        total_steps = (self.csi.length - self.configs.window_length) // self.configs.stride
-        estimates = np.empty((4, self.configs.num_paths, 0))
+        recon = self.csi.commonfunc.reconstruct_csi
+        r = self.configs.update_ratio
+        stride = self.configs.stride
+        window_length = self.configs.window_length
+        nsub = self.csi.configs.nsub
+        nrx = self.csi.configs.nrx
 
-        for i in range(total_steps):
-            self.sage_algorithm()
+        csi_signal = recon(self.csi.amp, self.csi.phase)
+
+        for step in range(self.total_steps):
+            print('step=', step)
+            actual_csi = csi_signal[step * stride: step * stride + window_length]
+            latent_signal = np.zeros((self.configs.window_length, self.configs.nsub, self.configs.nrx,
+                                      self.configs.num_paths), dtype=complex)
+
+            self.temp_estimates, self.temp_arg_i = self.__gen_temp_parameters__()
+            for loop in range(self.configs.max_loop):
+                print('loop=', loop)
+                for path in range(self.configs.num_paths):
+                    print('path=', path)
+                    noise_signal = actual_csi - np.sum(latent_signal, axis=3)
+                    expect_signal = latent_signal[..., path] + r * noise_signal
+
+                    # Estimation of tof
+                    print(self.arg_i['tof'], self.arg_i['aoa'], self.arg_i['doppler'])
+                    aoa_matrix = self.steer_aoa[:, self.arg_i['aoa'][0, path]].reshape(1, 1, -1)
+                    doppler_matrix = self.steer_doppler[:, self.arg_i['doppler'][0, path]].reshape(-1, 1, 1)
+
+                    coeff_matrix = expect_signal * np.conj(aoa_matrix) * np.conj(doppler_matrix)
+                    coeff_vector = np.sum(coeff_matrix, axis=(0, 2)).reshape(-1, 1)
+                    tof_object_vector = np.abs(np.sum(coeff_vector * np.conj(self.steer_tof), axis=0))
+                    self.temp_arg_i['tof'][path] = np.argmax(tof_object_vector)
+                    self.temp_estimates['tof'][path] = self.configs.toflist[self.temp_arg_i['tof'][path]]
+
+                    # Estimation of aoa
+                    tof_matrix = self.steer_aoa[:, self.temp_arg_i['tof'][path]].reshape(1, -1, 1)
+
+                    coeff_matrix = latent_signal * np.conj(doppler_matrix) * np.conj(tof_matrix)
+                    coeff_vector = np.sum(coeff_matrix, axis=(0, 1)).reshape(-1, 1)
+                    aoa_object_vector = np.abs(np.sum(coeff_vector * np.conj(self.steer_aoa), axis=0))
+                    self.temp_arg_i['aoa'][path] = np.argmax(aoa_object_vector)
+                    self.temp_estimates['aoa'][path] = self.configs.aoalist[self.temp_arg_i['aoa'][path]]
+
+                    # Estimation of doppler
+                    aoa_matrix = self.steer_doppler[:, self.temp_arg_i['aoa'][path]].reshape(1, 1, -1)
+
+                    coeff_matrix = latent_signal * np.conj(aoa_matrix) * np.conj(tof_matrix)
+                    coeff_vector = np.sum(coeff_matrix, axis=(1, 2)).reshape(-1, 1)
+                    doppler_object_vector = np.abs(np.sum(coeff_vector * np.conj(self.steer_doppler), axis=0))
+                    self.temp_arg_i['doppler'][path] = np.argmax(doppler_object_vector)
+                    self.temp_estimates['doppler'][path] = self.configs.dopplerlist[self.temp_arg_i['doppler'][path]]
+
+                    # Estimation of amplitude
+                    doppler_matrix = self.steer_doppler[:, self.temp_arg_i['doppler'][path]].reshape(-1, 1, 1)
+                    coeff_matrix = latent_signal * np.conj(aoa_matrix) * np.conj(tof_matrix) * np.conj(doppler_matrix)
+                    self.temp_estimates['amplitude'][path] = np.sum(coeff_matrix) / (window_length * nsub * nrx)
+
+                    # Update latent signal
+                    tof_matrix = self.steer_tof[:, self.temp_arg_i['tof'][path]].reshape(1, -1, 1)
+                    aoa_matrix = self.steer_aoa[:, self.temp_arg_i['aoa'][path]].reshape(1, 1, -1)
+                    doppler_matrix = self.steer_doppler[:, self.temp_arg_i['doppler'][path]].reshape(-1, 1, 1)
+                    latent_signal[..., path] = self.temp_estimates[path] * tof_matrix * aoa_matrix * doppler_matrix
+
+                delta = [np.linalg.norm(param) for param in self.temp_estimates.values()]
+                for key in self.estimates.keys():
+                    self.estimates[key][step] = self.temp_estimates[key]
+                    self.arg_i[key][step] = self.temp_arg_i[key]
+
+                if delta[0] < 1.e-9 and delta[1] < np.pi / 180. and delta[2] < 0.01 and delta[3] < 1.e-9:
+                    break
+
+            residue_error = actual_csi - np.sum(latent_signal, axis=3)
+            residue_error_ratio = np.mean(np.abs(residue_error)) / np.mean(np.abs(actual_csi))
 
     def run(self):
         if self.configs.ntx > 1:
@@ -94,10 +206,13 @@ class MyWidar2:
             self.csi.phase = self.csi.phase[..., 0]
 
         self.csi.self_calibrate()
-
         self.sage()
 
 
-c = MyConfigsW2()
-
-p = MyCsiW2(configs=c)
+if __name__ == "__main__":
+    conf = MyConfigsW2()
+    csi = MyCsiW2(conf, 'test', '../npsave/0208/0208A02-csio.npy')
+    csi.load_data()
+    widar = MyWidar2(conf, csi)
+    widar.run()
+    print(widar.estimates)

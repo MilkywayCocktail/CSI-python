@@ -32,7 +32,7 @@ class ArgError(MyException):
 
 
 class MyConfigs:
-    def __init__(self, center_freq=5.67, bandwidth=40, sampling_rate=1000):
+    def __init__(self, center_freq=5.32, bandwidth=20, sampling_rate=1000):
         self.lightspeed = 299792458
         self.center_freq = center_freq * 1e+09  # in GHz
         self.bandwidth = bandwidth  # in MHz
