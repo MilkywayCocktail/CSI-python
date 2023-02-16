@@ -81,11 +81,11 @@ class MyWidar2:
         aoalist = self.configs.aoalist.reshape(-1, 1)
         dopplerlist = self.configs.dopplerlist.reshape(-1, 1)
 
-        tof_vector = np.exp(-1.j * 2 * np.pi * toflist.dot(subfreqs.T))
-        aoa_vector = np.exp(-1.j * 2 * np.pi * dist_antenna * np.sin(aoalist).dot(
-            antennas.T) * center_freq / lightspeed)
-        doppler_vector = np.exp(-1.j * 2 * np.pi * center_freq * dopplerlist.dot(
-            delays.T) / lightspeed)
+        tof_vector = np.exp(-1.j * 2 * np.pi * subfreqs.dot(toflist.T))
+        aoa_vector = np.exp(-1.j * 2 * np.pi * dist_antenna * antennas.dot(
+            np.sin(aoalist.T)) * center_freq / lightspeed)
+        doppler_vector = np.exp(-1.j * 2 * np.pi * center_freq * delays.dot(
+            dopplerlist.T) / lightspeed)
 
         return tof_vector, aoa_vector, doppler_vector
 
@@ -150,7 +150,7 @@ class MyWidar2:
                     expect_signal = latent_signal[..., path] + r * noise_signal
 
                     # Estimation of tof
-                    print(self.arg_i['tof'], self.arg_i['aoa'], self.arg_i['doppler'])
+                    print(self.steer_aoa.shape, self.steer_doppler.shape, self.steer_tof.shape)
                     aoa_matrix = self.steer_aoa[:, self.arg_i['aoa'][0, path]].reshape(1, 1, -1)
                     doppler_matrix = self.steer_doppler[:, self.arg_i['doppler'][0, path]].reshape(-1, 1, 1)
 
