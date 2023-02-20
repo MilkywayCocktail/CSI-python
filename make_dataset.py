@@ -11,7 +11,7 @@ from datetime import datetime
 
 def my_filter(frame):
     """
-    Filter used for depth images
+    Filter used for depth images.\n
     """
     hole_filling = rs.hole_filling_filter()
 
@@ -36,6 +36,9 @@ def my_filter(frame):
 
 
 class HiddenPrints:
+    """
+    Hide print lines.\n
+    """
     def __enter__(self):
         self._original_stdout = sys.stdout
         sys.stdout = open(os.devnull, 'w')
@@ -49,8 +52,8 @@ class MyDataMaker:
 
     def __init__(self, paths: list, total_frames: int, img_size: tuple, sample_length=33):
         """
-        :param paths: [bag path, local timestamp path, CSI path, CSI timestamp path]
-        :param total_frames: Preset length of camera record
+        :param paths: [bag path, local timestamp path, CSI path, CSI timestamp path, (label path)]
+        :param total_frames: Full length of bag file
         :param img_size: resize camera images
         :param sample_length: how many packets in one CSI sample
         """

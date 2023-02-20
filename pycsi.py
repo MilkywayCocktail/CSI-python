@@ -260,9 +260,9 @@ class DopplerViewer(MySpectrumViewer):
         ax = sns.heatmap(self.spectrum)
         label0, label1 = self.replace(self.xlabels, self.num_ticks)
 
-        ax.yaxis.set_major_formatter(ticker.FixedFormatter([12, 10, 8, 6, 4, 2, 0, -2, -4, -6, -8, -10]))
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(20))
-        ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
+        ax.yaxis.set_major_formatter(ticker.FixedFormatter([6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5]))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(100))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(50))
         plt.xticks(label0, label1)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
         ax.set_xlabel("Time / $s$")
@@ -703,7 +703,7 @@ class MyCsi:
         except DataError as e:
             print(e)
 
-    def doppler_by_music(self, input_velocity_list=np.arange(-10, 10.1, 0.1),
+    def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.01, 0.01),
                          window_length=100,
                          stride=100,
                          pick_antenna=1,
@@ -1059,7 +1059,7 @@ class MyCsi:
 
             ipo = np.squeeze(np.mean(ipo, axis=0))
 
-            current_csi = recon(self.amp, self.phase)
+            current_csi = recon(self.amp, self.phase, squeeze=False)
             calibrated_csi = current_csi * ipo[np.newaxis, np.newaxis, :, np.newaxis].conj()
 
             self.amp = np.abs(calibrated_csi)
@@ -1183,13 +1183,12 @@ class MyCsi:
 
 if __name__ == '__main__':
 
-
     mycon = MyConfigs(5.32, 20)
     mycsi = MyCsi(mycon, '0208A02', '../npsave/0208/0208A02-csio.npy')
     mycsi.load_data(slice_times='../sense/0208/02_labels.csv')
     ref = MyCsi(mycon, '0208A00', '../npsave/0208/0208A00-csio.npy')
     ref.load_data()
-    mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0':ref})
+    #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     #mycsi.phasediff_pseudo_spectrum(autosave=False)
-    mycsi.aoa_by_music()
+    mycsi.doppler_by_music()
     mycsi.viewer.view()

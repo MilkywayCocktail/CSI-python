@@ -46,6 +46,6 @@ def to_onehot(path, path2):
 
 #asy('../dataset/0124/make02/03_dyn_img.npy')
 #asx('../dataset/1213/masked_depth/01_x.npy')
-#ast('../dataset/1213/masked_depth/01_t.npy')
-to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
+ast('../dataset/0208/make01_finished/sid.npy')
+#to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
 

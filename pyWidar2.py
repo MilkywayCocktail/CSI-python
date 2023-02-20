@@ -41,10 +41,10 @@ class MyCsiW2(pycsi.MyCsi):
         Preprocessing of Widar2.\n
         :param ref_antenna: No use.
         """
+        print(self.name, "self calibrating...", end='')
         recon = self.commonfunc.reconstruct_csi
         csi_ratio = np.mean(self.amp, axis=0) / np.std(self.amp, axis=0)
         ant_ratio = np.mean(csi_ratio, axis=0)
-        print(csi_ratio.shape)
         ref = np.argmax(ant_ratio)
 
         alpha = np.min(self.amp, axis=0)
@@ -55,6 +55,9 @@ class MyCsiW2(pycsi.MyCsi):
 
         self.amp = np.abs(csi_cal)
         self.phase = np.angle(csi_cal)
+
+        print("Done")
+        return csi_cal
 
 
 class MyWidar2:
@@ -93,7 +96,7 @@ class MyWidar2:
         est = {'tof': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
                'aoa': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
                'doppler': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
-               'amplitude': np.zeros((self.total_steps, self.configs.num_paths))
+               'amplitude': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex)
                }
         return est
 
@@ -105,7 +108,7 @@ class MyWidar2:
         ini = {'tof': np.zeros((self.total_steps, self.configs.num_paths), dtype=int),
                'aoa': np.zeros((self.total_steps, self.configs.num_paths), dtype=int),
                'doppler': np.zeros((self.total_steps, self.configs.num_paths), dtype=int),
-               'amplitude': None
+               'amplitude': np.zeros((self.total_steps, self.configs.num_paths), dtype=int)
                }
         ini['tof'][:] = int(np.round((0 - toflist[0]) / (toflist[1] - toflist[0])))
         ini['aoa'][:] = int(np.round((0 - aoalist[0]) / (aoalist[1] - aoalist[0])))
@@ -116,12 +119,12 @@ class MyWidar2:
         _estimates = {'tof': np.zeros(self.configs.num_paths, dtype=complex),
                       'aoa': np.zeros(self.configs.num_paths, dtype=complex),
                       'doppler': np.zeros(self.configs.num_paths, dtype=complex),
-                      'amplitude': np.zeros(self.configs.num_paths, dtype=int),
+                      'amplitude': np.zeros(self.configs.num_paths, dtype=complex),
                       }
         _arg_index = {'tof': np.zeros(self.configs.num_paths, dtype=int),
                       'aoa': np.zeros(self.configs.num_paths, dtype=int),
                       'doppler': np.zeros(self.configs.num_paths, dtype=int),
-                      'amplitude': None
+                      'amplitude': np.zeros(self.configs.num_paths, dtype=int)
                       }
         return _estimates, _arg_index
 
@@ -134,23 +137,23 @@ class MyWidar2:
         nrx = self.csi.configs.nrx
 
         csi_signal = recon(self.csi.amp, self.csi.phase)
+        print("total steps=", self.total_steps)
 
         for step in range(self.total_steps):
-            print('step=', step)
+
             actual_csi = csi_signal[step * stride: step * stride + window_length]
             latent_signal = np.zeros((self.configs.window_length, self.configs.nsub, self.configs.nrx,
                                       self.configs.num_paths), dtype=complex)
 
             self.temp_estimates, self.temp_arg_i = self.__gen_temp_parameters__()
             for loop in range(self.configs.max_loop):
-                print('loop=', loop)
+
                 for path in range(self.configs.num_paths):
-                    print('path=', path)
+                    print("\r\033[32mstep{} / loop{}\033[0m".format(step, loop), end='')
                     noise_signal = actual_csi - np.sum(latent_signal, axis=3)
                     expect_signal = latent_signal[..., path] + r * noise_signal
 
                     # Estimation of tof
-                    print(self.steer_aoa.shape, self.steer_doppler.shape, self.steer_tof.shape)
                     aoa_matrix = self.steer_aoa[:, self.arg_i['aoa'][0, path]].reshape(1, 1, -1)
                     doppler_matrix = self.steer_doppler[:, self.arg_i['doppler'][0, path]].reshape(-1, 1, 1)
 
@@ -161,18 +164,18 @@ class MyWidar2:
                     self.temp_estimates['tof'][path] = self.configs.toflist[self.temp_arg_i['tof'][path]]
 
                     # Estimation of aoa
-                    tof_matrix = self.steer_aoa[:, self.temp_arg_i['tof'][path]].reshape(1, -1, 1)
+                    tof_matrix = self.steer_tof[:, self.temp_arg_i['tof'][path]].reshape(1, -1, 1)
 
-                    coeff_matrix = latent_signal * np.conj(doppler_matrix) * np.conj(tof_matrix)
+                    coeff_matrix = expect_signal * np.conj(doppler_matrix) * np.conj(tof_matrix)
                     coeff_vector = np.sum(coeff_matrix, axis=(0, 1)).reshape(-1, 1)
                     aoa_object_vector = np.abs(np.sum(coeff_vector * np.conj(self.steer_aoa), axis=0))
                     self.temp_arg_i['aoa'][path] = np.argmax(aoa_object_vector)
                     self.temp_estimates['aoa'][path] = self.configs.aoalist[self.temp_arg_i['aoa'][path]]
 
                     # Estimation of doppler
-                    aoa_matrix = self.steer_doppler[:, self.temp_arg_i['aoa'][path]].reshape(1, 1, -1)
+                    aoa_matrix = self.steer_aoa[:, self.temp_arg_i['aoa'][path]].reshape(1, 1, -1)
 
-                    coeff_matrix = latent_signal * np.conj(aoa_matrix) * np.conj(tof_matrix)
+                    coeff_matrix = expect_signal * np.conj(aoa_matrix) * np.conj(tof_matrix)
                     coeff_vector = np.sum(coeff_matrix, axis=(1, 2)).reshape(-1, 1)
                     doppler_object_vector = np.abs(np.sum(coeff_vector * np.conj(self.steer_doppler), axis=0))
                     self.temp_arg_i['doppler'][path] = np.argmax(doppler_object_vector)
@@ -180,14 +183,14 @@ class MyWidar2:
 
                     # Estimation of amplitude
                     doppler_matrix = self.steer_doppler[:, self.temp_arg_i['doppler'][path]].reshape(-1, 1, 1)
-                    coeff_matrix = latent_signal * np.conj(aoa_matrix) * np.conj(tof_matrix) * np.conj(doppler_matrix)
+                    coeff_matrix = expect_signal * np.conj(aoa_matrix) * np.conj(tof_matrix) * np.conj(doppler_matrix)
                     self.temp_estimates['amplitude'][path] = np.sum(coeff_matrix) / (window_length * nsub * nrx)
 
                     # Update latent signal
                     tof_matrix = self.steer_tof[:, self.temp_arg_i['tof'][path]].reshape(1, -1, 1)
                     aoa_matrix = self.steer_aoa[:, self.temp_arg_i['aoa'][path]].reshape(1, 1, -1)
                     doppler_matrix = self.steer_doppler[:, self.temp_arg_i['doppler'][path]].reshape(-1, 1, 1)
-                    latent_signal[..., path] = self.temp_estimates[path] * tof_matrix * aoa_matrix * doppler_matrix
+                    latent_signal[..., path] = self.temp_estimates['amplitude'][path] * tof_matrix * aoa_matrix * doppler_matrix
 
                 delta = [np.linalg.norm(param) for param in self.temp_estimates.values()]
                 for key in self.estimates.keys():
@@ -201,18 +204,56 @@ class MyWidar2:
             residue_error_ratio = np.mean(np.abs(residue_error)) / np.mean(np.abs(actual_csi))
 
     def run(self):
+        start = time.time()
         if self.configs.ntx > 1:
-            self.csi.amp = self.csi.amp[..., 0]
-            self.csi.phase = self.csi.phase[..., 0]
+            self.csi.amp = self.csi.amp[..., 0][..., np.newaxis]
+            self.csi.phase = self.csi.phase[..., 0][..., np.newaxis]
 
         self.csi.self_calibrate()
         self.sage()
 
+        end = time.time()
+        print("\nTotal time:", end-start)
+
+    def plot_results(self):
+        fig, axs = plt.subplots(2, 2, figsize=(24, 15))
+        axs = axs.flatten()
+
+        axs[0].scatter(list(range(self.total_steps)) * self.configs.num_paths,
+                       self.estimates['tof'].real.reshape(-1),
+                       c=np.log(np.abs(self.estimates['amplitude'])).reshape(-1),
+                       linewidths=0)
+        axs[1].scatter(list(range(self.total_steps)) * self.configs.num_paths,
+                       np.rad2deg(self.estimates['aoa'].real).reshape(-1),
+                       c=np.log(self.estimates['amplitude']).reshape(-1), linewidths=0)
+        axs[2].scatter(list(range(self.total_steps)) * self.configs.num_paths,
+                       self.estimates['doppler'].real.reshape(-1),
+                       c=np.log(np.abs(self.estimates['amplitude'])).reshape(-1),
+                       linewidths=0)
+        axs[3].scatter(list(range(self.total_steps)) * self.configs.num_paths,
+                       np.abs(self.estimates['amplitude']).reshape(-1),
+                       c=np.log(np.abs(self.estimates['amplitude'])).reshape(-1),
+                       linewidths=0)
+
+        axs[0].set_title("tof")
+        axs[0].set_ylim(np.min(self.estimates['tof'].real), np.max(self.estimates['tof'].real))
+        axs[1].set_title("aoa")
+        axs[1].set_ylim(0, 180)
+        axs[2].set_title("doppler")
+        axs[3].set_title("amplitude")
+
+        axs[0].set_xlim(0, self.total_steps)
+        axs[1].set_xlim(0, self.total_steps)
+        axs[2].set_xlim(0, self.total_steps)
+        axs[3].set_xlim(0, self.total_steps)
+
+        plt.show()
+
 
 if __name__ == "__main__":
     conf = MyConfigsW2()
-    csi = MyCsiW2(conf, 'test', '../npsave/0208/0208A02-csio.npy')
+    csi = MyCsiW2(conf, 'test', '../npsave/0208/0208A03-csio.npy')
     csi.load_data()
     widar = MyWidar2(conf, csi)
     widar.run()
-    print(widar.estimates)
+    widar.plot_results()
