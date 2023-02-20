@@ -147,9 +147,8 @@ class MyWidar2:
 
             self.temp_estimates, self.temp_arg_i = self.__gen_temp_parameters__()
             for loop in range(self.configs.max_loop):
-
+                print("\r\033[32mstep{} / loop{}\033[0m".format(step, loop), end='')
                 for path in range(self.configs.num_paths):
-                    print("\r\033[32mstep{} / loop{}\033[0m".format(step, loop), end='')
                     noise_signal = actual_csi - np.sum(latent_signal, axis=3)
                     expect_signal = latent_signal[..., path] + r * noise_signal
 
