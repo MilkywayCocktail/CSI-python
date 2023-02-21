@@ -3,8 +3,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import seaborn as sns
-import csi_loader
+from scipy import signal, interpolate
 import pycsi
 
 
@@ -41,7 +40,7 @@ class MyCsiW2(pycsi.MyCsi):
         Preprocessing of Widar2.\n
         :param ref_antenna: No use.
         """
-        print(self.name, "self calibrating...", end='')
+        print("Self calibrating...", end='')
         recon = self.commonfunc.reconstruct_csi
         csi_ratio = np.mean(self.amp, axis=0) / np.std(self.amp, axis=0)
         ant_ratio = np.mean(csi_ratio, axis=0)
@@ -57,7 +56,40 @@ class MyCsiW2(pycsi.MyCsi):
         self.phase = np.angle(csi_cal)
 
         print("Done")
-        return csi_cal
+        return csi_cal, alpha, beta
+
+    def filter_widar2(self, bandstop=0, use_bandstop=False):
+        print("Filtering...", end='')
+        recon = self.commonfunc.reconstruct_csi
+        half_sr = self.actual_sr / 2.
+
+        B33, A33 = signal.butter(1, [max((bandstop - 2), 1) / half_sr, (bandstop + 2) / half_sr], 'bandstop')
+        upper_stop = 50
+        lower_stop = 1
+
+        B, A = signal.butter(4, upper_stop / half_sr, 'lowpass')
+        B2, A2 = signal.butter(4, lower_stop / half_sr, 'highpass')
+
+        csi_filter = np.zeros_like(self.amp, dtype=complex)
+        for i in range(self.configs.nsub):
+            for j in range(self.configs.nrx):
+                tmp = recon(self.amp[:, i, j], self.phase[:, i, j])
+                if use_bandstop:
+                    tmp = signal.filtfilt(B33, A33, tmp)
+
+                csi_filter[:, i, j] = signal.filtfilt(B2, A2, signal.filtfilt(B, A, tmp)).reshape(-1, 1)
+
+        if self.labels is not None:
+            csi_static = csi_filter[self.labels['static']]
+            csi_filter = csi_filter - np.mean(csi_static, axis=0)
+
+        interp_stamp = np.arange(0, self.timestamps[-1] * self.configs.sampling_rate) / self.configs.sampling_rate
+        interpolator = interpolate.interp1d(self.timestamps, csi_filter, axis=0)
+        csi_interp = interpolator(interp_stamp)
+
+        self.amp = np.abs(csi_interp)
+        self.phase = np.angle(csi_interp)
+        print("Done")
 
 
 class MyWidar2:
@@ -202,13 +234,14 @@ class MyWidar2:
             residue_error = actual_csi - np.sum(latent_signal, axis=3)
             residue_error_ratio = np.mean(np.abs(residue_error)) / np.mean(np.abs(actual_csi))
 
-    def run(self):
+    def run(self, labels=None):
         start = time.time()
         if self.configs.ntx > 1:
             self.csi.amp = self.csi.amp[..., 0][..., np.newaxis]
             self.csi.phase = self.csi.phase[..., 0][..., np.newaxis]
 
-        self.csi.self_calibrate()
+        _, alpha, beta = self.csi.self_calibrate()
+        self.csi.filter_widar2()
         self.sage()
 
         end = time.time()
@@ -216,6 +249,7 @@ class MyWidar2:
 
     def plot_results(self):
         fig, axs = plt.subplots(2, 2, figsize=(24, 15))
+        plt.suptitle(self.csi.name + '_Widar2')
         axs = axs.flatten()
 
         axs[0].scatter(list(range(self.total_steps)) * self.configs.num_paths,
@@ -251,8 +285,9 @@ class MyWidar2:
 
 if __name__ == "__main__":
     conf = MyConfigsW2()
-    csi = MyCsiW2(conf, 'test', '../npsave/0208/0208A03-csio.npy')
+    csi = MyCsiW2(conf, '0208A03', '../npsave/0208/0208A03-csio.npy')
     csi.load_data()
+    csi.load_label('../sense/0208/03_labels.csv')
     widar = MyWidar2(conf, csi)
     widar.run()
     widar.plot_results()

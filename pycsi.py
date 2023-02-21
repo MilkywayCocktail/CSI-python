@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
 import csi_loader
-from label_converter import label_convert
 
 
 class MyException(Exception):
@@ -331,6 +330,7 @@ class MyCsi:
         self.timestamps = None
         self.length = None
         self.actual_sr = None
+        self.labels = None
 
         self.spectrum = None
         self.xlabels = None
@@ -346,12 +346,11 @@ class MyCsi:
     def __repr__(self):
         return 'MyCsi-' + self.name
 
-    def load_data(self, slice_times=None):
+    def load_data(self):
         """
         Loads csi data into current MyCsi instance.\n
         Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).\n
-        :param: slice_times: list of tuples indicating start and end timestamps
-        :return: csi data or sliced csi data
+        :return: csi data
         """
         try:
             if self.path is None or not os.path.exists(self.path):
@@ -383,22 +382,41 @@ class MyCsi:
             self.actual_sr = self.length / self.timestamps[-1]
             print(self.name, "load complete", time.asctime(time.localtime(time.time())))
 
-            if slice_times is not None:
-                print('Slicing...', end='')
-                full = list(range(self.length))
-                ids = []
-                if isinstance(slice_times, str):
-                    slice_times = label_convert(slice_times, None)
-                for (start, end) in slice_times:
-                    start_id = np.searchsorted(self.timestamps, start)
-                    end_id = np.searchsorted(self.timestamps, end)
-                    ids.extend(full[start_id:end_id])
+    def load_label(self, path):
+        print('Loading label file...', end='')
+        labels = []
+        with open(path) as f:
+            for i, line in enumerate(f):
+                if i > 0:
+                    labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
 
-                self.amp = self.amp[ids]
-                self.phase = self.phase[ids]
-                self.timestamps = self.timestamps[ids]
+        labels = np.array(labels)
+        print('Done')
+        print('Slicing...', end='')
+        full = list(range(self.length))
+        dyn = []
+
+        for (start, end) in labels:
+            start_id = np.searchsorted(self.timestamps, start)
+            end_id = np.searchsorted(self.timestamps, end)
+            dyn.extend(full[start_id:end_id])
+
+        stt = list(set(full).difference(set(dyn)))
+
+        self.labels = {'static': dyn,
+                       'dynamic': stt}
+        print('Done')
+
+    def slice_by_label(self, mode='dyn', overwrite=True):
+        if self.labels is not None and mode in ('dyn', 'stt'):
+            if overwrite is True:
+                self.amp = self.amp[mode]
+                self.phase = self.phase[mode]
+                self.timestamps = self.timestamps[mode]
                 self.length = len(self.amp)
-                print('Done')
+            else:
+                return self.amp[mode], self.phase[mode], self.timestamps[mode]
+        print('Done')
 
     def load_lists(self, amp, phase, timelist):
         """
@@ -1184,8 +1202,8 @@ class MyCsi:
 if __name__ == '__main__':
 
     mycon = MyConfigs(5.32, 20)
-    mycsi = MyCsi(mycon, '0208A02', '../npsave/0208/0208A02-csio.npy')
-    mycsi.load_data(slice_times='../sense/0208/02_labels.csv')
+    mycsi = MyCsi(mycon, '0208A03', '../npsave/0208/0208A03-csio.npy')
+    mycsi.load_data()
     ref = MyCsi(mycon, '0208A00', '../npsave/0208/0208A00-csio.npy')
     ref.load_data()
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
