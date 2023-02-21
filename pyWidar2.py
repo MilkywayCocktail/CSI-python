@@ -285,9 +285,9 @@ class MyWidar2:
 
 if __name__ == "__main__":
     conf = MyConfigsW2()
-    csi = MyCsiW2(conf, '0208A03', '../npsave/0208/0208A03-csio.npy')
+    csi = MyCsiW2(conf, '0208A00', '../npsave/0208/0208A00-csio.npy')
     csi.load_data()
-    csi.load_label('../sense/0208/03_labels.csv')
+    csi.load_label('env')
     widar = MyWidar2(conf, csi)
     widar.run()
     widar.plot_results()

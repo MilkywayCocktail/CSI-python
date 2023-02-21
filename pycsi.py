@@ -383,31 +383,43 @@ class MyCsi:
             print(self.name, "load complete", time.asctime(time.localtime(time.time())))
 
     def load_label(self, path):
+        """
+        Loads label from .csv file.\n
+        If the CSI sample is the environment, input 'env' to apply static labels to the CSI.\n
+        :param path: label file path, or 'env'
+        :return: list of labels corresponding to all packets
+        """
         print('Loading label file...', end='')
         labels = []
-        with open(path) as f:
-            for i, line in enumerate(f):
-                if i > 0:
-                    labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
+        if path == 'env':
+            print('Done')
+            print('Environment label')
+            self.labels = {'static': list(range(self.length)),
+                           'dynamic': None}
+        else:
+            with open(path) as f:
+                for i, line in enumerate(f):
+                    if i > 0:
+                        labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
 
-        labels = np.array(labels)
-        print('Done')
-        print('Slicing...', end='')
-        full = list(range(self.length))
-        dyn = []
+            labels = np.array(labels)
+            print('Done')
+            print('Labeling...', end='')
+            full = list(range(self.length))
+            dyn = []
 
-        for (start, end) in labels:
-            start_id = np.searchsorted(self.timestamps, start)
-            end_id = np.searchsorted(self.timestamps, end)
-            dyn.extend(full[start_id:end_id])
+            for (start, end) in labels:
+                start_id = np.searchsorted(self.timestamps, start)
+                end_id = np.searchsorted(self.timestamps, end)
+                dyn.extend(full[start_id:end_id])
 
-        stt = list(set(full).difference(set(dyn)))
-
-        self.labels = {'static': dyn,
-                       'dynamic': stt}
+            stt = list(set(full).difference(set(dyn)))
+            self.labels = {'static': dyn,
+                           'dynamic': stt}
         print('Done')
 
     def slice_by_label(self, mode='dyn', overwrite=True):
+        print('Slicing...', end='')
         if self.labels is not None and mode in ('dyn', 'stt'):
             if overwrite is True:
                 self.amp = self.amp[mode]
