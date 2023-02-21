@@ -102,17 +102,17 @@ def onehotscale(in_path, out_path):
 
 
 def pseudo_dataset(out_path):
-    csi = np.ones((500, 1, 100, 30, 3), dtype=complex) * (-1)
-    csi_1 = np.ones((500, 1, 100, 30, 3), dtype=complex) * 0.5j
-    csi_2 = np.ones((500, 1, 100, 30, 3), dtype=complex)
+    csi = np.ones((1000, 1, 100, 30, 3), dtype=complex) * (-1)
+    csi_1 = np.ones((1000, 1, 100, 30, 3), dtype=complex) * 0.5j
+    csi_2 = np.ones((1000, 1, 100, 30, 3), dtype=complex)
 
-    sid = np.ones(500) * (-1)
-    sid1 = np.zeros(500)
-    sid2 = np.ones(500)
+    sid = np.ones(1000) * (-1)
+    sid1 = np.zeros(1000)
+    sid2 = np.ones(1000)
 
     csi = np.concatenate((csi, csi_1, csi_2), axis=0)
     sid = np.concatenate((sid, sid1, sid2), axis=0)
-    out_sid = np.zeros((1500, 3))
+    out_sid = np.zeros((3000, 3))
     for i in range(len(sid)):
         if sid[i] == -1:
             print("-1")
