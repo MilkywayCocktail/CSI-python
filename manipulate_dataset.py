@@ -102,13 +102,13 @@ def onehotscale(in_path, out_path):
 
 
 def pseudo_dataset(out_path):
-    csi = np.ones((1000, 1, 100, 30, 3), dtype=complex) * (-1)
-    csi_1 = np.ones((1000, 1, 100, 30, 3), dtype=complex) * 0.5j
-    csi_2 = np.ones((1000, 1, 100, 30, 3), dtype=complex)
+    csi = np.ones((1000, 1, 100, 90), dtype=complex) * (-1)
+    csi_1 = np.ones((1000, 1, 100, 90), dtype=complex) * 0.5j
+    csi_2 = np.ones((1000, 1, 100, 90), dtype=complex)
 
-    sid = np.ones(1000) * (-1)
-    sid1 = np.zeros(1000)
-    sid2 = np.ones(1000)
+    sid = np.zeros(1000)
+    sid1 = np.ones(1000)
+    sid2 = np.ones(1000) * 2
 
     csi = np.concatenate((csi, csi_1, csi_2), axis=0)
     sid = np.concatenate((sid, sid1, sid2), axis=0)
@@ -132,12 +132,12 @@ def pseudo_dataset(out_path):
         os.makedirs(out_path)
 
     np.save(out_path + 'csi.npy', out_csi)
-    np.save(out_path + 'sid_oh.npy', out_sid)
+    np.save(out_path + 'sid_.npy', sid)
     print("All saved!")
 
 
 if __name__ == '__main__':
-    pseudo_dataset('../dataset/0221/make00_finished/')
+    pseudo_dataset('../dataset/0221/make01_finished/')
     #asy('../dataset/0124/make02/03_dyn_img.npy')
-    #asx('../dataset/1213/masked_depth/01_x.npy')
+    #asx('../dataset/0221/make01_finished/sid_oh.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')

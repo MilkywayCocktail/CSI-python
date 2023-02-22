@@ -160,7 +160,7 @@ class MyWidar2:
                       }
         return _estimates, _arg_index
 
-    def sage(self):
+    def sage(self, window_dyn=False):
         recon = self.csi.commonfunc.reconstruct_csi
         r = self.configs.update_ratio
         stride = self.configs.stride
@@ -174,6 +174,9 @@ class MyWidar2:
         for step in range(self.total_steps):
 
             actual_csi = csi_signal[step * stride: step * stride + window_length]
+            if window_dyn is True:
+                actual_csi = actual_csi - np.mean(actual_csi, axis=0)
+
             latent_signal = np.zeros((self.configs.window_length, self.configs.nsub, self.configs.nrx,
                                       self.configs.num_paths), dtype=complex)
 
@@ -234,14 +237,14 @@ class MyWidar2:
             residue_error = actual_csi - np.sum(latent_signal, axis=3)
             residue_error_ratio = np.mean(np.abs(residue_error)) / np.mean(np.abs(actual_csi))
 
-    def run(self, labels=None):
+    def run(self):
         start = time.time()
         if self.configs.ntx > 1:
             self.csi.amp = self.csi.amp[..., 0][..., np.newaxis]
             self.csi.phase = self.csi.phase[..., 0][..., np.newaxis]
 
         _, alpha, beta = self.csi.self_calibrate()
-        self.csi.filter_widar2()
+        # self.csi.filter_widar2()
         self.sage()
 
         end = time.time()
@@ -285,9 +288,10 @@ class MyWidar2:
 
 if __name__ == "__main__":
     conf = MyConfigsW2()
-    csi = MyCsiW2(conf, '0208A00', '../npsave/0208/0208A00-csio.npy')
+    csi = MyCsiW2(conf, '0208A02', '../npsave/0208/0208A02-csio.npy')
     csi.load_data()
-    csi.load_label('env')
+    csi.load_label('../sense/0208/02_labels.csv')
+    csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
     widar.run()
     widar.plot_results()

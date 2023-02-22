@@ -418,13 +418,13 @@ class MyCsi:
                            'dynamic': stt}
         print('Done')
 
-    def slice_by_label(self, mode='dyn', overwrite=True):
+    def slice_by_label(self, mode='dynamic', overwrite=True):
         print('Slicing...', end='')
-        if self.labels is not None and mode in ('dyn', 'stt'):
+        if self.labels is not None and mode in ('dynamic', 'static'):
             if overwrite is True:
-                self.amp = self.amp[mode]
-                self.phase = self.phase[mode]
-                self.timestamps = self.timestamps[mode]
+                self.amp = self.amp[self.labels[mode]]
+                self.phase = self.phase[self.labels[mode]]
+                self.timestamps = self.timestamps[self.labels[mode]]
                 self.length = len(self.amp)
             else:
                 return self.amp[mode], self.phase[mode], self.timestamps[mode]
