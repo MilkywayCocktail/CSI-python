@@ -79,9 +79,9 @@ class MyCsiW2(pycsi.MyCsi):
 
                 csi_filter[:, i, j] = signal.filtfilt(B2, A2, signal.filtfilt(B, A, tmp)).reshape(-1, 1)
 
-        if self.labels is not None:
-            csi_static = csi_filter[self.labels['static']]
-            csi_filter = csi_filter - np.mean(csi_static, axis=0)
+        #if self.labels is not None:
+        #    csi_static = csi_filter[self.labels['static']]
+        #    csi_filter = csi_filter - np.mean(csi_static, axis=0)
 
         interp_stamp = np.arange(0, self.timestamps[-1] * self.configs.sampling_rate) / self.configs.sampling_rate
         interpolator = interpolate.interp1d(self.timestamps, csi_filter, axis=0)
@@ -287,7 +287,7 @@ class MyWidar2:
 
 
 if __name__ == "__main__":
-    conf = MyConfigsW2()
+    conf = MyConfigsW2(num_paths=3)
     csi = MyCsiW2(conf, '0208A02', '../npsave/0208/0208A02-csio.npy')
     csi.load_data()
     csi.load_label('../sense/0208/02_labels.csv')
