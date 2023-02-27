@@ -243,7 +243,7 @@ class MyWidar2:
             self.csi.amp = self.csi.amp[..., 0][..., np.newaxis]
             self.csi.phase = self.csi.phase[..., 0][..., np.newaxis]
 
-        _, alpha, beta = self.csi.self_calibrate()
+        #_, alpha, beta = self.csi.self_calibrate()
         # self.csi.filter_widar2()
         self.sage()
 
@@ -251,7 +251,7 @@ class MyWidar2:
         print("\nTotal time:", end-start)
 
     def plot_results(self):
-        fig, axs = plt.subplots(2, 2, figsize=(24, 15))
+        fig, axs = plt.subplots(2, 2, figsize=(12, 8))
         plt.suptitle(self.csi.name + '_Widar2')
         axs = axs.flatten()
 
@@ -278,19 +278,19 @@ class MyWidar2:
         axs[2].set_title("doppler")
         axs[3].set_title("amplitude")
 
-        axs[0].set_xlim(0, self.total_steps)
-        axs[1].set_xlim(0, self.total_steps)
-        axs[2].set_xlim(0, self.total_steps)
-        axs[3].set_xlim(0, self.total_steps)
+        for axi in axs:
+            axi.set_xlim(0, self.total_steps)
 
+        plt.tight_layout()
         plt.show()
 
 
 if __name__ == "__main__":
     conf = MyConfigsW2(num_paths=3)
-    csi = MyCsiW2(conf, '0208A02', '../npsave/0208/0208A02-csio.npy')
+    csi = MyCsiW2(conf, '0208A03', '../npsave/0208/0208A03-csio.npy')
     csi.load_data()
-    csi.load_label('../sense/0208/02_labels.csv')
+    csi.load_label('../sense/0208/03_labels.csv')
+    csi.extract_dynamic(mode='running')
     csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
     widar.run()

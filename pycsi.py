@@ -1102,7 +1102,7 @@ class MyCsi:
         except ArgError as e:
             print(e, "\nPlease specify an integer from 0~2")
 
-    def extract_dynamic(self, mode='overall', window_length=11, reference_antenna=0):
+    def extract_dynamic(self, mode='overall', reference_antenna=0, window_length=100, stride=100):
         """
         Removes the static component from csi.\n
         :param mode: 'overall' or 'running' (in terms of averaging) or 'highpass'. Default is 'overall'
@@ -1114,6 +1114,7 @@ class MyCsi:
         nsub = self.configs.nsub
         sampling_rate = self.configs.sampling_rate
         recon = self.commonfunc.reconstruct_csi
+        dynamic = self.commonfunc.windowed_dynamic
 
         print(self.name, "apply dynamic component extraction...", end='')
 
@@ -1124,36 +1125,32 @@ class MyCsi:
             if reference_antenna not in range(nrx):
                 raise ArgError("reference_antenna: " + str(reference_antenna) + "\nPlease specify an integer from 0~2")
 
-            if not isinstance(window_length, int) or window_length < 1 or window_length > self.length:
-                raise ArgError("window_length: " + str(window_length) + "\nPlease specify an integer larger than 0 and"
-                                                                        "not larger than data length")
-
             if reference_antenna is None:
                 strengths = self.show_antenna_strength()
                 reference_antenna = np.argmax(strengths)
 
             complex_csi = recon(self.amp, self.phase, squeeze=True)
-            conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, None]).repeat(3, axis=2)
-            hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx))
 
             if mode == 'overall':
+                conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, None]).repeat(3, axis=2)
+                hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx))
                 average_hc = np.mean(hc, axis=0).reshape((1, nsub, nrx)).repeat(self.length, axis=0)
+                dynamic_csi = hc - average_hc
 
             elif mode == 'running':
-                average_hc = np.array([[np.convolve(hc[:, sub, antenna], np.ones(window_length) / window_length,
-                                                    mode='same')
-                                        for sub in range(nsub)]
-                                      for antenna in range(nrx)]).swapaxes(0, 2).reshape((-1, nsub, nrx))
+                dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx), dtype=complex)
+                for step in range((self.length - window_length) // stride):
+                    dynamic_csi[step * stride: step * stride + window_length] = dynamic(
+                        complex_csi[step * stride: step * stride + window_length])
+
             elif mode == 'highpass':
                 for packet in range(self.length):
                     for antenna in range(nrx):
-                        hc[packet, :, antenna] = highpass(hc[packet, :, antenna], cutoff=10, fs=sampling_rate, order=5)
-                average_hc = 0 + 0j
+                        pass
 
             else:
                 raise ArgError("mode: " + str(mode) + "\nPlease specify mode=\"overall\", \"running\" or \"highpass\"")
 
-            dynamic_csi = hc - average_hc
             self.amp = np.abs(dynamic_csi)
             self.phase = np.angle(dynamic_csi)
             print("Done")
@@ -1218,7 +1215,8 @@ if __name__ == '__main__':
     mycsi.load_data()
     ref = MyCsi(mycon, '0208A00', '../npsave/0208/0208A00-csio.npy')
     ref.load_data()
+    mycsi.extract_dynamic(mode='running')
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     #mycsi.phasediff_pseudo_spectrum(autosave=False)
-    mycsi.doppler_by_music()
-    mycsi.viewer.view()
+    #mycsi.doppler_by_music()
+    #mycsi.viewer.view()
