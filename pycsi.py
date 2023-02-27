@@ -395,7 +395,7 @@ class MyCsi:
             print('Done')
             print('Environment label')
             self.labels = {'static': list(range(self.length)),
-                           'dynamic': None}
+                           'dynamic': []}
         else:
             with open(path) as f:
                 for i, line in enumerate(f):

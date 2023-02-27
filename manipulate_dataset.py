@@ -81,15 +81,33 @@ def to_onehot(path, path2):
     out = np.zeros((len(labels), 3))
 
     for i in range(len(labels)):
-        if labels[i] == -1:
+        if labels[i] == 0:
             print("-1")
             out[i] = [1, 0, 0]
-        elif labels[i] == 0:
+        elif labels[i] == 1:
             print("0")
             out[i] = [0, 1, 0]
-        elif labels[i] == 1:
+        elif labels[i] == 2:
             print("1")
             out[i] = [0, 0, 1]
+
+    np.save(path2, out)
+
+
+def from_onehot(path, path2):
+    labels = np.load(path)
+    out = np.zeros(len(labels))
+
+    for i in range(len(labels)):
+        if (labels[i] == [1, 0, 0]).all():
+            print("0")
+            out[i] = 0
+        elif (labels[i] == [0, 1, 0]).all():
+            print("1")
+            out[i] = 1
+        elif (labels[i] == [0, 0, 1]).all():
+            print("2")
+            out[i] = 2
 
     np.save(path2, out)
 
@@ -137,7 +155,8 @@ def pseudo_dataset(out_path):
 
 
 if __name__ == '__main__':
-    pseudo_dataset('../dataset/0221/make01_finished/')
+    #pseudo_dataset('../dataset/0221/make01_finished/')
     #asy('../dataset/0124/make02/03_dyn_img.npy')
-    #asx('../dataset/0221/make01_finished/sid_oh.npy')
+    asx('../dataset/0208/make00_finished/sid.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
+    #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')

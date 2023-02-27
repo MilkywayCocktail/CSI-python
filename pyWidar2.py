@@ -160,7 +160,7 @@ class MyWidar2:
                       }
         return _estimates, _arg_index
 
-    def sage(self, window_dyn=False):
+    def sage(self, window_dyn=False, dynamic_durations=False):
         recon = self.csi.commonfunc.reconstruct_csi
         r = self.configs.update_ratio
         stride = self.configs.stride
@@ -174,15 +174,25 @@ class MyWidar2:
         for step in range(self.total_steps):
 
             actual_csi = csi_signal[step * stride: step * stride + window_length]
+            latent_signal = np.zeros((self.configs.window_length, self.configs.nsub, self.configs.nrx,
+                                      self.configs.num_paths), dtype=complex)
+            self.temp_estimates, self.temp_arg_i = self.__gen_temp_parameters__()
+
             if window_dyn is True:
                 actual_csi = actual_csi - np.mean(actual_csi, axis=0)
 
-            latent_signal = np.zeros((self.configs.window_length, self.configs.nsub, self.configs.nrx,
-                                      self.configs.num_paths), dtype=complex)
+            if dynamic_durations is True:
+                if self.csi.labels is not None:
+                    indices = set(range(step * stride, step * stride + window_length))
+                    dynamic_mark = indices.intersection(set(self.csi.labels['dynamic']))
+                    if len(dynamic_mark) < 25:
+                        for estimate in self.estimates.values():
+                            estimate[step, :] = np.NaN
+                        continue
 
-            self.temp_estimates, self.temp_arg_i = self.__gen_temp_parameters__()
             for loop in range(self.configs.max_loop):
                 print("\r\033[32mstep{} / loop{}\033[0m".format(step, loop), end='')
+
                 for path in range(self.configs.num_paths):
                     noise_signal = actual_csi - np.sum(latent_signal, axis=3)
                     expect_signal = latent_signal[..., path] + r * noise_signal
@@ -237,7 +247,7 @@ class MyWidar2:
             residue_error = actual_csi - np.sum(latent_signal, axis=3)
             residue_error_ratio = np.mean(np.abs(residue_error)) / np.mean(np.abs(actual_csi))
 
-    def run(self):
+    def run(self, **kwargs):
         start = time.time()
         if self.configs.ntx > 1:
             self.csi.amp = self.csi.amp[..., 0][..., np.newaxis]
@@ -245,12 +255,14 @@ class MyWidar2:
 
         #_, alpha, beta = self.csi.self_calibrate()
         # self.csi.filter_widar2()
-        self.sage()
+        self.sage(**kwargs)
 
         end = time.time()
         print("\nTotal time:", end-start)
 
     def plot_results(self):
+        stride = self.configs.stride
+        window_l = self.configs.window_length
         fig, axs = plt.subplots(2, 2, figsize=(12, 8))
         plt.suptitle(self.csi.name + '_Widar2')
         axs = axs.flatten()
@@ -287,11 +299,11 @@ class MyWidar2:
 
 if __name__ == "__main__":
     conf = MyConfigsW2(num_paths=3)
-    csi = MyCsiW2(conf, '0208A03', '../npsave/0208/0208A03-csio.npy')
+    csi = MyCsiW2(conf, '0208A02', '../npsave/0208/0208A02-csio.npy')
     csi.load_data()
-    csi.load_label('../sense/0208/03_labels.csv')
+    csi.load_label('../sense/0208/02_labels.csv')
     csi.extract_dynamic(mode='running')
-    csi.slice_by_label(overwrite=True)
+    #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
-    widar.run()
+    widar.run(dynamic_durations=True)
     widar.plot_results()
