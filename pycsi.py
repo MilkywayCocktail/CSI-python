@@ -414,8 +414,8 @@ class MyCsi:
                 dyn.extend(full[start_id:end_id])
 
             stt = list(set(full).difference(set(dyn)))
-            self.labels = {'static': dyn,
-                           'dynamic': stt}
+            self.labels = {'static': stt,
+                           'dynamic': dyn}
         print('Done')
 
     def slice_by_label(self, mode='dynamic', overwrite=True):

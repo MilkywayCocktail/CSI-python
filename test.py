@@ -8,4 +8,5 @@ result[5:8] = np.NaN
 x = np.arange(len(result))
 
 plt.scatter(x, result, c=np.log(result))
+plt.ylim(0, np.max(result[np.logical_not(np.isnan(result))]))
 plt.show()

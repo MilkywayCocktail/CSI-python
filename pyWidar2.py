@@ -185,7 +185,7 @@ class MyWidar2:
                 if self.csi.labels is not None:
                     indices = set(range(step * stride, step * stride + window_length))
                     dynamic_mark = indices.intersection(set(self.csi.labels['dynamic']))
-                    if len(dynamic_mark) < 25:
+                    if len(dynamic_mark) < int(0.25 * self.configs.window_length):
                         for estimate in self.estimates.values():
                             estimate[step, :] = np.NaN
                         continue
@@ -273,7 +273,8 @@ class MyWidar2:
                        linewidths=0)
         axs[1].scatter(list(range(self.total_steps)) * self.configs.num_paths,
                        np.rad2deg(self.estimates['aoa'].real).reshape(-1),
-                       c=np.log(self.estimates['amplitude']).reshape(-1), linewidths=0)
+                       c=np.log(np.abs(self.estimates['amplitude'])).reshape(-1),
+                       linewidths=0)
         axs[2].scatter(list(range(self.total_steps)) * self.configs.num_paths,
                        self.estimates['doppler'].real.reshape(-1),
                        c=np.log(np.abs(self.estimates['amplitude'])).reshape(-1),
@@ -284,7 +285,8 @@ class MyWidar2:
                        linewidths=0)
 
         axs[0].set_title("tof")
-        axs[0].set_ylim(np.min(self.estimates['tof'].real), np.max(self.estimates['tof'].real))
+        axs[0].set_ylim(np.min(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]),
+                        np.max(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]))
         axs[1].set_title("aoa")
         axs[1].set_ylim(0, 180)
         axs[2].set_title("doppler")
@@ -299,9 +301,9 @@ class MyWidar2:
 
 if __name__ == "__main__":
     conf = MyConfigsW2(num_paths=3)
-    csi = MyCsiW2(conf, '0208A02', '../npsave/0208/0208A02-csio.npy')
+    csi = MyCsiW2(conf, '0208A03', '../npsave/0208/0208A03-csio.npy')
     csi.load_data()
-    csi.load_label('../sense/0208/02_labels.csv')
+    csi.load_label('../sense/0208/03_labels.csv')
     csi.extract_dynamic(mode='running')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
