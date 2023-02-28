@@ -101,6 +101,8 @@ class MyWidar2:
         self.estimates = self.__gen_estimates__()
         self.arg_i = self.__gen_arg_indices__()
         self.temp_estimates, self.temp_arg_i = self.__gen_temp_parameters__()
+        self.filler = {'start': [],
+                       'end': []}
 
     def __gen_steering_vector__(self):
 
@@ -180,6 +182,14 @@ class MyWidar2:
 
             if window_dyn is True:
                 actual_csi = actual_csi - np.mean(actual_csi, axis=0)
+
+            if self.csi.labels is not None:
+                period = self.csi.timestamps[step * stride: step * stride + window_length]
+                for label in self.csi.labels['period']:
+                    if label[0] in period and label[0] not in self.filler['start']:
+                        self.filler['start'].append(step)
+                    if label[1] in period and label[1] not in self.filler['end']:
+                        self.filler['end'].append(step)
 
             if dynamic_durations is True:
                 if self.csi.labels is not None:
@@ -261,11 +271,29 @@ class MyWidar2:
         print("\nTotal time:", end-start)
 
     def plot_results(self):
-        stride = self.configs.stride
-        window_l = self.configs.window_length
         fig, axs = plt.subplots(2, 2, figsize=(12, 8))
         plt.suptitle(self.csi.name + '_Widar2')
         axs = axs.flatten()
+
+        if len(self.filler['start']) != 0:
+            for i in range(len(self.filler['start'])):
+                axs[0].fill_betweenx(self.configs.toflist.reshape(-1),
+                                     self.filler['start'][i],
+                                     self.filler['end'][i],
+                                     color='b', alpha=0.2)
+                axs[1].fill_betweenx(np.rad2deg(self.configs.aoalist).reshape(-1),
+                                     self.filler['start'][i],
+                                     self.filler['end'][i],
+                                     color='b', alpha=0.2)
+                axs[2].fill_betweenx(self.configs.dopplerlist.reshape(-1),
+                                     self.filler['start'][i],
+                                     self.filler['end'][i],
+                                     color='b', alpha=0.2)
+                axs[3].fill_betweenx(np.arange(
+                    np.max(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]) + 1),
+                    self.filler['start'][i],
+                    self.filler['end'][i],
+                    color='b', alpha=0.2)
 
         axs[0].scatter(list(range(self.total_steps)) * self.configs.num_paths,
                        self.estimates['tof'].real.reshape(-1),
@@ -307,5 +335,5 @@ if __name__ == "__main__":
     csi.extract_dynamic(mode='running')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
-    widar.run(dynamic_durations=True)
+    widar.run(dynamic_durations=False)
     widar.plot_results()

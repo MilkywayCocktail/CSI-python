@@ -395,7 +395,9 @@ class MyCsi:
             print('Done')
             print('Environment label')
             self.labels = {'static': list(range(self.length)),
-                           'dynamic': []}
+                           'dynamic': [],
+                           'period': []
+                           }
         else:
             with open(path) as f:
                 for i, line in enumerate(f):
@@ -407,15 +409,19 @@ class MyCsi:
             print('Labeling...', end='')
             full = list(range(self.length))
             dyn = []
+            period = []
 
             for (start, end) in labels:
                 start_id = np.searchsorted(self.timestamps, start)
                 end_id = np.searchsorted(self.timestamps, end)
                 dyn.extend(full[start_id:end_id])
+                period.append([self.timestamps[start_id], self.timestamps[end_id]])
 
             stt = list(set(full).difference(set(dyn)))
             self.labels = {'static': stt,
-                           'dynamic': dyn}
+                           'dynamic': dyn,
+                           'period': period
+                           }
         print('Done')
 
     def slice_by_label(self, mode='dynamic', overwrite=True):
@@ -1211,11 +1217,13 @@ class MyCsi:
 if __name__ == '__main__':
 
     mycon = MyConfigs(5.32, 20)
-    mycsi = MyCsi(mycon, '0208A03', '../npsave/0208/0208A03-csio.npy')
+    mycsi = MyCsi(mycon, '0208A02', '../npsave/0208/0208A02-csio.npy')
     mycsi.load_data()
-    ref = MyCsi(mycon, '0208A00', '../npsave/0208/0208A00-csio.npy')
-    ref.load_data()
-    mycsi.extract_dynamic(mode='running')
+    mycsi.load_label('../sense/0208/02_labels.csv')
+    print(mycsi.labels['period'])
+    #ref = MyCsi(mycon, '0208A00', '../npsave/0208/0208A00-csio.npy')
+    #ref.load_data()
+    #mycsi.extract_dynamic(mode='running')
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     #mycsi.phasediff_pseudo_spectrum(autosave=False)
     #mycsi.doppler_by_music()
