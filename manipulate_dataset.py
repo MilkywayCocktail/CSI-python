@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import os
+import random
 
 
 def regroup(in_path, out_path, scope: tuple):
@@ -154,9 +155,49 @@ def pseudo_dataset(out_path):
     print("All saved!")
 
 
+def pseudo_dataset_frq(out_path):
+    x = np.arange(2000)
+    y1 = np.sin(x)
+    y2 = np.sin(2 * x)
+    y3 = np.sin(3 * x)
+
+    csi1 = np.zeros((1000, 1, 100, 90), dtype=complex)
+    csi2 = np.zeros((1000, 1, 100, 90), dtype=complex)
+    csi3 = np.zeros((1000, 1, 100, 90), dtype=complex)
+
+    ind = np.zeros((3, 1000), dtype=int)
+    for i in range(3):
+        ind[i] = [random.randint(0, 1900) for _ in range(1000)]
+
+    for i in range(1000):
+        csi1[i] = 2 * np.exp(1j * np.arcsin(y1[ind[0,i]:ind[0,i] + 100]))[..., np.newaxis].repeat(90, axis=1).reshape(1, 1, 100, 90)
+        csi2[i] = np.exp(1j * np.arcsin(y2[ind[1,i]:ind[1,i] + 100]))[..., np.newaxis].repeat(90, axis=1).reshape(1, 1, 100, 90)
+        csi3[i] = 0.5 * np.exp(1j * np.arcsin(y3[ind[2,i]:ind[2,i] + 100]))[..., np.newaxis].repeat(90, axis=1).reshape(1, 1, 100, 90)
+
+    sid = np.zeros(1000)
+    sid1 = np.ones(1000)
+    sid2 = np.ones(1000) * 2
+
+    csi = np.concatenate((csi1, csi2, csi3), axis=0)
+    sid = np.concatenate((sid, sid1, sid2), axis=0)
+
+    csi_abs = np.abs(csi)
+    csi_phase = np.angle(csi)
+    out_csi = np.concatenate((csi_abs, csi_phase), axis=1)
+
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+
+    np.save(out_path + 'csi.npy', out_csi)
+    np.save(out_path + 'sid.npy', sid)
+    print("All saved!")
+
+
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
     #asy('../dataset/0124/make02/03_dyn_img.npy')
-    asx('../dataset/0208/make00_finished/sid.npy')
+    #asx('../dataset/0208/make00_finished/sid.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
+    pseudo_dataset_frq('../dataset/0302/make00_finished/')
+    asx('../dataset/0302/make00_finished/csi.npy')
