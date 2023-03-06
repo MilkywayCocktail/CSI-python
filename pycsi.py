@@ -128,6 +128,13 @@ class MyCommonFuncs:
         dynamic = phase_diff - static
         return dynamic
 
+    @staticmethod
+    def windowed_divison(input_csi):
+        phase_diff = input_csi / input_csi[:, :, 0][..., np.newaxis].repeat(3, axis=2)
+        static = np.mean(phase_diff, axis=0)
+        dynamic = phase_diff - static
+        return dynamic
+
 
 class MySpectrumViewer:
 
@@ -1121,6 +1128,7 @@ class MyCsi:
         sampling_rate = self.configs.sampling_rate
         recon = self.commonfunc.reconstruct_csi
         dynamic = self.commonfunc.windowed_dynamic
+        division = self.commonfunc.windowed_divison
 
         print(self.name, "apply dynamic component extraction...", end='')
 
@@ -1147,6 +1155,12 @@ class MyCsi:
                 dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = dynamic(
+                        complex_csi[step * stride: step * stride + window_length])
+
+            elif mode == 'division':
+                dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx), dtype=complex)
+                for step in range((self.length - window_length) // stride):
+                    dynamic_csi[step * stride: step * stride + window_length] = division(
                         complex_csi[step * stride: step * stride + window_length])
 
             elif mode == 'highpass':

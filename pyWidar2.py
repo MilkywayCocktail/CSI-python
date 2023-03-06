@@ -332,7 +332,7 @@ if __name__ == "__main__":
     csi = MyCsiW2(conf, '0208A03', '../npsave/0208/0208A03-csio.npy')
     csi.load_data()
     csi.load_label('../sense/0208/03_labels.csv')
-    csi.extract_dynamic(mode='running')
+    csi.extract_dynamic(mode='division')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
     widar.run(dynamic_durations=False)
