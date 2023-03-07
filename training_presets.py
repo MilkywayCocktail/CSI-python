@@ -61,21 +61,20 @@ class Trainer:
         self.valid_loader = valid_loader
         self.test_loader = test_loader
         self.optimizer = optimizer(model.parameters(), lr=args.learning_rate)
-        self.train_loss, self.valid_loss, self.train_epochs_loss, self.valid_epochs_loss = self.__gen_loss_logs__()
-        self.total_epochs = self.__get_current_epochs__()
+        self.train_loss = None
+        self.valid_loss = None
+        self.train_epochs_loss = None
+        self.valid_epochs_loss = None
+        self.total_epochs = 0
+        self.__gen_loss_logs__()
 
-    @staticmethod
-    def __gen_loss_logs__():
-        train_loss = []
-        valid_loss = []
-        train_epochs_loss = []
-        valid_epochs_loss = []
-        return train_loss, valid_loss, train_epochs_loss, valid_epochs_loss
+    def __gen_loss_logs__(self):
+        self.train_loss = []
+        self.valid_loss = []
+        self.train_epochs_loss = []
+        self.valid_epochs_loss = []
 
-    def __get_current_epochs__(self):
-        return len(self.train_loss)
-
-    def train(self, refresh_model=False):
+    def train(self):
         y_type = torch.long if isinstance(self.args.criterion, nn.CrossEntropyLoss) else torch.float32
         start = time.time()
 
@@ -96,6 +95,7 @@ class Trainer:
                     print("\repoch={}/{},{}/{}of train, loss={}".format(
                         epoch, self.args.epochs, idx, len(self.train_loader), loss.item()), end='')
             self.train_epochs_loss.append(np.average(train_epoch_loss))
+            self.total_epochs += 1
 
         end = time.time()
         print("\nTotal training time:", end - start, "sec")

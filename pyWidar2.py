@@ -328,11 +328,12 @@ class MyWidar2:
 
 
 if __name__ == "__main__":
-    conf = MyConfigsW2(num_paths=3)
-    csi = MyCsiW2(conf, '0208A03', '../npsave/0208/0208A03-csio.npy')
+    conf = MyConfigsW2(num_paths=1)
+    csi = MyCsiW2(conf, '0208A02', '../npsave/0208/0208A02-csio.npy')
     csi.load_data()
-    csi.load_label('../sense/0208/03_labels.csv')
-    csi.extract_dynamic(mode='division')
+    csi.load_label('../sense/0208/02_labels.csv')
+    csi.extract_dynamic(mode='division', reference_antenna=2, subtract_mean=False)
+    csi.extract_dynamic(mode='highpass')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
     widar.run(dynamic_durations=False)

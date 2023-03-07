@@ -7,6 +7,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import seaborn as sns
+from scipy import signal
 import csi_loader
 
 
@@ -122,18 +123,33 @@ class MyCommonFuncs:
         return noise_space
 
     @staticmethod
-    def windowed_dynamic(input_csi):
-        phase_diff = input_csi * input_csi[:, :, 0][..., np.newaxis].conj().repeat(3, axis=2)
-        static = np.mean(phase_diff, axis=0)
-        dynamic = phase_diff - static
+    def windowed_dynamic(input_csi, reference_antenna, subtract_mean=True):
+        phase_diff = input_csi * input_csi[:, :, reference_antenna, 0][..., np.newaxis, np.newaxis].conj().repeat(3, axis=2)
+        if subtract_mean is True:
+            static = np.mean(phase_diff, axis=0)
+            dynamic = phase_diff - static
+        else:
+            dynamic = phase_diff
+        return dynamic
+
+    def windowed_divison(self, input_csi, reference_antenna, subtract_mean=True):
+        amp = np.abs(input_csi)
+        phs = np.angle(input_csi)
+        re_csi = self.reconstruct_csi(amp + 1e6, phs, squeeze=False)
+        phase_diff = input_csi / re_csi[:, :, reference_antenna, 0][..., np.newaxis, np.newaxis].repeat(3, axis=2)
+        if subtract_mean is True:
+            static = np.mean(phase_diff, axis=0)
+            dynamic = phase_diff - static
+        else:
+            dynamic = phase_diff
         return dynamic
 
     @staticmethod
-    def windowed_divison(input_csi):
-        phase_diff = input_csi / input_csi[:, :, 0][..., np.newaxis].repeat(3, axis=2)
-        static = np.mean(phase_diff, axis=0)
-        dynamic = phase_diff - static
-        return dynamic
+    def highpass(fs=1000, cutoff=2, order=5):
+        nyq = 0.5 * fs
+        normal_cutoff = cutoff / nyq
+        b, a = signal.butter(order, normal_cutoff, btype='high', analog=False)
+        return b, a
 
 
 class MySpectrumViewer:
@@ -568,42 +584,40 @@ class MyCsi:
             plt.show()
             return 'No saving'
 
-    def phasediff_pseudo_spectrum(self, autosave=False, notion='', folder_name=''):
+    def windowed_phase_difference(self, window_length=100, stride=100, folder_name=''):
 
-        replace = MySpectrumViewer.replace
-        print(self.name, "Plotting phase difference...")
+        print(self.name, "Plotting phase difference...\n",)
         csi = self.commonfunc.reconstruct_csi(self.amp, self.phase)
 
-        phasediff_12 = np.unwrap(np.angle(csi[:, :, 0] * csi[:, :, 1].conj())).swapaxes(0, 1)
-        phasediff_23 = np.unwrap(np.angle(csi[:, :, 1] * csi[:, :, 2].conj())).swapaxes(0, 1)
+        save_path = "../visualization/" + self.name[:4] + '/' + self.name[4:7] + folder_name + '/'
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
 
-        ax1 = plt.subplot(2, 1, 1)
-        ax1.set_title('Phasediff_0_1')
-        ax1 = sns.heatmap(phasediff_12)
-        #plt.xticks(replace(self.timestamps, 11))
-        ax1.set_xlabel('time / $ms$')
+        for step in range((self.length - window_length) // stride):
+            print('\rSaving figure', step, end='')
+            fig = plt.figure(figsize=(12, 9))
 
-        ax2 = plt.subplot(2, 1, 2)
-        ax2.set_title('Phasediff_1_2')
-        ax2 = sns.heatmap(phasediff_23)
-        #plt.xticks(replace(self.timestamps, 11))
-        ax2.set_xlabel('time / $ms$')
-        plt.suptitle(str(self.name) + ' Phase Difference Pseudo Spectrum')
+            ax1 = plt.subplot(2, 1, 1)
+            ax1.set_title('Phasediff_0_1')
+            ax1.plot(np.unwrap(np.angle(csi[step * stride: step * stride + window_length, 14, 0] *
+                                        csi[step * stride: step * stride + window_length, 14, 1].conj())))
+            ax1.set_xlabel('#Packet')
+            ax1.set_ylim([-30, 30])
 
-        if autosave is True:
-            save_path = "../visualization/" + self.name[:4] + '/' + folder_name + '/'
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
-            save_name = save_path + self.name[4:] + notion + '.png'
-            plt.savefig(save_name)
-            print(self.name, "saved as", save_name, time.asctime(time.localtime(time.time())))
-            plt.close()
-            return save_name
-
-        else:
+            ax2 = plt.subplot(2, 1, 2)
+            ax2.set_title('Phasediff_1_2')
+            ax2.plot(np.unwrap(np.angle(csi[step * stride: step * stride + window_length, 14, 1] *
+                                        csi[step * stride: step * stride + window_length, 14, 2].conj())))
+            ax2.set_xlabel('#Packet')
+            ax2.set_ylim([-30, 30])
+            plt.suptitle(str(self.name) + ' Phase Difference - packet ' + str(step * stride))
             plt.tight_layout()
-            plt.show()
-            return 'No saving'
+
+            save_name = save_path + str(self.timestamps[step * stride]) + '.jpg'
+            plt.savefig(save_name)
+            plt.close()
+
+        print('Done')
 
     def view_all_rx(self, metric="amplitude"):
         """
@@ -1115,7 +1129,7 @@ class MyCsi:
         except ArgError as e:
             print(e, "\nPlease specify an integer from 0~2")
 
-    def extract_dynamic(self, mode='overall', reference_antenna=0, window_length=100, stride=100):
+    def extract_dynamic(self, mode='overall', reference_antenna=0, window_length=100, stride=100, **kwargs):
         """
         Removes the static component from csi.\n
         :param mode: 'overall' or 'running' (in terms of averaging) or 'highpass'. Default is 'overall'
@@ -1125,10 +1139,12 @@ class MyCsi:
         """
         nrx = self.configs.nrx
         nsub = self.configs.nsub
+        ntx = self.configs.ntx
         sampling_rate = self.configs.sampling_rate
         recon = self.commonfunc.reconstruct_csi
         dynamic = self.commonfunc.windowed_dynamic
         division = self.commonfunc.windowed_divison
+        highpass = self.commonfunc.highpass
 
         print(self.name, "apply dynamic component extraction...", end='')
 
@@ -1143,7 +1159,7 @@ class MyCsi:
                 strengths = self.show_antenna_strength()
                 reference_antenna = np.argmax(strengths)
 
-            complex_csi = recon(self.amp, self.phase, squeeze=True)
+            complex_csi = recon(self.amp, self.phase, squeeze=False)
 
             if mode == 'overall':
                 conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, None]).repeat(3, axis=2)
@@ -1152,24 +1168,28 @@ class MyCsi:
                 dynamic_csi = hc - average_hc
 
             elif mode == 'running':
-                dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx), dtype=complex)
+                dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = dynamic(
-                        complex_csi[step * stride: step * stride + window_length])
+                        complex_csi[step * stride: step * stride + window_length], reference_antenna, **kwargs)
 
             elif mode == 'division':
-                dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx), dtype=complex)
+                dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = division(
-                        complex_csi[step * stride: step * stride + window_length])
+                        complex_csi[step * stride: step * stride + window_length], reference_antenna, **kwargs)
 
             elif mode == 'highpass':
-                for packet in range(self.length):
-                    for antenna in range(nrx):
-                        pass
+                b, a = highpass(**kwargs)
+                dynamic_csi = np.zeros_like(complex_csi)
+                for sub in range(nsub):
+                    for rx in range(nrx):
+                        for tx in range(ntx):
+                            dynamic_csi[:, sub, rx, tx] = signal.filtfilt(b, a, complex_csi[:, sub, rx, tx])
 
             else:
-                raise ArgError("mode: " + str(mode) + "\nPlease specify mode=\"overall\", \"running\" or \"highpass\"")
+                raise ArgError("mode: " + str(mode) +
+                               "\nPlease specify mode=\"overall\", \"running\", \"division\"or \"highpass\"")
 
             self.amp = np.abs(dynamic_csi)
             self.phase = np.angle(dynamic_csi)
@@ -1231,14 +1251,14 @@ class MyCsi:
 if __name__ == '__main__':
 
     mycon = MyConfigs(5.32, 20)
-    mycsi = MyCsi(mycon, '0208A02', '../npsave/0208/0208A02-csio.npy')
+    mycsi = MyCsi(mycon, '0208A03', '../npsave/0208/0208A03-csio.npy')
     mycsi.load_data()
-    mycsi.load_label('../sense/0208/02_labels.csv')
-    print(mycsi.labels['period'])
+    #mycsi.load_label('../sense/0208/02_labels.csv')
+    #print(mycsi.labels['period'])
     #ref = MyCsi(mycon, '0208A00', '../npsave/0208/0208A00-csio.npy')
     #ref.load_data()
-    #mycsi.extract_dynamic(mode='running')
+    mycsi.extract_dynamic(mode='running')
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
-    #mycsi.phasediff_pseudo_spectrum(autosave=False)
+    mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
     #mycsi.doppler_by_music()
     #mycsi.viewer.view()
