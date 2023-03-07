@@ -324,6 +324,7 @@ class MyWidar2:
             axi.set_xlim(0, self.total_steps)
 
         plt.tight_layout()
+        plt.grid()
         plt.show()
 
 
