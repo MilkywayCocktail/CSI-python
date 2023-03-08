@@ -170,7 +170,10 @@ class MyWidar2:
         nsub = self.csi.configs.nsub
         nrx = self.csi.configs.nrx
 
-        csi_signal = recon(self.csi.amp, self.csi.phase)
+        csi_signal = recon(self.csi.amp, self.csi.phase, squeeze=False)
+        if self.configs.ntx != 1:
+            csi_signal = csi_signal[..., 0]
+
         print("total steps=", self.total_steps)
 
         for step in range(self.total_steps):
@@ -330,10 +333,12 @@ class MyWidar2:
 
 if __name__ == "__main__":
     conf = MyConfigsW2(num_paths=1)
-    csi = MyCsiW2(conf, '0208A02', '../npsave/0208/0208A02-csio.npy')
+    conf.ntx = 3
+    conf.tx_rate = 0x1c113
+    csi = MyCsiW2(conf, '0307A07', '../npsave/0307/0307A07-csio.npy')
     csi.load_data()
-    csi.load_label('../sense/0208/02_labels.csv')
-    csi.extract_dynamic(mode='division', reference_antenna=2, subtract_mean=False)
+    csi.load_label('../sense/0307/07_labels.csv')
+    csi.extract_dynamic(mode='division', ref='rx', reference_antenna=2, subtract_mean=False)
     csi.extract_dynamic(mode='highpass')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)

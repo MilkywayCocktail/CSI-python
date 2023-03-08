@@ -90,12 +90,13 @@ def _combine_rssi_agc(rssilist, agclist):
 def remove_sm(csi, rate):
     """
     https://github.com/dhalperi/linux-80211n-csitool-supplementary/blob/master/matlab/remove_sm.m
+    changed the order of sub and tx!
     :param csi:
     :param rate:
     :return:
     """
-    ntx = csi.shape[0]
-    nsub = csi.shape[2]
+    ntx = csi.shape[2]
+    nsub = csi.shape[0]
     ret = np.zeros_like(csi)
 
     if ntx == 1:
@@ -115,8 +116,8 @@ def remove_sm(csi, rate):
         elif ntx == 2:
             sm = constant_value.sm_matrices.sm_2_20
     for i in range(0, nsub):
-        t = np.array(csi)[:, :, i]
-        ret[:, :, i] = np.transpose(np.transpose(t).dot(np.transpose(sm.conj())))
+        t = np.array(csi)[i, :, :]
+        ret[i, :, :] = t.dot(np.transpose(sm.conj()))
     return ret
 
 

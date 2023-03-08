@@ -44,6 +44,7 @@ class MyConfigs:
         self.ntx = 1
         self.nsub = 30
         self.subfreq_list = self.__gen_subcarrier__()
+        self.tx_rate = 0x4101
 
     def __gen_subcarrier__(self):
         if self.bandwidth == 40:
@@ -123,8 +124,11 @@ class MyCommonFuncs:
         return noise_space
 
     @staticmethod
-    def windowed_dynamic(input_csi, reference_antenna, subtract_mean=True):
-        phase_diff = input_csi * input_csi[:, :, reference_antenna, 0][..., np.newaxis, np.newaxis].conj().repeat(3, axis=2)
+    def windowed_dynamic(input_csi, ref, reference_antenna, subtract_mean=True):
+        if ref == 'rx':
+            phase_diff = input_csi * input_csi[:, :, reference_antenna, :][..., np.newaxis, :].conj().repeat(3, axis=2)
+        elif ref == 'tx':
+            phase_diff = input_csi * input_csi[:, :, :, reference_antenna][..., np.newaxis].conj().repeat(3, axis=3)
         if subtract_mean is True:
             static = np.mean(phase_diff, axis=0)
             dynamic = phase_diff - static
@@ -132,11 +136,15 @@ class MyCommonFuncs:
             dynamic = phase_diff
         return dynamic
 
-    def windowed_divison(self, input_csi, reference_antenna, subtract_mean=True):
+    def windowed_divison(self, input_csi, ref, reference_antenna, subtract_mean=True):
         amp = np.abs(input_csi)
         phs = np.angle(input_csi)
         re_csi = self.reconstruct_csi(amp + 1e6, phs, squeeze=False)
-        phase_diff = input_csi / re_csi[:, :, reference_antenna, 0][..., np.newaxis, np.newaxis].repeat(3, axis=2)
+        if ref == 'rx':
+            phase_diff = input_csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(3, axis=2)
+        elif ref == 'tx':
+            phase_diff = input_csi / re_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(3, axis=3)
+
         if subtract_mean is True:
             static = np.mean(phase_diff, axis=0)
             dynamic = phase_diff - static
@@ -387,23 +395,28 @@ class MyCsi:
             print(e, "\nFile not supported. Please input .dat or .npy")
 
         else:
+            csi = None
+            t = None
             if self.path[-3:] == "dat":
                 print(self.name, "raw load start...", time.asctime(time.localtime(time.time())))
-                a, b = csi_loader.dat2npy(self.path, None, autosave=False)
-                self.amp = np.abs(a)
-                self.phase = np.angle(a)
-                self.timestamps = (b - b[0]) / 1e6
+                csi, t = csi_loader.dat2npy(self.path, None, autosave=False)
 
             elif self.path[-3:] == "npy":
                 print(self.name, "npy load start...", time.asctime(time.localtime(time.time())))
                 csi, t, r, d = csi_loader.load_npy(self.path)
-                self.amp = np.abs(csi)
-                self.phase = np.angle(csi)
-                self.timestamps = (t - t[0]) / 1e6
 
-            self.length = len(self.amp)
+            self.length = len(csi)
+            if self.configs.ntx != 1:
+                print('Removing sm...', end='')
+                for i in range(self.length):
+                    csi[i] = csi_loader.remove_sm(csi[i], self.configs.tx_rate)
+                print('Done')
+
+            self.amp = np.abs(csi)
+            self.phase = np.angle(csi)
+            self.timestamps = (t - t[0]) / 1e6
             self.actual_sr = self.length / self.timestamps[-1]
-            print(self.name, "load complete", time.asctime(time.localtime(time.time())))
+            print(self.name, self.amp.shape, "load complete", time.asctime(time.localtime(time.time())))
 
     def load_label(self, path):
         """
@@ -1129,10 +1142,11 @@ class MyCsi:
         except ArgError as e:
             print(e, "\nPlease specify an integer from 0~2")
 
-    def extract_dynamic(self, mode='overall', reference_antenna=0, window_length=100, stride=100, **kwargs):
+    def extract_dynamic(self, mode='overall', ref='rx', reference_antenna=0, window_length=100, stride=100, **kwargs):
         """
         Removes the static component from csi.\n
         :param mode: 'overall' or 'running' (in terms of averaging) or 'highpass'. Default is 'overall'
+        :param ref: 'rx' or 'tx'
         :param window_length: if mode is 'running', specify a window length for running mean. Default is 31
         :param reference_antenna: select one antenna with which to remove random phase offsets. Default is 0
         :return: phase and amplitude of dynamic component of csi
@@ -1162,22 +1176,25 @@ class MyCsi:
             complex_csi = recon(self.amp, self.phase, squeeze=False)
 
             if mode == 'overall':
-                conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, None]).repeat(3, axis=2)
-                hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx))
-                average_hc = np.mean(hc, axis=0).reshape((1, nsub, nrx)).repeat(self.length, axis=0)
+                if ref == 'rx':
+                    conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, :]).repeat(3, axis=2)
+                elif ref == 'tx':
+                    conjugate_csi = np.conjugate(complex_csi[:, :, :, reference_antenna]).repeat(3, axis=3)
+                hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
+                average_hc = np.mean(hc, axis=0)[np.newaxis, ...].repeat(self.length, axis=0)
                 dynamic_csi = hc - average_hc
 
             elif mode == 'running':
                 dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = dynamic(
-                        complex_csi[step * stride: step * stride + window_length], reference_antenna, **kwargs)
+                        complex_csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
 
             elif mode == 'division':
                 dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = division(
-                        complex_csi[step * stride: step * stride + window_length], reference_antenna, **kwargs)
+                        complex_csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
 
             elif mode == 'highpass':
                 b, a = highpass(**kwargs)
