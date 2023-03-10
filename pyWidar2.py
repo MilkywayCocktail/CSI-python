@@ -171,8 +171,7 @@ class MyWidar2:
         nrx = self.csi.configs.nrx
 
         csi_signal = recon(self.csi.amp, self.csi.phase, squeeze=False)
-        if self.configs.ntx != 1:
-            csi_signal = csi_signal[..., 0]
+        csi_signal = csi_signal[..., 0, 0]
 
         print("total steps=", self.total_steps)
 

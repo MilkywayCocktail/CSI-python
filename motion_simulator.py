@@ -54,7 +54,6 @@ class Subject:
         print('Done')
 
         _x = np.argwhere(np.isnan(self.state[velocity]))
-        print(_x[:, 0])
         self.state[velocity][_x[:, 0]] = (0,)
 
         '''
@@ -157,7 +156,7 @@ class SensingZone:
         self.csi = self.__gen_baseband__()
         self.temp_TS = 0
         self.temp_RS = 0
-        self.temp_phase_DFS = 0
+        self.temp_phase = 0
 
     def add_subject(self, subject: Subject):
         self.subjects.append(subject)
@@ -182,19 +181,15 @@ class SensingZone:
                np.linalg.norm(self.temp_TS) - np.linalg.norm(self.temp_RS)) / self.configs.render_interval
         phase_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed /
                                       self.configs.sampling_rate))
-        if tick > 0:
-            phase_dfs = self.temp_phase_DFS + phase_dfs[:, np.newaxis, np.newaxis].repeat(
-                self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
-        else:
-            phase_dfs = phase_dfs[:, np.newaxis, np.newaxis].repeat(
-                self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
-
-        self.temp_phase_DFS = phase_dfs
-        self.temp_TS = TS
-        self.temp_RS = RS
+        phase_dfs = self.temp_phase + phase_dfs[:, np.newaxis, np.newaxis].repeat(
+            self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
 
         csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
             phase_aoa * phase_tof * phase_dfs
+
+        self.temp_phase = np.angle(csi)
+        self.temp_TS = TS
+        self.temp_RS = RS
         return csi
 
     def collect(self):
@@ -220,7 +215,7 @@ if __name__ == '__main__':
     config = MyConfigsSimu()
     sub1 = Subject(config)
     sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
-    sub1.sine_velocity(velocity='vy')
+    sub1.sine_velocity(velocity='vy', period=10)
 
     sub1.plot_velocity()
     sub1.generate_trajectory()
@@ -231,14 +226,14 @@ if __name__ == '__main__':
     zone.collect()
 
     simu = zone.derive_MyCsi(config, '0310GT0')
-    simu.aoa_by_music()
-    simu.viewer.view(autosave=True)
-    simu.tof_by_music()
-    simu.viewer.view(autosave=True)
-    simu.doppler_by_music()
-    simu.viewer.view(autosave=True)
+    #simu.aoa_by_music()
+    #simu.viewer.view(autosave=True)
+    #simu.tof_by_music()
+    #simu.viewer.view(autosave=True)
+    simu.doppler_by_music(window_length=50, stride=50)
+    simu.viewer.view(threshold=-4, autosave=True)
 
-    conf = pyWidar2.MyConfigsW2(num_paths=1)
-    widar = pyWidar2.MyWidar2(conf, simu)
-    widar.run(dynamic_durations=False)
-    widar.plot_results()
+    #conf = pyWidar2.MyConfigsW2(num_paths=1)
+    #widar = pyWidar2.MyWidar2(conf, simu)
+    #widar.run(dynamic_durations=False)
+    #widar.plot_results()
