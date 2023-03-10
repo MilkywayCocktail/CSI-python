@@ -820,18 +820,18 @@ class MyCsi:
 
             spectrum = np.zeros((len(input_velocity_list), total_strides))
             temp_timestamps = np.zeros(total_strides)
-            csi = recon(self.amp, self.phase, squeeze=True)
+            csi = recon(self.amp, self.phase, squeeze=False)
 
             for i in range(total_strides):
 
                 csi_windowed = csi[i * stride: i * stride + window_length]
 
                 if raw_window is True:
-                    noise_space = noise(csi_windowed[:, :, pick_antenna].T, ntx)
+                    noise_space = noise(csi_windowed[:, :, pick_antenna, 0].T, ntx)
                 else:
                     # Using windowed dynamic extraction
                     csi_dynamic = dynamic(csi_windowed, ref='rx', reference_antenna=2)
-                    noise_space = noise(csi_dynamic[:, :, pick_antenna].T, ntx)
+                    noise_space = noise(csi_dynamic[:, :, pick_antenna, 0].T, ntx)
 
                 if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
