@@ -21,3 +21,7 @@ plt.plot(y2)
 plt.legend()
 plt.show()
 
+a = [6, 3]
+b = [0, 1]
+c = np.dot(a, b)
+print(c)

@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     '''
     name = 'csi1222A60.dat'
-    file = npzpath + name + '-csio.npy'
+    file = npzpath + name + '-csio.npy'p
     
     a, b, c, d = csi_loader.load_npy(file)
     b = np.array(b) / 1e6

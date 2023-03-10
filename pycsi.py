@@ -44,6 +44,7 @@ class MyConfigs:
         self.ntx = 1
         self.nsub = 30
         self.subfreq_list = self.__gen_subcarrier__()
+        self.antenna_list = np.arange(0, self.nrx, 1.).reshape(-1, 1)
         self.tx_rate = 0x4101
 
     def __gen_subcarrier__(self):
@@ -699,7 +700,7 @@ class MyCsi:
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
 
-            antenna_list = np.arange(0, nrx, 1.).reshape(-1, 1)
+            antenna_list = self.configs.antenna_list
             theta_list = np.array(input_theta_list[::-1]).reshape(-1, 1)
             spectrum = np.zeros((len(input_theta_list), self.length))
 
@@ -829,7 +830,7 @@ class MyCsi:
                     noise_space = noise(csi_windowed[:, :, pick_antenna].T, ntx)
                 else:
                     # Using windowed dynamic extraction
-                    csi_dynamic = dynamic(csi_windowed)
+                    csi_dynamic = dynamic(csi_windowed, ref='rx', reference_antenna=2)
                     noise_space = noise(csi_dynamic[:, :, pick_antenna].T, ntx)
 
                 if raw_timestamps is True:

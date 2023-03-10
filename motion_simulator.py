@@ -2,29 +2,40 @@ import pycsi
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+import pyWidar2
 
 
-class GroundTruth:
+class MyConfigsSimu(pycsi.MyConfigs):
+    def __init__(self,
+                 center_freq=5.32, bandwidth=20, length=100, sampling_rate=1000,
+                 xlim=(-2, 2), ylim=(1, 3), vlim=(-3, 3), vrange=np.arange(-3.01, 3.01, 0.01)):
 
-    def __init__(self, length=100, sampling_rate=1000):
+        super(MyConfigsSimu, self).__init__(center_freq=center_freq, bandwidth=bandwidth, sampling_rate=sampling_rate)
         self.length = length    # in seconds
         self.sampling_rate = sampling_rate  # in Hertz
         self.render_ticks = self.length * self.sampling_rate
         self.render_interval = 1. / self.sampling_rate
-        self.state = self.__gen_state__()
-        self.trajectory = np.zeros((self.render_ticks, 2), dtype=float)
         self.render_indices = np.arange(self.render_ticks)
-        self.xlim = (-2, 2)
-        self.ylim = (1, 3)
-        self.vlim = (-3.01, 3.01)
-        self.vrange = np.arange(-3.01, 3.01, 0.01)
+        self.xlim = xlim
+        self.ylim = ylim
+        self.vlim = vlim
+        self.vrange = vrange
+
+
+class Subject:
+
+    def __init__(self, configs: MyConfigsSimu):
+        self.state = None
+        self.configs = configs
+        self.state = self.__gen_state__()
+        self.pre_rendered = False
 
     def __gen_state__(self):
-        state = {'t': np.arange(0, self.length, self.render_interval),
-                 'x': np.zeros(self.render_ticks),
-                 'y': np.zeros(self.render_ticks),
-                 'vx': [np.nan] * self.render_ticks,
-                 'vy': [np.nan] * self.render_ticks
+        state = {'t': np.arange(0, self.configs.length, self.configs.render_interval),
+                 'x': np.zeros(self.configs.render_ticks),
+                 'y': np.zeros(self.configs.render_ticks),
+                 'vx': np.array([np.nan] * self.configs.render_ticks),
+                 'vy': np.array([np.nan] * self.configs.render_ticks)
                  }
         return state
 
@@ -32,54 +43,79 @@ class GroundTruth:
         self.state['x'][0] = x
         self.state['y'][0] = y
 
-    def random_velocity(self, velocity='vx', num_points=3):
+    def random_velocity(self, velocity='vx', num_points=3, order=3, vrange=None):
         print("Generating", num_points, "points for", velocity, '...', end='')
-        x = random.sample(self.render_indices.tolist(), num_points)
-        y = random.choices(self.vrange, k=num_points)
+        vr = self.configs.vrange if vrange is None else vrange
+
+        x = random.sample(self.configs.render_indices.tolist(), num_points)
+        y = random.choices(vr, k=num_points)
         for (index, value) in zip(x, y):
-            self.state[velocity][index] = value
+            self.state[velocity][index:index + self.configs.sampling_rate] = (value,)
         print('Done')
 
-    def interpolate_velocity(self, velocity='vx',  order=3):
+        _x = np.argwhere(np.isnan(self.state[velocity]))
+        print(_x[:, 0])
+        self.state[velocity][_x[:, 0]] = (0,)
+
+        '''
         print("Interpolating", velocity, '...', end='')
-        x = self.render_indices[~np.isnan(self.state[velocity])]
+        x = self.configs.render_indices[~np.isnan(self.state[velocity])]
         y = np.ma.masked_array(self.state[velocity], mask=np.isnan(self.state[velocity]))
         curve = np.polyfit(x, y[x], order)
-        self.state[velocity] = np.polyval(curve, self.render_indices)
+        self.state[velocity] = np.polyval(curve, self.configs.render_indices)
 
-        self.state[velocity][self.state[velocity] > self.vlim[-1]] = self.vlim[-1]
-        self.state[velocity][self.state[velocity] < self.vlim[0]] = self.vlim[0]
+        self.state[velocity][self.state[velocity] > vr[-1]] = vr[-1]
+        self.state[velocity][self.state[velocity] < vr[0]] = vr[0]
+        print('Done')
+        '''
+
+    def sine_velocity(self, velocity='vx', period=5):
+        print("Setting sine velocity for", velocity, '...', end='')
+        period_ratio = 2 * np.pi / (self.configs.sampling_rate * period)
+        x = self.configs.render_indices * period_ratio
+        y = np.sin(x) * 1.5
+        self.state[velocity] = y
         print('Done')
 
     def bound_check(self, ind):
-        self.state['x'][ind] = self.xlim[0] if self.state['x'][ind] < self.xlim[0] else self.state['x'][ind]
-        self.state['x'][ind] = self.xlim[1] if self.state['x'][ind] > self.xlim[1] else self.state['x'][ind]
-        self.state['y'][ind] = self.ylim[0] if self.state['y'][ind] < self.ylim[0] else self.state['y'][ind]
-        self.state['y'][ind] = self.ylim[1] if self.state['y'][ind] > self.ylim[1] else self.state['y'][ind]
+        self.state['x'][ind] = self.configs.xlim[0] if self.state['x'][ind] < self.configs.xlim[0] else self.state['x'][
+            ind]
+        self.state['x'][ind] = self.configs.xlim[1] if self.state['x'][ind] > self.configs.xlim[1] else self.state['x'][
+            ind]
+        self.state['y'][ind] = self.configs.ylim[0] if self.state['y'][ind] < self.configs.ylim[0] else self.state['y'][
+            ind]
+        self.state['y'][ind] = self.configs.ylim[1] if self.state['y'][ind] > self.configs.ylim[1] else self.state['y'][
+            ind]
 
-    def update_trajectory(self, bound_limit=True):
+    def generate_trajectory(self, bound_limit=True):
+        print("Updating trajectory...", end='')
+        for step in range(self.configs.render_ticks):
 
-        for step in range(self.render_ticks):
-            print("\r\033[32mRendering ticks {} / {}\033[0m".format(step, self.render_ticks), end='')
             if step == 0:
                 if bound_limit is True:
                     self.bound_check(step)
                 continue
-            self.state['x'][step] = self.state['x'][step - 1] + self.state['vx'][step - 1] * self.render_interval
-            self.state['y'][step] = self.state['y'][step - 1] + self.state['vy'][step - 1] * self.render_interval
+            self.state['x'][step] = self.state['x'][step - 1] + self.state['vx'][
+                step - 1] * self.configs.render_interval
+            self.state['y'][step] = self.state['y'][step - 1] + self.state['vy'][
+                step - 1] * self.configs.render_interval
             if bound_limit is True:
                 self.bound_check(step)
+        self.pre_rendered = True
+        print('Done')
 
     def plot_velocity(self):
+        print("Plotting velocities...")
+        plt.figure()
         ax1 = plt.subplot(2, 1, 1)
-        ax1.plot(self.render_indices, self.state['vx'])
-        ax1.set_ylim(self.vlim)
+        ax1.plot(self.configs.render_indices, self.state['vx'])
+        ax1.set_ylim(self.configs.vlim)
         ax1.set_ylabel('X Velocity / $m/s$')
         ax1.set_xlabel("#tick")
         ax1.grid()
         ax2 = plt.subplot(2, 1, 2)
-        ax2.plot(self.render_indices, self.state['vy'])
-        ax2.set_ylim(self.vlim)
+        ax2.plot(self.configs.render_indices, self.state['vy'])
+        ax2.set_ylim(self.configs.vlim)
         ax2.set_ylabel('Y Velocity / $m/s$')
         ax2.set_xlabel("#tick")
         ax2.grid()
@@ -87,11 +123,122 @@ class GroundTruth:
         plt.tight_layout()
         plt.show()
 
+    def plot_trajectory(self):
+        if self.pre_rendered is False:
+            print("Please generate the trajectory first!")
+            return
+        else:
+            print("Printing trajectory...")
+            plt.figure()
+            plt.xlim(self.configs.xlim)
+            plt.ylim(self.configs.ylim)
+            for tick in range(self.configs.render_ticks):
+                if tick % 100 == 0:
+                    _color = (self.state['vx'][tick] / 6 + 0.5, self.state['vy'][tick] / 6 + 0.5, 0.2)
+                    if tick == 0:
+                        plt.scatter(self.state['x'][tick], self.state['y'][tick], marker='+', color=_color)
+                    elif tick == self.configs.render_ticks - 1:
+                        plt.scatter(self.state['x'][tick], self.state['y'][tick], marker='X', color=_color)
+                    else:
+                        plt.scatter(self.state['x'][tick], self.state['y'][tick], color=_color)
+            plt.title("Trajectory of the subject")
+            plt.tight_layout()
+            plt.show()
+
+
+class SensingZone:
+
+    def __init__(self,  configs=MyConfigsSimu(), tx_pos=(-0.15, 0), rx_pos=(0.15, 0),):
+        self.tx_pos = tx_pos
+        self.rx_pos = rx_pos
+        self.inbound = True
+        self.subjects = []
+        self.configs = configs
+        self.csi = self.__gen_baseband__()
+        self.temp_TS = 0
+        self.temp_RS = 0
+        self.temp_phase_DFS = 0
+
+    def add_subject(self, subject: Subject):
+        self.subjects.append(subject)
+
+    def __gen_baseband__(self):
+        return np.zeros((self.configs.render_ticks, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
+
+    def __gen_phase__(self, subject, tick):
+        TS = [subject.state['x'][tick] - self.tx_pos[0], subject.state['y'][tick] - self.tx_pos[1]]
+        RS = [subject.state['x'][tick] - self.rx_pos[0], subject.state['y'][tick] - self.rx_pos[1]]
+
+        AOA = RS[0] / np.linalg.norm(RS)    # in sine
+        phase_aoa = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AOA * self.configs.subfreq_list /
+                                       self.configs.lightspeed).dot(self.configs.antenna_list.reshape(1, -1))))
+        phase_aoa = phase_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
+
+        TOF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed   # in seconds
+        phase_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * TOF))
+        phase_tof = phase_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
+
+        DFS = (np.linalg.norm(TS) + np.linalg.norm(RS) -
+               np.linalg.norm(self.temp_TS) - np.linalg.norm(self.temp_RS)) / self.configs.render_interval
+        phase_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed /
+                                      self.configs.sampling_rate))
+        if tick > 0:
+            phase_dfs = self.temp_phase_DFS + phase_dfs[:, np.newaxis, np.newaxis].repeat(
+                self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
+        else:
+            phase_dfs = phase_dfs[:, np.newaxis, np.newaxis].repeat(
+                self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
+
+        self.temp_phase_DFS = phase_dfs
+        self.temp_TS = TS
+        self.temp_RS = RS
+
+        csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
+            phase_aoa * phase_tof * phase_dfs
+        return csi
+
+    def collect(self):
+        print("Collecting simulation data...")
+
+        for tick in range(self.configs.render_ticks):
+            print("\r\033[32mCollecting ticks {} / {}\033[0m".format(tick, self.configs.render_ticks), end='')
+            for subject in self.subjects:
+                csi = self.__gen_phase__(subject, tick)
+                self.csi[tick] += csi
+        print('\n')
+
+    def derive_MyCsi(self, configs, name):
+
+        _csi = pycsi.MyCsi(configs, name)
+        _csi.load_lists(amp=np.abs(self.csi),
+                        phase=np.angle(self.csi),
+                        timelist=self.configs.render_indices / self.configs.sampling_rate)
+        return _csi
+
 
 if __name__ == '__main__':
-    gt = GroundTruth()
-    gt.random_velocity(velocity='vx', num_points=10)
-    gt.random_velocity(velocity='vy', num_points=15)
-    gt.interpolate_velocity(velocity='vx')
-    gt.interpolate_velocity(velocity='vy')
-    gt.plot_velocity()
+    config = MyConfigsSimu()
+    sub1 = Subject(config)
+    sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
+    sub1.sine_velocity(velocity='vy')
+
+    sub1.plot_velocity()
+    sub1.generate_trajectory()
+    sub1.plot_trajectory()
+
+    zone = SensingZone(config)
+    zone.add_subject(sub1)
+    zone.collect()
+
+    simu = zone.derive_MyCsi(config, '0310GT0')
+    simu.aoa_by_music()
+    simu.viewer.view(autosave=True)
+    simu.tof_by_music()
+    simu.viewer.view(autosave=True)
+    simu.doppler_by_music()
+    simu.viewer.view(autosave=True)
+
+    conf = pyWidar2.MyConfigsW2(num_paths=1)
+    widar = pyWidar2.MyWidar2(conf, simu)
+    widar.run(dynamic_durations=False)
+    widar.plot_results()
