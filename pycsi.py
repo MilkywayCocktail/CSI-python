@@ -473,7 +473,7 @@ class MyCsi:
                 return self.amp[mode], self.phase[mode], self.timestamps[mode]
         print('Done')
 
-    def load_lists(self, amp, phase, timelist):
+    def load_lists(self, amp=None, phase=None, timelist=None, path=None):
         """
         Loads separate items into current MyCsi instance.\n
         :param amp: input amplitude
@@ -482,9 +482,15 @@ class MyCsi:
         :return: amplitude, phase, timestamps, length, sampling_rate
         """
 
-        self.amp = amp
-        self.phase = phase
-        self.timestamps = timelist
+        if path is not None:
+            dic = np.load(path, allow_pickle=True).item()
+            self.amp = dic['amp']
+            self.phase = dic['phs']
+            self.timestamps = dic['time']
+        else:
+            self.amp = amp
+            self.phase = phase
+            self.timestamps = timelist
         self.length = len(self.amp)
         self.actual_sr = self.length / self.timestamps[-1]
 
@@ -540,6 +546,18 @@ class MyCsi:
                     'csi_algorithm': self.algorithm}
             np.save(save_path + self.name + self.algorithm + "-spectrum" + notion + ".npy", data)
             print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
+
+    def save_csi(self):
+        save_path = "../npsave/" + self.name[:4] + '/'
+
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        save = {'amp': self.amp,
+                'phs': self.phase,
+                'time': self.timestamps}
+
+        np.save(save_path + self.name + "-csis" + ".npy", save)
 
     def show_antenna_strength(self):
         """
@@ -1148,7 +1166,8 @@ class MyCsi:
         Removes the static component from csi.\n
         :param mode: 'overall' or 'running' (in terms of averaging) or 'highpass'. Default is 'overall'
         :param ref: 'rx' or 'tx'
-        :param window_length: if mode is 'running', specify a window length for running mean. Default is 31
+        :param window_length: if mode is 'running', specify a window length for running mean. Default is 100
+        :param stride: if mode is 'running', specify a stride for running mean. Default is 100
         :param reference_antenna: select one antenna with which to remove random phase offsets. Default is 0
         :return: phase and amplitude of dynamic component of csi
         """

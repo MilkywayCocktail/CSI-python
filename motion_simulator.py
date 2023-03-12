@@ -129,8 +129,8 @@ class Subject:
         else:
             print("Printing trajectory...")
             plt.figure()
-            plt.xlim(self.configs.xlim)
-            plt.ylim(self.configs.ylim)
+            plt.xlim((self.configs.xlim[0] - 0.5, self.configs.xlim[1] + 0.5))
+            plt.ylim((self.configs.ylim[0] - 0.5, self.configs.ylim[1] + 0.5))
             for tick in range(self.configs.render_ticks):
                 if tick % 100 == 0:
                     _color = (self.state['vx'][tick] / 6 + 0.5, self.state['vy'][tick] / 6 + 0.5, 0.2)
@@ -156,7 +156,7 @@ class SensingZone:
         self.csi = self.__gen_baseband__()
         self.temp_TS = 0
         self.temp_RS = 0
-        self.temp_phase = 0
+        self.temp_csi_dfs = np.exp(0.j)
 
     def add_subject(self, subject: Subject):
         self.subjects.append(subject)
@@ -169,25 +169,25 @@ class SensingZone:
         RS = [subject.state['x'][tick] - self.rx_pos[0], subject.state['y'][tick] - self.rx_pos[1]]
 
         AOA = RS[0] / np.linalg.norm(RS)    # in sine
-        phase_aoa = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AOA * self.configs.subfreq_list /
+        csi_aoa = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AOA * self.configs.subfreq_list /
                                        self.configs.lightspeed).dot(self.configs.antenna_list.reshape(1, -1))))
-        phase_aoa = phase_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
+        csi_aoa = csi_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
 
         TOF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed   # in seconds
-        phase_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * TOF))
-        phase_tof = phase_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
+        csi_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * TOF))
+        csi_tof = csi_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
 
         DFS = (np.linalg.norm(TS) + np.linalg.norm(RS) -
-               np.linalg.norm(self.temp_TS) - np.linalg.norm(self.temp_RS)) / self.configs.render_interval
-        phase_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed /
-                                      self.configs.sampling_rate))
-        phase_dfs = self.temp_phase + phase_dfs[:, np.newaxis, np.newaxis].repeat(
-            self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
+               np.linalg.norm(self.temp_TS) - np.linalg.norm(self.temp_RS)) / self.configs.render_interval  # in m/s
+        csi_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
+                             self.configs.render_interval))
+        csi_dfs = self.temp_csi_dfs * csi_dfs[:, np.newaxis, np.newaxis].repeat(
+                    self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
 
         csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
-            phase_aoa * phase_tof * phase_dfs
+            csi_aoa * csi_tof * csi_dfs
 
-        self.temp_phase = np.angle(csi)
+        self.temp_phase = csi_dfs
         self.temp_TS = TS
         self.temp_RS = RS
         return csi
@@ -196,7 +196,8 @@ class SensingZone:
         print("Collecting simulation data...")
 
         for tick in range(self.configs.render_ticks):
-            print("\r\033[32mCollecting ticks {} / {}\033[0m".format(tick, self.configs.render_ticks), end='')
+            if (tick + 1) % 100 == 0:
+                print("\r\033[32mCollecting ticks {} / {}\033[0m".format(tick, self.configs.render_ticks), end='')
             for subject in self.subjects:
                 csi = self.__gen_phase__(subject, tick)
                 self.csi[tick] += csi
@@ -212,7 +213,7 @@ class SensingZone:
 
 
 if __name__ == '__main__':
-    config = MyConfigsSimu()
+    config = MyConfigsSimu(length=100)
     sub1 = Subject(config)
     sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
     sub1.sine_velocity(velocity='vy', period=10)
@@ -225,13 +226,18 @@ if __name__ == '__main__':
     zone.add_subject(sub1)
     zone.collect()
 
-    simu = zone.derive_MyCsi(config, '0310GT0')
+    simu = zone.derive_MyCsi(config, '0310GT2')
+    #simu.save_csi()
+
+    #simu = pycsi.MyCsi(config, '0310GT0')
+    #simu.load_lists(path='../npsave/0310/0310GT0-csis.npy')
     #simu.aoa_by_music()
     #simu.viewer.view(autosave=True)
     #simu.tof_by_music()
     #simu.viewer.view(autosave=True)
-    simu.doppler_by_music(window_length=50, stride=50)
-    simu.viewer.view(threshold=-4, autosave=True)
+    #simu.extract_dynamic(mode='running', subtract_mean=False)
+    simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
+    simu.viewer.view(threshold=0.1, autosave=True)
 
     #conf = pyWidar2.MyConfigsW2(num_paths=1)
     #widar = pyWidar2.MyWidar2(conf, simu)
