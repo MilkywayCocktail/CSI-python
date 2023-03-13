@@ -22,13 +22,54 @@ class MyConfigsSimu(pycsi.MyConfigs):
         self.vrange = vrange
 
 
+class GroundTruth:
+    def __init__(self, configs: MyConfigsSimu, name):
+        self.name = name
+        self.configs = configs
+        self.TS = np.zeros(self.configs.render_ticks)
+        self.RS = np.zeros(self.configs.render_ticks)
+        self.AoA = np.zeros(self.configs.render_ticks)
+        self.ToF = np.zeros(self.configs.render_ticks)
+        self.DFS = np.zeros(self.configs.render_ticks)
+        self.AMP = np.zeros(self.configs.render_ticks)
+        self.temp_csi_dfs = np.exp(0.j)
+
+    def plot_groundtruth(self):
+        plt.figure()
+        fig, axs = plt.subplots(2, 2, figsize=(12, 8))
+        plt.suptitle(self.name + '_GroundTruth')
+        axs = axs.flatten()
+
+        axs[0].plot(self.ToF)
+        axs[1].plot(self.AoA)
+        axs[2].plot(self.DFS)
+        axs[3].plot(self.AMP)
+
+        axs[0].set_title("ToF")
+        axs[0].set_ylim(np.min(self.ToF), np.max(self.ToF))
+        axs[1].set_title("AoA")
+        axs[1].set_ylim(0, 180)
+        axs[2].set_title("Doppler")
+        axs[3].set_title("Amplitude")
+
+        for axi in axs:
+            axi.set_xlim(0, self.configs.render_ticks)
+
+        plt.tight_layout()
+        plt.grid()
+        plt.show()
+
+
 class Subject:
 
-    def __init__(self, configs: MyConfigsSimu):
+    def __init__(self, configs: MyConfigsSimu, name=None):
+        self.name = name
         self.state = None
         self.configs = configs
         self.state = self.__gen_state__()
         self.pre_rendered = False
+        self.inzone = False
+        self.groundtruth = None
 
     def __gen_state__(self):
         state = {'t': np.arange(0, self.configs.length, self.configs.render_interval),
@@ -38,6 +79,43 @@ class Subject:
                  'vy': np.array([np.nan] * self.configs.render_ticks)
                  }
         return state
+
+    def __gen_phase__(self, tick, tx_pos, rx_pos):
+        TS = [self.state['x'][tick] - tx_pos[0], self.state['y'][tick] - tx_pos[1]]
+        RS = [self.state['x'][tick] - rx_pos[0], self.state['y'][tick] - rx_pos[1]]
+
+        AoA = RS[0] / np.linalg.norm(RS)  # in sine
+        csi_aoa = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AoA * self.configs.subfreq_list /
+                                     self.configs.lightspeed).dot(self.configs.antenna_list.reshape(1, -1))))
+        csi_aoa = csi_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
+
+        ToF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed  # in seconds
+        csi_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * ToF))
+        csi_tof = csi_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
+
+        if tick == 0:
+            DFS = 0
+        else:
+            DFS = (np.linalg.norm(TS) + np.linalg.norm(RS) -
+                   np.linalg.norm(self.groundtruth.TS[tick - 1]) - np.linalg.norm(
+                        self.groundtruth.RS[tick - 1])) / self.configs.render_interval  # in m/s
+
+        csi_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
+                                    self.configs.render_interval))
+        csi_dfs = self.groundtruth.temp_csi_dfs * csi_dfs[:, np.newaxis, np.newaxis].repeat(
+            self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
+
+        csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
+            csi_aoa * csi_tof * csi_dfs
+
+        self.groundtruth.TS[tick] = TS
+        self.groundtruth.RS[tick] = RS
+        self.groundtruth.AoA[tick] = np.arcsin(AoA)
+        self.groundtruth.ToF[tick] = ToF
+        self.groundtruth.DFS[tick] = DFS
+        self.groundtruth.temp_csi_dfs = csi_dfs
+
+        return csi
 
     def set_init_location(self, x, y):
         self.state['x'][0] = x
@@ -72,8 +150,13 @@ class Subject:
         print("Setting sine velocity for", velocity, '...', end='')
         period_ratio = 2 * np.pi / (self.configs.sampling_rate * period)
         x = self.configs.render_indices * period_ratio
-        y = np.sin(x) * 1.5
+        y = np.sin(x)
         self.state[velocity] = y
+        print('Done')
+
+    def constant_velocity(self, velocity='vx', value=0):
+        print("Setting constant velocity for", velocity, '...', end='')
+        self.state[velocity][:] = (value,)
         print('Done')
 
     def bound_check(self, ind):
@@ -89,7 +172,6 @@ class Subject:
     def generate_trajectory(self, bound_limit=True):
         print("Updating trajectory...", end='')
         for step in range(self.configs.render_ticks):
-
             if step == 0:
                 if bound_limit is True:
                     self.bound_check(step)
@@ -141,6 +223,7 @@ class Subject:
                     else:
                         plt.scatter(self.state['x'][tick], self.state['y'][tick], color=_color)
             plt.title("Trajectory of the subject")
+            plt.grid()
             plt.tight_layout()
             plt.show()
 
@@ -154,43 +237,14 @@ class SensingZone:
         self.subjects = []
         self.configs = configs
         self.csi = self.__gen_baseband__()
-        self.temp_TS = 0
-        self.temp_RS = 0
-        self.temp_csi_dfs = np.exp(0.j)
 
     def add_subject(self, subject: Subject):
+        subject.groundtruth = GroundTruth(self.configs)
+        subject.inzone = True
         self.subjects.append(subject)
 
     def __gen_baseband__(self):
         return np.zeros((self.configs.render_ticks, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
-
-    def __gen_phase__(self, subject, tick):
-        TS = [subject.state['x'][tick] - self.tx_pos[0], subject.state['y'][tick] - self.tx_pos[1]]
-        RS = [subject.state['x'][tick] - self.rx_pos[0], subject.state['y'][tick] - self.rx_pos[1]]
-
-        AOA = RS[0] / np.linalg.norm(RS)    # in sine
-        csi_aoa = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AOA * self.configs.subfreq_list /
-                                       self.configs.lightspeed).dot(self.configs.antenna_list.reshape(1, -1))))
-        csi_aoa = csi_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
-
-        TOF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed   # in seconds
-        csi_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * TOF))
-        csi_tof = csi_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
-
-        DFS = (np.linalg.norm(TS) + np.linalg.norm(RS) -
-               np.linalg.norm(self.temp_TS) - np.linalg.norm(self.temp_RS)) / self.configs.render_interval  # in m/s
-        csi_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
-                             self.configs.render_interval))
-        csi_dfs = self.temp_csi_dfs * csi_dfs[:, np.newaxis, np.newaxis].repeat(
-                    self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
-
-        csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
-            csi_aoa * csi_tof * csi_dfs
-
-        self.temp_phase = csi_dfs
-        self.temp_TS = TS
-        self.temp_RS = RS
-        return csi
 
     def collect(self):
         print("Collecting simulation data...")
@@ -199,9 +253,13 @@ class SensingZone:
             if (tick + 1) % 100 == 0:
                 print("\r\033[32mCollecting ticks {} / {}\033[0m".format(tick, self.configs.render_ticks), end='')
             for subject in self.subjects:
-                csi = self.__gen_phase__(subject, tick)
+                csi = subject.__gen_phase__(tick, self.tx_pos, self.rx_pos)
                 self.csi[tick] += csi
         print('\n')
+
+    def show_groundtruth(self):
+        for subject in self.subjects:
+            subject.groundtruth.plot_groundtruth()
 
     def derive_MyCsi(self, configs, name):
 
@@ -214,9 +272,11 @@ class SensingZone:
 
 if __name__ == '__main__':
     config = MyConfigsSimu(length=100)
-    sub1 = Subject(config)
-    sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
+    sub1 = Subject(config, 'sub1')
+    #sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
+    sub1.constant_velocity('vx')
     sub1.sine_velocity(velocity='vy', period=10)
+    sub1.set_init_location(0, 2)
 
     sub1.plot_velocity()
     sub1.generate_trajectory()
@@ -225,8 +285,9 @@ if __name__ == '__main__':
     zone = SensingZone(config)
     zone.add_subject(sub1)
     zone.collect()
+    zone.show_groundtruth()
 
-    simu = zone.derive_MyCsi(config, '0310GT2')
+    simu = zone.derive_MyCsi(config, '0313GT2')
     #simu.save_csi()
 
     #simu = pycsi.MyCsi(config, '0310GT0')
@@ -236,7 +297,7 @@ if __name__ == '__main__':
     #simu.tof_by_music()
     #simu.viewer.view(autosave=True)
     #simu.extract_dynamic(mode='running', subtract_mean=False)
-    simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
+    simu.doppler_by_music(window_length=100, stride=100, raw_window=True)
     simu.viewer.view(threshold=0.1, autosave=True)
 
     #conf = pyWidar2.MyConfigsW2(num_paths=1)
