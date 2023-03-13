@@ -26,16 +26,15 @@ class GroundTruth:
     def __init__(self, configs: MyConfigsSimu, name):
         self.name = name
         self.configs = configs
-        self.TS = np.zeros(self.configs.render_ticks)
-        self.RS = np.zeros(self.configs.render_ticks)
+        self.TS = np.zeros((self.configs.render_ticks, 2))
+        self.RS = np.zeros((self.configs.render_ticks, 2))
         self.AoA = np.zeros(self.configs.render_ticks)
         self.ToF = np.zeros(self.configs.render_ticks)
         self.DFS = np.zeros(self.configs.render_ticks)
-        self.AMP = np.zeros(self.configs.render_ticks)
+        self.AMP = np.ones(self.configs.render_ticks)
         self.temp_csi_dfs = np.exp(0.j)
 
     def plot_groundtruth(self):
-        plt.figure()
         fig, axs = plt.subplots(2, 2, figsize=(12, 8))
         plt.suptitle(self.name + '_GroundTruth')
         axs = axs.flatten()
@@ -46,7 +45,7 @@ class GroundTruth:
         axs[3].plot(self.AMP)
 
         axs[0].set_title("ToF")
-        axs[0].set_ylim(np.min(self.ToF), np.max(self.ToF))
+        axs[0].set_ylim((np.min(self.ToF), np.max(self.ToF)))
         axs[1].set_title("AoA")
         axs[1].set_ylim(0, 180)
         axs[2].set_title("Doppler")
@@ -62,13 +61,14 @@ class GroundTruth:
 
 class Subject:
 
-    def __init__(self, configs: MyConfigsSimu, name=None):
+    def __init__(self, configs: MyConfigsSimu, name=''):
         self.name = name
         self.state = None
         self.configs = configs
         self.state = self.__gen_state__()
         self.pre_rendered = False
         self.inzone = False
+        self.inbound = True
         self.groundtruth = None
 
     def __gen_state__(self):
@@ -110,7 +110,7 @@ class Subject:
 
         self.groundtruth.TS[tick] = TS
         self.groundtruth.RS[tick] = RS
-        self.groundtruth.AoA[tick] = np.arcsin(AoA)
+        self.groundtruth.AoA[tick] = np.rad2deg(np.arcsin(AoA))
         self.groundtruth.ToF[tick] = ToF
         self.groundtruth.DFS[tick] = DFS
         self.groundtruth.temp_csi_dfs = csi_dfs
@@ -122,7 +122,7 @@ class Subject:
         self.state['y'][0] = y
 
     def random_velocity(self, velocity='vx', num_points=3, order=3, vrange=None):
-        print("Generating", num_points, "points for", velocity, '...', end='')
+        print(self.name, "Generating", num_points, "points for", velocity, '...', end='')
         vr = self.configs.vrange if vrange is None else vrange
 
         x = random.sample(self.configs.render_indices.tolist(), num_points)
@@ -147,7 +147,7 @@ class Subject:
         '''
 
     def sine_velocity(self, velocity='vx', period=5):
-        print("Setting sine velocity for", velocity, '...', end='')
+        print(self.name, "Setting sine velocity for", velocity, '...', end='')
         period_ratio = 2 * np.pi / (self.configs.sampling_rate * period)
         x = self.configs.render_indices * period_ratio
         y = np.sin(x)
@@ -155,7 +155,7 @@ class Subject:
         print('Done')
 
     def constant_velocity(self, velocity='vx', value=0):
-        print("Setting constant velocity for", velocity, '...', end='')
+        print(self.name, "Setting constant velocity for", velocity, '...', end='')
         self.state[velocity][:] = (value,)
         print('Done')
 
@@ -169,24 +169,24 @@ class Subject:
         self.state['y'][ind] = self.configs.ylim[1] if self.state['y'][ind] > self.configs.ylim[1] else self.state['y'][
             ind]
 
-    def generate_trajectory(self, bound_limit=True):
-        print("Updating trajectory...", end='')
+    def generate_trajectory(self):
+        print(self.name, "Updating trajectory...", end='')
         for step in range(self.configs.render_ticks):
             if step == 0:
-                if bound_limit is True:
+                if self.inbound is True:
                     self.bound_check(step)
                 continue
             self.state['x'][step] = self.state['x'][step - 1] + self.state['vx'][
                 step - 1] * self.configs.render_interval
             self.state['y'][step] = self.state['y'][step - 1] + self.state['vy'][
                 step - 1] * self.configs.render_interval
-            if bound_limit is True:
+            if self.inbound is True:
                 self.bound_check(step)
         self.pre_rendered = True
         print('Done')
 
     def plot_velocity(self):
-        print("Plotting velocities...")
+        print(self.name, "Plotting velocities...")
         plt.figure()
         ax1 = plt.subplot(2, 1, 1)
         ax1.plot(self.configs.render_indices, self.state['vx'])
@@ -200,19 +200,23 @@ class Subject:
         ax2.set_ylabel('Y Velocity / $m/s$')
         ax2.set_xlabel("#tick")
         ax2.grid()
-        plt.suptitle("Ground Truth of Velocity")
+        plt.suptitle("Velocity of " + self.name)
         plt.tight_layout()
         plt.show()
 
     def plot_trajectory(self):
         if self.pre_rendered is False:
-            print("Please generate the trajectory first!")
+            print(self.name, "Please generate the trajectory first!")
             return
         else:
-            print("Printing trajectory...")
+            print(self.name, "Printing trajectory...")
             plt.figure()
-            plt.xlim((self.configs.xlim[0] - 0.5, self.configs.xlim[1] + 0.5))
-            plt.ylim((self.configs.ylim[0] - 0.5, self.configs.ylim[1] + 0.5))
+            if self.inbound is True:
+                plt.xlim((self.configs.xlim[0] - 0.5, self.configs.xlim[1] + 0.5))
+                plt.ylim((self.configs.ylim[0] - 0.5, self.configs.ylim[1] + 0.5))
+            else:
+                plt.xlim((np.min(self.state['x']) - 0.5, np.max(self.state['x'] + 0.5)))
+                plt.ylim((np.min(self.state['y']) - 0.5, np.max(self.state['y'] + 0.5)))
             for tick in range(self.configs.render_ticks):
                 if tick % 100 == 0:
                     _color = (self.state['vx'][tick] / 6 + 0.5, self.state['vy'][tick] / 6 + 0.5, 0.2)
@@ -222,7 +226,7 @@ class Subject:
                         plt.scatter(self.state['x'][tick], self.state['y'][tick], marker='X', color=_color)
                     else:
                         plt.scatter(self.state['x'][tick], self.state['y'][tick], color=_color)
-            plt.title("Trajectory of the subject")
+            plt.title("Trajectory of " + self.name)
             plt.grid()
             plt.tight_layout()
             plt.show()
@@ -230,17 +234,18 @@ class Subject:
 
 class SensingZone:
 
-    def __init__(self,  configs=MyConfigsSimu(), tx_pos=(-0.15, 0), rx_pos=(0.15, 0),):
+    def __init__(self,  configs=MyConfigsSimu(), tx_pos=(-0.15, 0), rx_pos=(0.15, 0), inbound=True):
         self.tx_pos = tx_pos
         self.rx_pos = rx_pos
-        self.inbound = True
+        self.inbound = inbound
         self.subjects = []
         self.configs = configs
         self.csi = self.__gen_baseband__()
 
     def add_subject(self, subject: Subject):
-        subject.groundtruth = GroundTruth(self.configs)
+        subject.groundtruth = GroundTruth(self.configs, name=subject.name)
         subject.inzone = True
+        subject.inbound = self.inbound
         self.subjects.append(subject)
 
     def __gen_baseband__(self):
@@ -253,8 +258,9 @@ class SensingZone:
             if (tick + 1) % 100 == 0:
                 print("\r\033[32mCollecting ticks {} / {}\033[0m".format(tick, self.configs.render_ticks), end='')
             for subject in self.subjects:
-                csi = subject.__gen_phase__(tick, self.tx_pos, self.rx_pos)
-                self.csi[tick] += csi
+                if subject.pre_rendered is True:
+                    csi = subject.__gen_phase__(tick, self.tx_pos, self.rx_pos)
+                    self.csi[tick] += csi
         print('\n')
 
     def show_groundtruth(self):
@@ -276,16 +282,17 @@ if __name__ == '__main__':
     #sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
     sub1.constant_velocity('vx')
     sub1.sine_velocity(velocity='vy', period=10)
-    sub1.set_init_location(0, 2)
+    sub1.set_init_location(1, 2)
+    #sub1.plot_velocity()
 
-    sub1.plot_velocity()
-    sub1.generate_trajectory()
-    sub1.plot_trajectory()
-
-    zone = SensingZone(config)
+    zone = SensingZone(config, inbound=False)
     zone.add_subject(sub1)
+
+    sub1.generate_trajectory()
+    #sub1.plot_trajectory()
+
     zone.collect()
-    zone.show_groundtruth()
+    #zone.show_groundtruth()
 
     simu = zone.derive_MyCsi(config, '0313GT2')
     #simu.save_csi()
@@ -294,11 +301,11 @@ if __name__ == '__main__':
     #simu.load_lists(path='../npsave/0310/0310GT0-csis.npy')
     #simu.aoa_by_music()
     #simu.viewer.view(autosave=True)
-    #simu.tof_by_music()
-    #simu.viewer.view(autosave=True)
+    simu.tof_by_music()
+    simu.viewer.view(autosave=True)
     #simu.extract_dynamic(mode='running', subtract_mean=False)
-    simu.doppler_by_music(window_length=100, stride=100, raw_window=True)
-    simu.viewer.view(threshold=0.1, autosave=True)
+    #simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
+    #simu.viewer.view(threshold=0.1, autosave=True)
 
     #conf = pyWidar2.MyConfigsW2(num_paths=1)
     #widar = pyWidar2.MyWidar2(conf, simu)

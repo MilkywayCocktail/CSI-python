@@ -107,7 +107,7 @@ class Trainer:
             data_x = data_x.to(torch.float32).to(self.args.device)
             data_y = data_y.to(torch.long).to(self.args.device)
             outputs = self.model(data_x)
-            loss = self.criterion(outputs, data_y)
+            loss = self.args.criterion(outputs, data_y)
             valid_epoch_loss.append(loss.item())
             self.valid_loss.append(loss.item())
         self.valid_epochs_loss.append(np.average(valid_epoch_loss))

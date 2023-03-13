@@ -171,7 +171,7 @@ class MyWidar2:
         nrx = self.csi.configs.nrx
 
         csi_signal = recon(self.csi.amp, self.csi.phase, squeeze=False)
-        csi_signal = csi_signal[..., 0, 0]
+        csi_signal = csi_signal[..., 0]
 
         print("total steps=", self.total_steps)
 
@@ -314,13 +314,13 @@ class MyWidar2:
                        c=np.log(np.abs(self.estimates['amplitude'])).reshape(-1),
                        linewidths=0)
 
-        axs[0].set_title("tof")
+        axs[0].set_title("ToF")
         axs[0].set_ylim(np.min(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]),
                         np.max(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]))
-        axs[1].set_title("aoa")
+        axs[1].set_title("AoA")
         axs[1].set_ylim(0, 180)
-        axs[2].set_title("doppler")
-        axs[3].set_title("amplitude")
+        axs[2].set_title("Doppler")
+        axs[3].set_title("Amplitude")
 
         for axi in axs:
             axi.set_xlim(0, self.total_steps)
