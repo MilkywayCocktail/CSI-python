@@ -6,9 +6,12 @@ import pyWidar2
 
 
 class MyConfigsSimu(pycsi.MyConfigs):
+    """
+    Configurations used in motion_simulator scripts.
+    """
     def __init__(self,
-                 center_freq=5.32, bandwidth=20, length=100, sampling_rate=1000,
-                 xlim=(-2, 2), ylim=(1, 3), vlim=(-3, 3), vrange=np.arange(-3.01, 3.01, 0.01)):
+                 center_freq=5.32, bandwidth=20, sampling_rate=1000,
+                 length=100, xlim=(-2, 2), ylim=(1, 3), vlim=(-3, 3)):
 
         super(MyConfigsSimu, self).__init__(center_freq=center_freq, bandwidth=bandwidth, sampling_rate=sampling_rate)
         self.length = length    # in seconds
@@ -19,10 +22,13 @@ class MyConfigsSimu(pycsi.MyConfigs):
         self.xlim = xlim
         self.ylim = ylim
         self.vlim = vlim
-        self.vrange = vrange
+        self.vrange = np.arange(vlim[0], vlim[1] + 0.01, 0.01)
 
 
 class GroundTruth:
+    """
+    Ground Truth of movements of a subject.
+    """
     def __init__(self, configs: MyConfigsSimu, name):
         self.name = name
         self.configs = configs
@@ -45,21 +51,24 @@ class GroundTruth:
         axs[3].plot(self.AMP)
 
         axs[0].set_title("ToF")
-        axs[0].set_ylim((np.min(self.ToF), np.max(self.ToF)))
+        axs[0].set_ylim(-1.e-7, 4.e-7)
         axs[1].set_title("AoA")
-        axs[1].set_ylim(0, 180)
+        axs[1].set_ylim(-90, 90)
         axs[2].set_title("Doppler")
         axs[3].set_title("Amplitude")
 
         for axi in axs:
             axi.set_xlim(0, self.configs.render_ticks)
+            axi.grid()
 
         plt.tight_layout()
-        plt.grid()
         plt.show()
 
 
 class Subject:
+    """
+    Subject that moves in the sensing zone.
+    """
 
     def __init__(self, configs: MyConfigsSimu, name=''):
         self.name = name
@@ -90,7 +99,7 @@ class Subject:
         csi_aoa = csi_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
 
         ToF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed  # in seconds
-        csi_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * ToF))
+        csi_tof = np.squeeze(np.exp(-1.j * np.pi * self.configs.subfreq_list * ToF))
         csi_tof = csi_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
 
         if tick == 0:
@@ -100,7 +109,7 @@ class Subject:
                    np.linalg.norm(self.groundtruth.TS[tick - 1]) - np.linalg.norm(
                         self.groundtruth.RS[tick - 1])) / self.configs.render_interval  # in m/s
 
-        csi_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
+        csi_dfs = np.squeeze(np.exp(-1.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
                                     self.configs.render_interval))
         csi_dfs = self.groundtruth.temp_csi_dfs * csi_dfs[:, np.newaxis, np.newaxis].repeat(
             self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
@@ -185,6 +194,34 @@ class Subject:
         self.pre_rendered = True
         print('Done')
 
+    def circle_trajectory(self, direction='clk', period=5, center=(0, 1)):
+        print(self.name, "Setting circle velocity...", end='')
+        r = np.linalg.norm([self.state['x'][0] - center[0], self.state['y'][0] - center[1]])
+        v_abs = v_abs = 2 * np.pi * r / period
+        for step in range(self.configs.render_ticks):
+
+            SO = [self.state['x'][step] - center[0], self.state['y'][step] - center[1]]
+
+            if direction == 'clk':
+                v = [SO[1], -SO[0]] / r
+            elif direction == 'aclk':
+                v = [-SO[1], SO[0]] / r
+            v = v * v_abs
+
+            self.state['vx'][step] = v[0]
+            self.state['vy'][step] = v[1]
+
+            if step > 0:
+                self.state['x'][step] = self.state['x'][step - 1] + self.state['vx'][
+                    step - 1] * self.configs.render_interval
+                self.state['y'][step] = self.state['y'][step - 1] + self.state['vy'][
+                    step - 1] * self.configs.render_interval
+
+            if self.inbound is True:
+                self.bound_check(step)
+
+        print('Done')
+
     def plot_velocity(self):
         print(self.name, "Plotting velocities...")
         plt.figure()
@@ -233,6 +270,9 @@ class Subject:
 
 
 class SensingZone:
+    """
+    Sensing zone that contains subjects and signals.
+    """
 
     def __init__(self,  configs=MyConfigsSimu(), tx_pos=(-0.15, 0), rx_pos=(0.15, 0), inbound=True):
         self.tx_pos = tx_pos
@@ -242,14 +282,14 @@ class SensingZone:
         self.configs = configs
         self.csi = self.__gen_baseband__()
 
+    def __gen_baseband__(self):
+        return np.zeros((self.configs.render_ticks, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
+
     def add_subject(self, subject: Subject):
         subject.groundtruth = GroundTruth(self.configs, name=subject.name)
         subject.inzone = True
         subject.inbound = self.inbound
         self.subjects.append(subject)
-
-    def __gen_baseband__(self):
-        return np.zeros((self.configs.render_ticks, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
 
     def collect(self):
         print("Collecting simulation data...")
@@ -280,34 +320,35 @@ if __name__ == '__main__':
     config = MyConfigsSimu(length=100)
     sub1 = Subject(config, 'sub1')
     #sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
-    sub1.constant_velocity('vx')
-    sub1.sine_velocity(velocity='vy', period=10)
+    #sub1.constant_velocity('vx')
+    #sub1.sine_velocity(velocity='vy', period=50)
     sub1.set_init_location(1, 2)
-    #sub1.plot_velocity()
+    sub1.circle_trajectory(period=5, center=(1, 3))
+    sub1.plot_velocity()
 
     zone = SensingZone(config, inbound=False)
     zone.add_subject(sub1)
 
     sub1.generate_trajectory()
-    #sub1.plot_trajectory()
+    sub1.plot_trajectory()
 
     zone.collect()
-    #zone.show_groundtruth()
+    zone.show_groundtruth()
 
-    simu = zone.derive_MyCsi(config, '0313GT2')
+    simu = zone.derive_MyCsi(config, '0314GT4')
     #simu.save_csi()
 
     #simu = pycsi.MyCsi(config, '0310GT0')
     #simu.load_lists(path='../npsave/0310/0310GT0-csis.npy')
     #simu.aoa_by_music()
     #simu.viewer.view(autosave=True)
-    simu.tof_by_music()
-    simu.viewer.view(autosave=True)
+    #simu.tof_by_music()
+    #simu.viewer.view(autosave=True)
     #simu.extract_dynamic(mode='running', subtract_mean=False)
     #simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
     #simu.viewer.view(threshold=0.1, autosave=True)
 
-    #conf = pyWidar2.MyConfigsW2(num_paths=1)
+    ##conf = pyWidar2.MyConfigsW2(num_paths=1)
     #widar = pyWidar2.MyWidar2(conf, simu)
     #widar.run(dynamic_durations=False)
     #widar.plot_results()

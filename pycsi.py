@@ -269,7 +269,7 @@ class ToFViewer(MySpectrumViewer):
             ax = sns.heatmap(self.spectrum)
             label0, label1 = self.replace(self.timestamps, self.num_ticks)
 
-        ax.yaxis.set_major_formatter(ticker.FixedFormatter([500, 450, 400, 350, 300, 250, 200, 150, 100, 50, 0, -50, -100]))
+        ax.yaxis.set_major_formatter(ticker.FixedFormatter([450, 400, 350, 300, 250, 200, 150, 100, 50, 0, -50, -100]))
         ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
         ax.yaxis.set_minor_locator(ticker.MultipleLocator(25))
         plt.xticks(label0, label1)

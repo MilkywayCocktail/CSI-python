@@ -107,8 +107,8 @@ class _GTToF(GroundTruth):
     def __init__(self, *args, **kwargs):
         GroundTruth.__init__(self, *args, **kwargs)
         self.category = 'ToF'
-        self.span = np.arange(0, 1.e-7, 5.e-10)
-        self.ylim = (0, 1.e-7)
+        self.span = np.arange(-1.e-7, 4.e-7, 1.e-9)
+        self.ylim = (-1.e-7, 4.e-7)
         self.ylabel = "ToF / $s$"
 
 
@@ -229,7 +229,7 @@ if __name__ == '__main__':
     ipo1 = -2.33
     ipo2 = 3.10
 
-    gt1 = GroundTruth(length=10000).doppler
+    gt1 = GroundTruth(length=10000).tof
     gt1.random_points(7)
     gt1.interpolate()
     gt1.show()
@@ -247,17 +247,17 @@ if __name__ == '__main__':
     data.apply_gt(gt1)
     #data.add_ipo(ipo1, ipo2)
 
-    simu = data.derive_MyCsi(configs, '0126GT1')
+    simu = data.derive_MyCsi(configs, '0314GT3')
     #plt.plot(np.unwrap(simu.data.phase[:,0,:,0], axis=0))
     #plt.title("Phase with IPO")
     #plt.show()
     #simu.view_phase_diff()
     #simu.extract_dynamic()
-    simu.doppler_by_music(raw_window=True)
-    simu.viewer.view(threshold=-4.4)
+    simu.tof_by_music()
+    simu.viewer.view()
     #simu.save_csi('0126G00')
-    simu.doppler_by_music(raw_window=False)
-    simu.viewer.view(threshold=-4.4)
+    #simu.doppler_by_music(raw_window=False)
+    #simu.viewer.view(threshold=-4.4)
 
 #    for i, spectrum in enumerate(simu.data.spectrum):
 #        simu.data.view_spectrum(sid=i, autosave=True, folder_name='GT3', notion='_' + str(i))

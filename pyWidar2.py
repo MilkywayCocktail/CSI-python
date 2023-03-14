@@ -15,7 +15,7 @@ class MyConfigsW2(pycsi.MyConfigs):
         super(MyConfigsW2, self).__init__(center_freq=center_freq, bandwidth=bandwidth, sampling_rate=sampling_rate)
         self.antenna_list = np.arange(0, self.nrx, 1.).reshape(-1, 1)
         self.toflist = np.arange(-1.e-7, 4.e-7, 1.e-9).reshape(-1, 1)
-        self.aoalist = np.deg2rad(np.arange(-0, 180, 1.)).reshape(-1, 1)
+        self.aoalist = np.deg2rad(np.arange(-90, 91, 1.)).reshape(-1, 1)
         self.dopplerlist = np.arange(-5, 5, 0.01).reshape(-1, 1)
         self.window_length = window_length
         self.stride = stride
@@ -315,18 +315,19 @@ class MyWidar2:
                        linewidths=0)
 
         axs[0].set_title("ToF")
-        axs[0].set_ylim(np.min(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]),
-                        np.max(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]))
+        axs[0].set_ylim(-1.e-7, 4.e-7)
+        #axs[0].set_ylim(np.min(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]),
+         #               np.max(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]))
         axs[1].set_title("AoA")
-        axs[1].set_ylim(0, 180)
+        axs[1].set_ylim(-90, 90)
         axs[2].set_title("Doppler")
         axs[3].set_title("Amplitude")
 
         for axi in axs:
             axi.set_xlim(0, self.total_steps)
+            axi.grid()
 
         plt.tight_layout()
-        plt.grid()
         plt.show()
 
 
