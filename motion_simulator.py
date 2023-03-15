@@ -38,7 +38,48 @@ class GroundTruth:
         self.ToF = np.zeros(self.configs.render_ticks)
         self.DFS = np.zeros(self.configs.render_ticks)
         self.AMP = np.ones(self.configs.render_ticks)
-        self.temp_csi_dfs = np.exp(0.j)
+        self.temp_csi = np.exp(0.j)
+        self.temp_TS = 0
+        self.temp_RS = 0
+
+    def __gen_phase__(self, tick, x, y, tx_pos, rx_pos):
+        TS = [x - tx_pos[0], y - tx_pos[1]]
+        RS = [x - rx_pos[0], y - rx_pos[1]]
+
+        AoA = RS[0] / np.linalg.norm(RS)  # in sine
+        csi_aoa = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AoA * self.configs.subfreq_list /
+                                     self.configs.lightspeed).dot(self.configs.antenna_list.reshape(1, -1))))
+        csi_aoa = csi_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
+
+        ToF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed  # in seconds
+        csi_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * ToF))
+        csi_tof = csi_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
+
+        if tick == 0:
+            DFS = 0
+        else:
+            DFS = (np.linalg.norm(TS) + np.linalg.norm(RS) -
+                   np.linalg.norm(self.temp_TS) - np.linalg.norm(
+                        self.temp_RS)) / self.configs.render_interval  # in m/s
+
+        csi_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
+                                    self.configs.render_interval))
+        csi_dfs = self.temp_csi * csi_dfs[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(
+            self.configs.ntx, axis=2)
+
+        csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
+            csi_dfs
+
+        self.TS[tick] = TS
+        self.RS[tick] = RS
+        self.AoA[tick] = np.rad2deg(np.arcsin(AoA))
+        self.ToF[tick] = ToF
+        self.DFS[tick] = DFS
+        self.temp_csi = csi
+        self.temp_TS = TS
+        self.temp_RS = RS
+
+        return csi
 
     def plot_groundtruth(self):
         fig, axs = plt.subplots(2, 2, figsize=(12, 8))
@@ -88,43 +129,6 @@ class Subject:
                  'vy': np.array([np.nan] * self.configs.render_ticks)
                  }
         return state
-
-    def __gen_phase__(self, tick, tx_pos, rx_pos):
-        TS = [self.state['x'][tick] - tx_pos[0], self.state['y'][tick] - tx_pos[1]]
-        RS = [self.state['x'][tick] - rx_pos[0], self.state['y'][tick] - rx_pos[1]]
-
-        AoA = RS[0] / np.linalg.norm(RS)  # in sine
-        csi_aoa = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AoA * self.configs.subfreq_list /
-                                     self.configs.lightspeed).dot(self.configs.antenna_list.reshape(1, -1))))
-        csi_aoa = csi_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
-
-        ToF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed  # in seconds
-        csi_tof = np.squeeze(np.exp(-1.j * np.pi * self.configs.subfreq_list * ToF))
-        csi_tof = csi_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
-
-        if tick == 0:
-            DFS = 0
-        else:
-            DFS = (np.linalg.norm(TS) + np.linalg.norm(RS) -
-                   np.linalg.norm(self.groundtruth.TS[tick - 1]) - np.linalg.norm(
-                        self.groundtruth.RS[tick - 1])) / self.configs.render_interval  # in m/s
-
-        csi_dfs = np.squeeze(np.exp(-1.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
-                                    self.configs.render_interval))
-        csi_dfs = self.groundtruth.temp_csi_dfs * csi_dfs[:, np.newaxis, np.newaxis].repeat(
-            self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
-
-        csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
-            csi_aoa * csi_tof * csi_dfs
-
-        self.groundtruth.TS[tick] = TS
-        self.groundtruth.RS[tick] = RS
-        self.groundtruth.AoA[tick] = np.rad2deg(np.arcsin(AoA))
-        self.groundtruth.ToF[tick] = ToF
-        self.groundtruth.DFS[tick] = DFS
-        self.groundtruth.temp_csi_dfs = csi_dfs
-
-        return csi
 
     def set_init_location(self, x, y):
         self.state['x'][0] = x
@@ -197,25 +201,26 @@ class Subject:
     def circle_trajectory(self, direction='clk', period=5, center=(0, 1)):
         print(self.name, "Setting circle velocity...", end='')
         r = np.linalg.norm([self.state['x'][0] - center[0], self.state['y'][0] - center[1]])
-        v_abs = v_abs = 2 * np.pi * r / period
+        v_abs = 2 * np.pi * r / period
+
         for step in range(self.configs.render_ticks):
 
             SO = [self.state['x'][step] - center[0], self.state['y'][step] - center[1]]
-
             if direction == 'clk':
                 v = [SO[1], -SO[0]] / r
             elif direction == 'aclk':
                 v = [-SO[1], SO[0]] / r
+
             v = v * v_abs
 
             self.state['vx'][step] = v[0]
             self.state['vy'][step] = v[1]
 
-            if step > 0:
-                self.state['x'][step] = self.state['x'][step - 1] + self.state['vx'][
-                    step - 1] * self.configs.render_interval
-                self.state['y'][step] = self.state['y'][step - 1] + self.state['vy'][
-                    step - 1] * self.configs.render_interval
+            if step < self.configs.render_ticks - 1:
+                self.state['x'][step + 1] = self.state['x'][step] + self.state['vx'][
+                    step] * self.configs.render_interval
+                self.state['y'][step + 1] = self.state['y'][step] + self.state['vy'][
+                    step] * self.configs.render_interval
 
             if self.inbound is True:
                 self.bound_check(step)
@@ -254,9 +259,15 @@ class Subject:
             else:
                 plt.xlim((np.min(self.state['x']) - 0.5, np.max(self.state['x'] + 0.5)))
                 plt.ylim((np.min(self.state['y']) - 0.5, np.max(self.state['y'] + 0.5)))
+            vx_lb = np.min(self.state['vx'])
+            vy_lb = np.min(self.state['vy'])
+            vx_range = np.max(self.state['vx']) - np.min(self.state['vx'])
+            vy_range = np.max(self.state['vy']) - np.min(self.state['vy'])
             for tick in range(self.configs.render_ticks):
                 if tick % 100 == 0:
-                    _color = (self.state['vx'][tick] / 6 + 0.5, self.state['vy'][tick] / 6 + 0.5, 0.2)
+                    _color = ((self.state['vx'][tick] - vx_lb) / vx_range,
+                              (self.state['vy'][tick] - vy_lb) / vy_range,
+                              0.2)
                     if tick == 0:
                         plt.scatter(self.state['x'][tick], self.state['y'][tick], marker='+', color=_color)
                     elif tick == self.configs.render_ticks - 1:
@@ -299,7 +310,8 @@ class SensingZone:
                 print("\r\033[32mCollecting ticks {} / {}\033[0m".format(tick, self.configs.render_ticks), end='')
             for subject in self.subjects:
                 if subject.pre_rendered is True:
-                    csi = subject.__gen_phase__(tick, self.tx_pos, self.rx_pos)
+                    csi = subject.groundtruth.__gen_phase__(
+                        tick, subject.state['x'][tick], subject.state['y'][tick], self.tx_pos, self.rx_pos)
                     self.csi[tick] += csi
         print('\n')
 
@@ -317,13 +329,13 @@ class SensingZone:
 
 
 if __name__ == '__main__':
-    config = MyConfigsSimu(length=100)
+    config = MyConfigsSimu(length=10)
     sub1 = Subject(config, 'sub1')
     #sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
     #sub1.constant_velocity('vx')
     #sub1.sine_velocity(velocity='vy', period=50)
     sub1.set_init_location(1, 2)
-    sub1.circle_trajectory(period=5, center=(1, 3))
+    sub1.circle_trajectory(period=5, center=(2, 4))
     sub1.plot_velocity()
 
     zone = SensingZone(config, inbound=False)
@@ -335,20 +347,20 @@ if __name__ == '__main__':
     zone.collect()
     zone.show_groundtruth()
 
-    simu = zone.derive_MyCsi(config, '0314GT4')
+    simu = zone.derive_MyCsi(config, '0315GT4')
     #simu.save_csi()
 
     #simu = pycsi.MyCsi(config, '0310GT0')
     #simu.load_lists(path='../npsave/0310/0310GT0-csis.npy')
     #simu.aoa_by_music()
     #simu.viewer.view(autosave=True)
-    #simu.tof_by_music()
-    #simu.viewer.view(autosave=True)
+    simu.tof_by_music()
+    simu.viewer.view(autosave=True)
     #simu.extract_dynamic(mode='running', subtract_mean=False)
-    #simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
-    #simu.viewer.view(threshold=0.1, autosave=True)
+    simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
+    simu.viewer.view(threshold=0.1, autosave=True)
 
-    ##conf = pyWidar2.MyConfigsW2(num_paths=1)
-    #widar = pyWidar2.MyWidar2(conf, simu)
-    #widar.run(dynamic_durations=False)
-    #widar.plot_results()
+    conf = pyWidar2.MyConfigsW2(num_paths=1)
+    widar = pyWidar2.MyWidar2(conf, simu)
+    widar.run(dynamic_durations=False)
+    widar.plot_results()

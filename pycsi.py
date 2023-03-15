@@ -758,7 +758,7 @@ class MyCsi:
 
     def tof_by_music(self, input_dt_list=np.arange(-1.e-7, 4.e-7, 1.e-9)):
 
-        subfreq_list = self.configs.subfreq_list
+        subfreq_list = self.configs.subfreq_list - self.configs.center_freq
         ntx = self.configs.ntx
         recon = self.commonfunc.reconstruct_csi
         noise = self.commonfunc.noise_space
