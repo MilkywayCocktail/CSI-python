@@ -199,6 +199,9 @@ class MyModel(nn.Module):
         self.encoder = MyEncoder()
         self.decoder = MyDecoder()
 
+    def intro(self):
+        print("[CNN-GAP]-[FC]")
+
     def forward(self, x):
         z = self.encoder(x)
         y = self.decoder(z)
@@ -208,3 +211,4 @@ class MyModel(nn.Module):
 if __name__ == "__main__":
     m1 = MyEncoder()
     summary(m1, input_size=(2, 90, 100))
+    m1.intro()

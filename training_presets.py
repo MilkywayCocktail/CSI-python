@@ -2,8 +2,11 @@
 import torch
 import torch.nn as nn
 import torch.utils.data as Data
+import matplotlib.pyplot as plt
 import numpy as np
 import time
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
 
 
 class MyDataset(Data.Dataset):
@@ -24,14 +27,13 @@ class MyDataset(Data.Dataset):
 
         if x.shape[0] == y.shape[0]:
             total_count = x.shape[0]
+            if number != 0:
+                picked = np.random.choice(list(range(total_count)), size=number, replace=False)
+                self.seeds = picked
+                x = x[picked]
+                y = y[picked]
         else:
             print(x.shape, y.shape, "lengths not equal!")
-
-        if number != 0:
-            picked = np.random.choice(list(range(total_count)), size=number, replace=False)
-            self.seeds = picked
-            x = x[picked]
-            y = y[picked]
 
         return {'x': x, 'y': y}
 
@@ -54,28 +56,46 @@ class MyArgs:
 
 
 class Trainer:
-    def __init__(self, model, args, train_loader, valid_loader, test_loader, optimizer=torch.optim.Adam):
+    def __init__(self, model, args, train_loader, valid_loader, test_loader, optimizer):
         self.model = model
         self.args = args
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.test_loader = test_loader
-        self.optimizer = optimizer(model.parameters(), lr=args.learning_rate)
+        self.optimizer = optimizer(self.model.parameters(), lr=self.args.learning_rate)
         self.train_loss = None
         self.valid_loss = None
         self.train_epochs_loss = None
         self.valid_epochs_loss = None
+        self.test_loss = None
+        self.estimates = None
+        self.predicts = None
+        self.groundtruth = None
         self.total_epochs = 0
-        self.__gen_loss_logs__()
+        self.y_type = None
+        self.__gen_train_loss__()
+        self.__gen_test_loss__()
+        self.__gen_y_type__()
 
-    def __gen_loss_logs__(self):
+    def __gen_train_loss__(self):
         self.train_loss = []
         self.valid_loss = []
         self.train_epochs_loss = []
         self.valid_epochs_loss = []
 
-    def train(self):
-        y_type = torch.long if isinstance(self.args.criterion, nn.CrossEntropyLoss) else torch.float32
+    def __gen_test_loss__(self):
+        self.test_loss = []
+        self.estimates = []
+        self.predicts = []
+        self.groundtruth = []
+
+    def __gen_y_type__(self):
+        if isinstance(self.args.criterion, nn.CrossEntropyLoss):
+            self.y_type = torch.long
+        else:
+            self.y_type = torch.float32
+
+    def train_and_eval(self, autosave=False, notion=''):
         start = time.time()
 
         for epoch in range(self.args.epochs):
@@ -83,7 +103,7 @@ class Trainer:
             train_epoch_loss = []
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
                 data_x = data_x.to(torch.float32).to(self.args.device)
-                data_y = data_y.to(y_type).to(self.args.device)
+                data_y = data_y.to(self.y_type).to(self.args.device)
                 self.optimizer.zero_grad()
                 outputs = self.model(data_x)
                 loss = self.args.criterion(outputs, data_y)
@@ -99,6 +119,10 @@ class Trainer:
 
         end = time.time()
         print("\nTotal training time:", end - start, "sec")
+
+        if autosave is True:
+            torch.save(self.model.state_dict(),
+                       '../Models/' + str(self.model) + notion + '_' + str(self.total_epochs) + '.pth')
 
         # =====================valid============================
         self.model.eval()
@@ -128,3 +152,47 @@ class Trainer:
         #        param_group['lr'] = lr
         #    print('Updating learning rate to {}'.format(lr))
 
+    def plot_loss(self, autosave=False, notion=''):
+        plt.figure()
+        plt.suptitle("Training loss and Validation loss")
+        plt.subplot(2, 1, 1)
+        plt.plot(self.train_epochs_loss[1:], 'b', label='training_loss')
+        plt.ylabel('loss')
+        plt.xlabel('#epoch')
+        plt.legend()
+        plt.subplot(2, 1, 2)
+        plt.plot(self.valid_loss, 'b', label='validation_loss')
+        plt.ylabel('loss')
+        plt.xlabel('#iter')
+        plt.legend()
+        if autosave is True:
+            plt.savefig(str(self.model) + "_loss" + notion + '_' + str(self.total_epochs) + '.jpg')
+        plt.show()
+
+    def test(self):
+        self.model.eval()
+        for idx, (data_x, data_y) in enumerate(self.test_loader, 0):
+            data_x = data_x.to(torch.float32).to(self.args.device)
+            data_y = data_y.to(self.y_type).to(self.args.device)
+            outputs = self.model(data_x)
+            loss = self.args.criterion(outputs, data_y)
+            self.estimates.append(outputs.cpu().detach().numpy().squeeze().tolist())
+            self.groundtruth.append(data_y.cpu().detach().numpy().squeeze().tolist())
+            self.test_loss.append(loss.item())
+            if idx % (len(self.test_loader)//5) == 0:
+                print("\r{}/{}of test, loss={}".format(idx, len(self.test_loader), loss.item()), end='')
+
+        self.predicts = [np.argmax(row) for row in self.estimates]
+
+    def plot_test_results(self):
+        plt.figure()
+        sns.set()
+        f, ax = plt.subplots()
+        cf = confusion_matrix(self.groundtruth, self.estimates)
+
+        sns.heatmap(cf, annot=True, ax=ax)
+
+        ax.set_title('Confusion Matrix')
+        ax.set_xlabel('Predicted')
+        ax.set_ylabel('True')
+        plt.show()

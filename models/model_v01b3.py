@@ -199,6 +199,12 @@ class MyModel(nn.Module):
         self.encoder = MyEncoder()
         self.decoder = MyDecoder()
 
+    def __str__(self):
+        return 'Model_v01b3'
+
+    def intro(self):
+        print("[CNN-LSTM]-[LSTM-FC]")
+
     def forward(self, x):
         z = self.encoder(x)
         y = self.decoder(z)
@@ -208,3 +214,4 @@ class MyModel(nn.Module):
 if __name__ == "__main__":
     m1 = MyModel()
     summary(m1, input_size=(2, 90, 100))
+    m1.intro()

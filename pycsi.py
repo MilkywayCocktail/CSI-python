@@ -269,9 +269,9 @@ class ToFViewer(MySpectrumViewer):
             ax = sns.heatmap(self.spectrum)
             label0, label1 = self.replace(self.timestamps, self.num_ticks)
 
-        ax.yaxis.set_major_formatter(ticker.FixedFormatter([450, 400, 350, 300, 250, 200, 150, 100, 50, 0, -50, -100]))
+        ax.yaxis.set_major_formatter(ticker.FixedFormatter([250, 200, 150, 100, 50, 0, -50]))
         ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
-        ax.yaxis.set_minor_locator(ticker.MultipleLocator(25))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
         plt.xticks(label0, label1)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
         ax.set_xlabel("Time / $s$")
@@ -756,7 +756,7 @@ class MyCsi:
         except ArgError as e:
             print(e, "\nPlease specify smooth=True or False")
 
-    def tof_by_music(self, input_dt_list=np.arange(-1.e-7, 4.e-7, 1.e-9)):
+    def tof_by_music(self, input_dt_list=np.arange(-0.5e-7, 2.e-7, 1.e-9)):
 
         subfreq_list = self.configs.subfreq_list - self.configs.center_freq
         ntx = self.configs.ntx
@@ -873,7 +873,7 @@ class MyCsi:
             print(e)
 
     def aoa_tof_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
-                         input_dt_list=np.arange(-1.e-7, 4.e-7, 1.e-9),
+                         input_dt_list=np.arange(-0.5e-7, 2.e-7, 1.e-9),
                          smooth=False):
         """
         Computes AoA-ToF spectrum by MUSIC.\n

@@ -39,8 +39,6 @@ class GroundTruth:
         self.DFS = np.zeros(self.configs.render_ticks)
         self.AMP = np.ones(self.configs.render_ticks)
         self.temp_csi_dfs = np.exp(0.j)
-        self.temp_TS = 0
-        self.temp_RS = 0
 
     def __gen_phase__(self, tick, x, y, tx_pos, rx_pos):
         TS = [x - tx_pos[0], y - tx_pos[1]]
@@ -59,14 +57,15 @@ class GroundTruth:
             DFS = 0
         else:
             DFS = (np.linalg.norm(TS) + np.linalg.norm(RS) -
-                   np.linalg.norm(self.temp_TS) - np.linalg.norm(
-                        self.temp_RS)) / self.configs.render_interval  # in m/s
+                   np.linalg.norm(self.TS[tick - 1]) - np.linalg.norm(
+                        self.RS[tick - 1])) / self.configs.render_interval  # in m/s
 
         csi_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
                                     self.configs.render_interval))
         csi_dfs = self.temp_csi_dfs * csi_dfs[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(
             self.configs.ntx, axis=2)
 
+        # Do not multiply csi_dfs with csi
         csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
             csi_aoa * csi_tof
 
@@ -76,8 +75,6 @@ class GroundTruth:
         self.ToF[tick] = ToF
         self.DFS[tick] = DFS
         self.temp_csi_dfs = csi_dfs
-        self.temp_TS = TS
-        self.temp_RS = RS
 
         return csi
 
@@ -92,7 +89,7 @@ class GroundTruth:
         axs[3].plot(self.AMP)
 
         axs[0].set_title("ToF")
-        axs[0].set_ylim(-1.e-7, 4.e-7)
+        axs[0].set_ylim(np.min(self.ToF), np.max(self.ToF))
         axs[1].set_title("AoA")
         axs[1].set_ylim(-90, 90)
         axs[2].set_title("Doppler")
@@ -159,15 +156,15 @@ class Subject:
         print('Done')
         '''
 
-    def sine_velocity(self, velocity='vx', period=5):
+    def sine_velocity(self, velocity='vx', period=5, magnitude=1.):
         print(self.name, "Setting sine velocity for", velocity, '...', end='')
         period_ratio = 2 * np.pi / (self.configs.sampling_rate * period)
         x = self.configs.render_indices * period_ratio
-        y = np.sin(x)
+        y = np.sin(x) * magnitude
         self.state[velocity] = y
         print('Done')
 
-    def constant_velocity(self, velocity='vx', value=0):
+    def constant_velocity(self, velocity='vx', value=0.):
         print(self.name, "Setting constant velocity for", velocity, '...', end='')
         self.state[velocity][:] = (value,)
         print('Done')
@@ -251,7 +248,7 @@ class Subject:
             print(self.name, "Please generate the trajectory first!")
             return
         else:
-            print(self.name, "Printing trajectory...")
+            print(self.name, "Plotting trajectory...")
             plt.figure()
             if self.inbound is True:
                 plt.xlim((self.configs.xlim[0] - 0.5, self.configs.xlim[1] + 0.5))
@@ -329,16 +326,16 @@ class SensingZone:
 
 
 if __name__ == '__main__':
-    config = MyConfigsSimu(length=10)
+    config = MyConfigsSimu(length=100)
     sub1 = Subject(config, 'sub1')
-    #sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
+    sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
     #sub1.constant_velocity('vx')
-    #sub1.sine_velocity(velocity='vy', period=50)
-    sub1.set_init_location(1, 2)
-    sub1.circle_trajectory(period=10, center=(1, 3))
+    sub1.sine_velocity(velocity='vy', period=5, magnitude=0.8)
+    sub1.set_init_location(0, 1)
+    #sub1.circle_trajectory(period=10, center=(1, 3))
     sub1.plot_velocity()
 
-    zone = SensingZone(config, inbound=False)
+    zone = SensingZone(config, inbound=True)
     zone.add_subject(sub1)
 
     sub1.generate_trajectory()
@@ -347,7 +344,7 @@ if __name__ == '__main__':
     zone.collect()
     zone.show_groundtruth()
 
-    simu = zone.derive_MyCsi(config, '0316GT0')
+    simu = zone.derive_MyCsi(config, '0316GT1')
     #simu.save_csi()
 
     #simu = pycsi.MyCsi(config, '0310GT0')
