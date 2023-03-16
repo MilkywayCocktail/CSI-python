@@ -38,7 +38,7 @@ class GroundTruth:
         self.ToF = np.zeros(self.configs.render_ticks)
         self.DFS = np.zeros(self.configs.render_ticks)
         self.AMP = np.ones(self.configs.render_ticks)
-        self.temp_csi = np.exp(0.j)
+        self.temp_csi_dfs = np.exp(0.j)
         self.temp_TS = 0
         self.temp_RS = 0
 
@@ -64,18 +64,18 @@ class GroundTruth:
 
         csi_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
                                     self.configs.render_interval))
-        csi_dfs = self.temp_csi * csi_dfs[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(
+        csi_dfs = self.temp_csi_dfs * csi_dfs[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(
             self.configs.ntx, axis=2)
 
         csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
-            csi_dfs
+            csi_aoa * csi_tof
 
         self.TS[tick] = TS
         self.RS[tick] = RS
         self.AoA[tick] = np.rad2deg(np.arcsin(AoA))
         self.ToF[tick] = ToF
         self.DFS[tick] = DFS
-        self.temp_csi = csi
+        self.temp_csi_dfs = csi_dfs
         self.temp_TS = TS
         self.temp_RS = RS
 
@@ -335,7 +335,7 @@ if __name__ == '__main__':
     #sub1.constant_velocity('vx')
     #sub1.sine_velocity(velocity='vy', period=50)
     sub1.set_init_location(1, 2)
-    sub1.circle_trajectory(period=5, center=(2, 4))
+    sub1.circle_trajectory(period=10, center=(1, 3))
     sub1.plot_velocity()
 
     zone = SensingZone(config, inbound=False)
@@ -347,13 +347,13 @@ if __name__ == '__main__':
     zone.collect()
     zone.show_groundtruth()
 
-    simu = zone.derive_MyCsi(config, '0315GT4')
+    simu = zone.derive_MyCsi(config, '0316GT0')
     #simu.save_csi()
 
     #simu = pycsi.MyCsi(config, '0310GT0')
     #simu.load_lists(path='../npsave/0310/0310GT0-csis.npy')
-    #simu.aoa_by_music()
-    #simu.viewer.view(autosave=True)
+    simu.aoa_by_music()
+    simu.viewer.view(autosave=True)
     simu.tof_by_music()
     simu.viewer.view(autosave=True)
     #simu.extract_dynamic(mode='running', subtract_mean=False)
