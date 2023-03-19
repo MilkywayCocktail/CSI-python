@@ -113,13 +113,6 @@ def from_onehot(path, path2):
     np.save(path2, out)
 
 
-def onehotscale(in_path, out_path):
-    labels = np.load(in_path)
-    labels = labels * 10
-    np.save(out_path, labels )
-    print("All saved!")
-
-
 def pseudo_dataset(out_path):
     csi = np.ones((1000, 1, 100, 90), dtype=complex) * (-1)
     csi_1 = np.ones((1000, 1, 100, 90), dtype=complex) * 0.5j
@@ -193,11 +186,39 @@ def pseudo_dataset_frq(out_path):
     print("All saved!")
 
 
+def simu_dataset(paths, out_path):
+    out = []
+    sid = []
+    for path in paths:
+        csi = np.load(path, allow_pickle=True)
+        s = eval(path[-10])
+        for i in range(500):
+            amp = csi.item()['amp'][i * 100: (i + 1) * 100].reshape(100, 90).T
+            phs = csi.item()['phs'][i * 100: (i + 1) * 100].reshape(100, 90).T
+            data = np.concatenate((amp[np.newaxis, ...], phs[np.newaxis, ...]), axis=0)
+            out.append(data)
+            sid.append(s)
+    out = np.array(out)
+    sid = np.array(sid)
+    print(out.shape)
+    print(sid.shape)
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+    #np.save(out_path + 'csi.npy', out)
+    np.save(out_path + 'sid.npy', sid)
+
+
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
     #asy('../dataset/0124/make02/03_dyn_img.npy')
     #asx('../dataset/0208/make00_finished/sid.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
-    pseudo_dataset_frq('../dataset/0302/make00_finished/')
-    asx('../dataset/0302/make00_finished/csi.npy')
+    #pseudo_dataset_frq('../dataset/0302/make00_finished/')
+    #asx('../dataset/0302/make00_finished/csi.npy')
+
+    ps = ['../npsave/0317/0317GT0-csis.npy',
+          '../npsave/0317/0317GT1-csis.npy',
+          '../npsave/0317/0317GT2-csis.npy']
+
+    simu_dataset(ps, '../dataset/0317/make00_finished/')

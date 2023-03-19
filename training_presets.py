@@ -185,10 +185,9 @@ class Trainer:
         self.predicts = [np.argmax(row) for row in self.estimates]
 
     def plot_test_results(self):
-        plt.figure()
         sns.set()
         f, ax = plt.subplots()
-        cf = confusion_matrix(self.groundtruth, self.estimates)
+        cf = confusion_matrix(self.groundtruth, self.predicts)
 
         sns.heatmap(cf, annot=True, ax=ax)
 

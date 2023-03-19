@@ -260,6 +260,9 @@ class Subject:
             vy_lb = np.min(self.state['vy'])
             vx_range = np.max(self.state['vx']) - np.min(self.state['vx'])
             vy_range = np.max(self.state['vy']) - np.min(self.state['vy'])
+            for vrange in (vx_range, vy_range):
+                if vrange == 0:
+                    vrange = 1
             for tick in range(self.configs.render_ticks):
                 if tick % 100 == 0:
                     _color = ((self.state['vx'][tick] - vx_lb) / vx_range,
@@ -326,12 +329,12 @@ class SensingZone:
 
 
 if __name__ == '__main__':
-    config = MyConfigsSimu(length=100)
+    config = MyConfigsSimu(length=50)
     sub1 = Subject(config, 'sub1')
-    sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
-    #sub1.constant_velocity('vx')
-    sub1.sine_velocity(velocity='vy', period=5, magnitude=0.8)
-    sub1.set_init_location(0, 1)
+    #sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
+    sub1.constant_velocity('vy')
+    sub1.sine_velocity(velocity='vx', period=5, magnitude=2.5)
+    sub1.set_init_location(-2, 1)
     #sub1.circle_trajectory(period=10, center=(1, 3))
     sub1.plot_velocity()
 
@@ -344,8 +347,8 @@ if __name__ == '__main__':
     zone.collect()
     zone.show_groundtruth()
 
-    simu = zone.derive_MyCsi(config, '0316GT1')
-    #simu.save_csi()
+    simu = zone.derive_MyCsi(config, '0317GT5')
+    simu.save_csi()
 
     #simu = pycsi.MyCsi(config, '0310GT0')
     #simu.load_lists(path='../npsave/0310/0310GT0-csis.npy')
