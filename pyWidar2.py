@@ -171,7 +171,6 @@ class MyWidar2:
         nrx = self.csi.configs.nrx
 
         csi_signal = recon(self.csi.amp, self.csi.phase, squeeze=False)
-        csi_signal = csi_signal[..., 0]
 
         print("total steps=", self.total_steps)
 
@@ -262,8 +261,8 @@ class MyWidar2:
     def run(self, pick_antenna=0, **kwargs):
         start = time.time()
         if self.configs.ntx > 1:
-            self.csi.amp = self.csi.amp[..., pick_antenna][..., np.newaxis]
-            self.csi.phase = self.csi.phase[..., pick_antenna][..., np.newaxis]
+            self.csi.amp = self.csi.amp[..., pick_antenna]
+            self.csi.phase = self.csi.phase[..., pick_antenna]
 
         #_, alpha, beta = self.csi.self_calibrate()
         # self.csi.filter_widar2()
@@ -338,9 +337,9 @@ if __name__ == "__main__":
     csi = MyCsiW2(conf, '0307A04', '../npsave/0307/0307A04-csis.npy')
     csi.load_lists(path='../npsave/0307/0307A04-csis.npy')
     csi.load_label('../sense/0307/04_labels.csv')
-    csi.extract_dynamic(mode='division', ref='tx', reference_antenna=2, subtract_mean=False)
+    csi.extract_dynamic(mode='division', ref='tx', reference_antenna=1, subtract_mean=False)
     csi.extract_dynamic(mode='highpass')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
-    widar.run(pick_antenna=0, dynamic_durations=False)
+    widar.run(pick_antenna=2, dynamic_durations=False)
     widar.plot_results()
