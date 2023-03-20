@@ -259,11 +259,11 @@ class MyWidar2:
             residue_error = actual_csi - np.sum(latent_signal, axis=3)
             residue_error_ratio = np.mean(np.abs(residue_error)) / np.mean(np.abs(actual_csi))
 
-    def run(self, **kwargs):
+    def run(self, pick_antenna=0, **kwargs):
         start = time.time()
         if self.configs.ntx > 1:
-            self.csi.amp = self.csi.amp[..., 0][..., np.newaxis]
-            self.csi.phase = self.csi.phase[..., 0][..., np.newaxis]
+            self.csi.amp = self.csi.amp[..., pick_antenna][..., np.newaxis]
+            self.csi.phase = self.csi.phase[..., pick_antenna][..., np.newaxis]
 
         #_, alpha, beta = self.csi.self_calibrate()
         # self.csi.filter_widar2()
@@ -332,15 +332,15 @@ class MyWidar2:
 
 
 if __name__ == "__main__":
-    conf = MyConfigsW2(num_paths=2)
+    conf = MyConfigsW2(num_paths=1)
     conf.ntx = 3
-    conf.tx_rate = 0x1c113
-    csi = MyCsiW2(conf, '0307A07', '../npsave/0307/0307A07-csio.npy')
-    csi.load_data()
-    csi.load_label('../sense/0307/07_labels.csv')
-    csi.extract_dynamic(mode='division', ref='tx', reference_antenna=1, subtract_mean=False)
+    conf.tx_rate = 0x113
+    csi = MyCsiW2(conf, '0307A04', '../npsave/0307/0307A04-csis.npy')
+    csi.load_lists(path='../npsave/0307/0307A04-csis.npy')
+    csi.load_label('../sense/0307/04_labels.csv')
+    csi.extract_dynamic(mode='division', ref='tx', reference_antenna=2, subtract_mean=False)
     csi.extract_dynamic(mode='highpass')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
-    widar.run(dynamic_durations=False)
+    widar.run(pick_antenna=0, dynamic_durations=False)
     widar.plot_results()
