@@ -108,17 +108,13 @@ def remove_sm(csi, rate):
     if cond:
         if ntx == 3:
             sm = constant_value.sm_matrices.sm_3_40
-            print('sm_3_40')
         elif ntx == 2:
             sm = constant_value.sm_matrices.sm_2_40
-            print('sm_2_40')
     else:
         if ntx == 3:
             sm = constant_value.sm_matrices.sm_3_20
-            print('sm_3_20')
         elif ntx == 2:
             sm = constant_value.sm_matrices.sm_2_20
-            print('sm_2_20')
 
     for i in range(0, nsub):
         t = np.array(csi)[i, :, :]

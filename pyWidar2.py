@@ -186,7 +186,7 @@ class MyWidar2:
 
             if self.csi.labels is not None:
                 period = self.csi.timestamps[step * stride: step * stride + window_length]
-                for label in self.csi.labels['period']:
+                for label in self.csi.labels['times']:
                     if label[0] in period and label[0] not in self.filler['start']:
                         self.filler['start'].append(step)
                     if label[1] in period and label[1] not in self.filler['end']:
@@ -333,13 +333,13 @@ class MyWidar2:
 if __name__ == "__main__":
     conf = MyConfigsW2(num_paths=1)
     conf.ntx = 3
-    conf.tx_rate = 0x113
-    csi = MyCsiW2(conf, '0307A04', '../npsave/0307/0307A04-csis.npy')
-    csi.load_lists(path='../npsave/0307/0307A04-csis.npy')
+    conf.tx_rate = 0x1c113
+    csi = MyCsiW2(conf, '0307A04', '../npsave/0307/0307A04-csio.npy')
+    csi.load_data(remove_sm=True)
     csi.load_label('../sense/0307/04_labels.csv')
-    csi.extract_dynamic(mode='division', ref='tx', reference_antenna=1, subtract_mean=False)
+    csi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1, subtract_mean=False)
     csi.extract_dynamic(mode='highpass')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
-    widar.run(pick_antenna=2, dynamic_durations=False)
+    widar.run(pick_antenna=0, dynamic_durations=False)
     widar.plot_results()

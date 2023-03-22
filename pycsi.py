@@ -140,7 +140,7 @@ class MyCommonFuncs:
     def windowed_divison(self, input_csi, ref, reference_antenna, subtract_mean=True):
         amp = np.abs(input_csi)
         phs = np.angle(input_csi)
-        re_csi = self.reconstruct_csi(amp + 1e6, phs, squeeze=False)
+        re_csi = self.reconstruct_csi(amp + 1.e-6, phs, squeeze=False)
         if ref == 'rx':
             phase_diff = input_csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(3, axis=2)
         elif ref == 'tx':
@@ -378,7 +378,7 @@ class MyCsi:
     def __repr__(self):
         return 'MyCsi-' + self.name
 
-    def load_data(self):
+    def load_data(self, remove_sm=False):
         """
         Loads csi data into current MyCsi instance.\n
         Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).\n
@@ -407,7 +407,7 @@ class MyCsi:
                 csi, t, r, d = csi_loader.load_npy(self.path)
 
             self.length = len(csi)
-            if self.configs.ntx != 1:
+            if remove_sm is True and self.configs.ntx != 1:
                 print('Removing sm...', end='')
                 for i in range(self.length):
                     csi[i] = csi_loader.remove_sm(csi[i], self.configs.tx_rate)
@@ -415,7 +415,7 @@ class MyCsi:
 
             self.amp = np.abs(csi)
             self.phase = np.angle(csi)
-            self.timestamps = (t - t[0]) / 1e6
+            self.timestamps = (t - t[0]) / 1.e6
             self.actual_sr = self.length / self.timestamps[-1]
             print(self.name, self.amp.shape, "load complete", time.asctime(time.localtime(time.time())))
 
@@ -443,37 +443,52 @@ class MyCsi:
 
             labels = np.array(labels)
             print('Done')
+
             print('Labeling...', end='')
-            full = list(range(self.length))
             dyn = []
             period = []
+            segments = []
 
             for (start, end) in labels:
                 start_id = np.searchsorted(self.timestamps, start)
                 end_id = np.searchsorted(self.timestamps, end)
-                dyn.extend(full[start_id:end_id])
+                dyn.extend(list(range(start_id, end_id)))
                 period.append([self.timestamps[start_id], self.timestamps[end_id]])
+                segments.append(list(range(start_id, end_id)))
 
-            stt = list(set(full).difference(set(dyn)))
-            self.labels = {'static': stt,
-                           'dynamic': dyn,
-                           'period': period
+            # static = list(set(full).difference(set(dyn)))
+            self.labels = {'dynamic': dyn,
+                           'times': period,
+                           'segments': segments
                            }
         print('Done')
 
-    def slice_by_label(self, mode='dynamic', overwrite=True):
+    def slice_by_label(self, segment='all', overwrite=True):
+        """
+        Slice the full-length CSI by loaded labels.
+        :param segment:
+        :param overwrite:
+        :return:
+        """
         print('Slicing...', end='')
-        if self.labels is not None and mode in ('dynamic', 'static'):
+        if self.labels is not None:
+            if segment == 'all':
+                seg = self.labels['dynamic'][:]
+            else:
+                seg = []
+                for s in segment:
+                    seg.extend(self.labels['segments'][s])
+
             if overwrite is True:
-                self.amp = self.amp[self.labels[mode]]
-                self.phase = self.phase[self.labels[mode]]
-                self.timestamps = self.timestamps[self.labels[mode]]
+                self.amp = self.amp[seg]
+                self.phase = self.phase[seg]
+                self.timestamps = self.timestamps[seg]
                 self.length = len(self.amp)
             else:
-                return self.amp[mode], self.phase[mode], self.timestamps[mode]
+                return self.amp[seg], self.phase[seg], self.timestamps[seg]
         print('Done')
 
-    def load_lists(self, amp=None, phase=None, timelist=None, path=None):
+    def load_lists(self, amp=None, phase=None, timelist=None):
         """
         Loads separate items into current MyCsi instance.\n
         :param amp: input amplitude
@@ -482,8 +497,8 @@ class MyCsi:
         :return: amplitude, phase, timestamps, length, sampling_rate
         """
 
-        if path is not None:
-            dic = np.load(path, allow_pickle=True).item()
+        if self.path is not None:
+            dic = np.load(self.path, allow_pickle=True).item()
             self.amp = dic['amp']
             self.phase = dic['phs']
             self.timestamps = dic['time']
@@ -619,7 +634,7 @@ class MyCsi:
     def windowed_phase_difference(self, window_length=100, stride=100, folder_name=''):
 
         print(self.name, "Plotting phase difference...\n",)
-        csi = self.commonfunc.reconstruct_csi(self.amp, self.phase)
+        csi = self.commonfunc.reconstruct_csi(self.amp, self.phase, squeeze=False)
 
         save_path = "../visualization/" + self.name[:4] + '/' + self.name[4:7] + folder_name + '/'
         if not os.path.exists(save_path):
@@ -631,15 +646,15 @@ class MyCsi:
 
             ax1 = plt.subplot(2, 1, 1)
             ax1.set_title('Phasediff_0_1')
-            ax1.plot(np.unwrap(np.angle(csi[step * stride: step * stride + window_length, 14, 0] *
-                                        csi[step * stride: step * stride + window_length, 14, 1].conj())))
+            ax1.plot(np.unwrap(np.angle(csi[step * stride: step * stride + window_length, 14, 0, 0] *
+                                        csi[step * stride: step * stride + window_length, 14, 1, 0].conj())))
             ax1.set_xlabel('#Packet')
             ax1.set_ylim([-30, 30])
 
             ax2 = plt.subplot(2, 1, 2)
             ax2.set_title('Phasediff_1_2')
-            ax2.plot(np.unwrap(np.angle(csi[step * stride: step * stride + window_length, 14, 1] *
-                                        csi[step * stride: step * stride + window_length, 14, 2].conj())))
+            ax2.plot(np.unwrap(np.angle(csi[step * stride: step * stride + window_length, 14, 1, 0] *
+                                        csi[step * stride: step * stride + window_length, 14, 2, 0].conj())))
             ax2.set_xlabel('#Packet')
             ax2.set_ylim([-30, 30])
             plt.suptitle(str(self.name) + ' Phase Difference - packet ' + str(step * stride))
@@ -650,6 +665,43 @@ class MyCsi:
             plt.close()
 
         print('Done')
+
+    def verbose_packet(self, index=None, notion=''):
+        """
+        Plot the unwrapped phase of a certain packet.
+        :param index: packet index
+        :param notion: Figure title
+        :return: Figure
+        """
+        recon = self.commonfunc.reconstruct_csi
+        nsub = self.configs.nsub
+        nrx = self.configs.nrx
+        ntx = self.configs.ntx
+
+        if index is None:
+            index = np.random.randint(self.length)
+        _csi = recon(self.amp[index], self.phase[index]).reshape(nsub, ntx * nrx)
+        _phs = np.unwrap(np.angle(_csi), axis=0)
+        for ll in range(9):
+            plt.plot(_phs[:, ll], label=ll)
+        plt.legend()
+        plt.grid()
+        plt.title(notion)
+        plt.xlabel("sub")
+        plt.ylabel("phase")
+        plt.show()
+
+    def verbose_series(self, start=0, end=None, sub=14, rx=0, tx=0, notion=''):
+
+        if end is None:
+            end = self.length
+
+        plt.plot(np.unwrap(self.phase[start:end, sub, rx, tx], axis=0))
+        plt.grid()
+        plt.title(notion)
+        plt.xlabel("packet")
+        plt.ylabel("phase")
+        plt.show()
 
     def view_all_rx(self, metric="amplitude"):
         """
@@ -1195,22 +1247,29 @@ class MyCsi:
 
             complex_csi = recon(self.amp, self.phase, squeeze=False)
 
-            if mode == 'overall':
+            if mode == 'overall-multiply':
                 if ref == 'rx':
-                    conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, :]).repeat(3, axis=2)
+                    conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, :]).repeat(nrx, axis=2)
                 elif ref == 'tx':
-                    conjugate_csi = np.conjugate(complex_csi[:, :, :, reference_antenna]).repeat(3, axis=3)
+                    conjugate_csi = np.conjugate(complex_csi[:, :, :, reference_antenna]).repeat(ntx, axis=3)
                 hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
                 average_hc = np.mean(hc, axis=0)[np.newaxis, ...].repeat(self.length, axis=0)
                 dynamic_csi = hc - average_hc
 
-            elif mode == 'running':
+            elif mode == 'overall-divide':
+                re_csi = recon(self.amp + 1.e-6, self.phase, squeeze=False)
+                if ref == 'rx':
+                    dynamic_csi = complex_csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(nrx, axis=2)
+                elif ref == 'tx':
+                    dynamic_csi = complex_csi / re_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(ntx, axis=3)
+
+            elif mode == 'running-multiply':
                 dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = dynamic(
                         complex_csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
 
-            elif mode == 'division':
+            elif mode == 'running-divide':
                 dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = division(
@@ -1288,14 +1347,25 @@ class MyCsi:
 if __name__ == '__main__':
 
     mycon = MyConfigs(5.32, 20)
-    mycsi = MyCsi(mycon, '0208A03', '../npsave/0208/0208A03-csio.npy')
-    mycsi.load_data()
-    #mycsi.load_label('../sense/0208/02_labels.csv')
-    #print(mycsi.labels['period'])
+    mycon.ntx = 3
+    mycsi = MyCsi(mycon, '0307A04', '../npsave/0307/0307A04-csio.npy')
+    mycsi.load_data(remove_sm=True)
+    #mycsi.load_lists()
+    mycsi.load_label('../sense/0307/04_labels.csv')
+    mycsi.slice_by_label()
     #ref = MyCsi(mycon, '0208A00', '../npsave/0208/0208A00-csio.npy')
     #ref.load_data()
-    mycsi.extract_dynamic(mode='running')
+    #print(mycsi.timestamps)
+    mycsi.verbose_packet(index=10, notion='Raw')
+    mycsi.verbose_series(notion='Raw')
+    mycsi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
+    mycsi.verbose_packet(index=10, notion='After division')
+    mycsi.verbose_series(notion='After division')
+    mycsi.extract_dynamic(mode='highpass')
+    mycsi.verbose_packet(index=10, notion='After highpass')
+    mycsi.verbose_series(notion='After highpass')
+
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
-    mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
+    #mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
     #mycsi.doppler_by_music()
     #mycsi.viewer.view()
