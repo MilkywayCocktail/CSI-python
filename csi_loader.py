@@ -118,7 +118,7 @@ def remove_sm(csi, rate):
 
     for i in range(0, nsub):
         t = np.array(csi)[i, :, :]
-        ret[i, :, :] = t.dot(np.transpose(sm))
+        ret[i, :, :] = t.dot(np.transpose(sm).conj())
     return ret
 
 
