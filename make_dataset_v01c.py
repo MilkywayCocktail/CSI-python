@@ -29,7 +29,7 @@ class MyDataMaker_v01c(MyDataMaker):
         rel_timestamps = self.result['tim'] - self.result['tim'][0]
         sidelabels = []
 
-        with open(self.paths[4]) as f:
+        with open(self.paths[3]) as f:
             for i, line in enumerate(f):
                 if i > 0:
                     if label == 'x':

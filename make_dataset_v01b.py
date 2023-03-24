@@ -29,7 +29,7 @@ class MyDataMaker_v01b(MyDataMaker):
         rel_timestamps = self.result['tim'] - self.result['tim'][0]
         sidelabels = []
 
-        with open(self.paths[4]) as f:
+        with open(self.paths[3]) as f:
             for i, line in enumerate(f):
                 if i > 0:
                     if label == 'x':
@@ -50,13 +50,14 @@ class MyDataMaker_v01b(MyDataMaker):
 
 if __name__ == '__main__':
 
+    date = '0307'
     sub = '04'
     length = 3000
 
-    path = [os.path.join('../sense/0307', sub + '.bag'),
-            os.path.join('../sense/0307', sub + '_timestamps.txt'),
-            os.path.join('../npsave/0307', '0307A' + sub + '-csio.npy'),
-            os.path.join('../sense/0307', sub + '_labels.csv')]
+    path = ['../sense/' + date + '/' + sub + '.bag',
+            '../sense/' + date + '/' + sub + '_timestamps.txt',
+            '../npsave/' + date + '/' + date +'A' + sub + '-csio.npy',
+            '../sense/' + date + '/' + sub + '_labels.csv']
 
     configs = MyConfigsDM()
 
@@ -64,9 +65,9 @@ if __name__ == '__main__':
     mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
     mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
-    mkdata.export_sidelabel()
-    mkdata.export_csi(pick_tx=0)
+    mkdata.export_sidelabel(label='x')
+    mkdata.export_csi(dynamic_csi=False, pick_tx=0)
     mkdata.slice_by_label()
     print(mkdata.result['sid'])
     #mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0307/make00', sub + '_dyn', 'csi', 'sid')
+    #mkdata.save_dataset('../dataset/0307/make00', sub + '_dyn', 'csi', 'sid')

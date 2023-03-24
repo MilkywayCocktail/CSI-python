@@ -50,7 +50,7 @@ class HiddenPrints:
 
 
 class MyConfigsDM(pycsi.MyConfigs):
-    def __init__(self, img_size=(128, 128), sample_length=30, *args, **kwargs):
+    def __init__(self, img_size=(128, 128), sample_length=100, *args, **kwargs):
         pycsi.MyConfigs.__init__(self, *args, **kwargs)
         self.img_size = img_size
         self.sample_length = sample_length
@@ -183,8 +183,8 @@ class MyDataMaker:
             pass
 
         finally:
-            self.calibrate_camtime()
             self.video_stream.stop()
+            self.calibrate_camtime()
 
     def export_csi(self, dynamic_csi=True, pick_tx=0):
         """
@@ -253,6 +253,10 @@ class MyDataMaker:
         return time_delta
 
     def calibrate_camtime(self):
+        """
+        Calibrate camera timestamps against local timestamps. All timestamps are absolute.\n
+        :return: result['tim']
+        """
         print('Calibrating camera time against local time file...', end='')
         if self.cal_cam is False:
             temp_lag = np.zeros(self.total_frames)
