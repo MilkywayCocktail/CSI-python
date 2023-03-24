@@ -5,6 +5,7 @@ import csi_loader
 import numpy as np
 import sys
 import os
+import pycsi
 from tqdm import tqdm
 from datetime import datetime
 
@@ -48,20 +49,25 @@ class HiddenPrints:
         sys.stdout = self._original_stdout
 
 
-class MyDataMaker:
-
-    def __init__(self, paths: list, total_frames: int, img_size: tuple, sample_length=33):
-        """
-        :param paths: [bag path, local timestamp path, CSI path, CSI timestamp path, (label path)]
-        :param total_frames: Full length of bag file
-        :param img_size: resize camera images
-        :param sample_length: how many packets in one CSI sample
-        """
-
-        self.paths = paths
-        self.total_frames = total_frames
+class MyConfigsDM(pycsi.MyConfigs):
+    def __init__(self, img_size=(128, 128), sample_length=30, *args, **kwargs):
+        pycsi.MyConfigs.__init__(self, *args, **kwargs)
         self.img_size = img_size
         self.sample_length = sample_length
+
+
+class MyDataMaker:
+
+    def __init__(self, configs: MyConfigsDM, paths: list, total_frames: int):
+        """
+        :param configs: MyConfigsDM
+        :param paths: [bag path, local timestamp path, CSI path, (label path)]
+        :param total_frames: Full length of bag file
+        """
+
+        self.configs = configs
+        self.paths = paths
+        self.total_frames = total_frames
         self.video_stream, self.timestamps = self.__setup_video_stream__()
         self.csi_stream = self.__setup_csi_stream__()
         self.result = self.__init_data__()
@@ -88,36 +94,16 @@ class MyDataMaker:
         return pipeline, local_time
 
     def __setup_csi_stream__(self):
-        print('Setting CSI stream...', end='')
-        file = os.path.basename(self.paths[2])
+        print('Setting CSI stream...')
+        _csi = pycsi.MyCsi(self.configs, 'CSI', self.paths[2])
+        _csi.load_data(remove_sm=True, absolute_time=True)
 
-        if file[-3:] == 'npy':
-            with HiddenPrints():
-                csi, _, i, j = csi_loader.load_npy(self.paths[2])
-
-        elif file[-3:] == 'dat':
-            with HiddenPrints():
-                csi, _ = csi_loader.dat2npy(self.paths[2], '', autosave=False)
-
-        else:
-            print("File type not supported")
-            return 1
-
-        csi_tf = open(self.paths[3], mode='r', encoding='utf-8')
-        csi_time = csi_tf.readlines()
-        csi_timestamp = np.zeros(len(csi_time))
-        for i in range(len(csi_time)):
-            csi_timestamp[i] = datetime.timestamp(datetime.strptime(csi_time[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
-        csi_tf.close()
-
-        print('Done')
-        return {'csi': csi,
-                'time': csi_timestamp}  # Calibrated CSI timestamp
+        return _csi  # Calibrated absolute CSI timestamp
 
     def __init_data__(self):
         # img_size = (width, height)
-        csi = np.zeros((self.total_frames, 2, 90, self.sample_length))
-        images = np.zeros((self.total_frames, self.img_size[1], self.img_size[0]))
+        csi = np.zeros((self.total_frames, 2, 90, self.configs.sample_length))
+        images = np.zeros((self.total_frames, self.configs.img_size[1], self.configs.img_size[0]))
         timestamps = np.zeros(self.total_frames)
         indices = np.zeros(self.total_frames)
         return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices}
@@ -183,7 +169,7 @@ class MyDataMaker:
                 image, frame_timestamp = self.__get_image__(mode=mode)
 
                 self.result['tim'][i] = frame_timestamp
-                image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
+                image = cv2.resize(image, self.configs.img_size, interpolation=cv2.INTER_AREA)
                 self.result['img'][i, ...] = image
 
                 if show_img is True:
@@ -200,7 +186,7 @@ class MyDataMaker:
             self.calibrate_camtime()
             self.video_stream.stop()
 
-    def export_csi(self, dynamic_csi=True):
+    def export_csi(self, dynamic_csi=True, pick_tx=0):
         """
         Requires export_image
         """
@@ -208,14 +194,14 @@ class MyDataMaker:
 
         for i in tqdm(range(self.total_frames)):
 
-            csi_index = np.searchsorted(self.csi_stream['time'], self.result['tim'][i])
+            csi_index = np.searchsorted(self.csi_stream.timestamps, self.result['tim'][i])
             self.result['ind'][i] = csi_index
-            csi_chunk = self.csi_stream['csi'][csi_index: csi_index + self.sample_length, :, :, 0]
+            csi_chunk = self.csi_stream.csi[csi_index: csi_index + self.configs.sample_length, :, :, pick_tx]
 
             if dynamic_csi is True:
-                csi_chunk = self.windowed_dynamic(csi_chunk).reshape(self.sample_length, 90).T
+                csi_chunk = self.windowed_dynamic(csi_chunk).reshape(self.configs.sample_length, 90).T
             else:
-                csi_chunk = csi_chunk.reshape(self.sample_length, 90).T
+                csi_chunk = csi_chunk.reshape(self.configs.sample_length, 90).T
 
             # Store in two channels
             self.result['csi'][i, 0, :, :] = np.abs(csi_chunk)
@@ -224,7 +210,7 @@ class MyDataMaker:
     def slice_by_label(self):
         print('Slicing...', end='')
         labels = []
-        with open(self.paths[4]) as f:
+        with open(self.paths[3]) as f:
             for i, line in enumerate(f):
                 if i > 0:
                     labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
@@ -347,23 +333,16 @@ if __name__ == '__main__':
     path = [os.path.join('../sense/0124', sub + '.bag'),
             os.path.join('../sense/0124', sub + '_timestamps.txt'),
             os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy'),
-            os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt'),
             os.path.join('../sense/0124', sub + '_labels.csv')]
 
-    label02 = [(4.447, 7.315), (8.451, 11.352), (14.587, 18.59), (20.157, 22.16),
-               (25.496, 29.397), (30.999, 33.767), (36.904, 40.473), (41.674, 44.108),
-               (47.244, 51.046), (53.615, 55.983)]
+    configs = MyConfigsDM()
 
-    label03 = [(8.085, 10.987), (12.422, 14.79), (18.959, 21.862), (21.962, 24.963),
-               (28.769, 31.902), (32.669, 36.206), (39.675, 42.611), (43.645, 47.147),
-               (50.751, 53.485), (55.187, 57.988)]
-
-    mkdata = MyDataMaker(path, length, (128, 128), sample_length=100)
+    mkdata = MyDataMaker(configs, path, length)
     mkdata.export_image(show_img=False)
     mkdata.depth_mask()
     #mkdata.export_coordinate(show_img=True, min_area=1000)
     mkdata.export_csi()
-    mkdata.slice_by_label(label02)
+    mkdata.slice_by_label()
     mkdata.playback_image()
     mkdata.save_dataset('../dataset/0124/make02', sub + '_dyn', 'ind', 'csi', 'img', 'tim')
 

@@ -70,7 +70,7 @@ class MyCommonFuncs:
     @staticmethod
     def smooth_csi(input_csi, rx=2, sub=15):
         """
-        Applies SpotFi smoothing technique. You have to run for amplitude and phase each.\n
+        Applies SpotFi smoothing technique.\n
         :param input_csi:  [packet, sub, rx]
         :param rx: the number of receive antennas for smoothing (default: 2 proposed in spotfi)
         :param sub: the number of subcarriers for smoothing (default: 15 proposed in spotfi)
@@ -86,23 +86,6 @@ class MyCommonFuncs:
                   for j in range(nsub - sub + 1)]
 
         return np.array(output)
-
-    @staticmethod
-    def reconstruct_csi(input_amp, input_phase, squeeze=True):
-        """
-        Reconstructs csi data as complex numbers.\n
-        :param input_amp: csi amplitude
-        :param input_phase: csi phase
-        :param squeeze: either squeeze out single dimensions
-        :return: reconstructed csi
-        """
-        if squeeze is True:
-            input_amp = np.squeeze(input_amp)
-            input_phase = np.squeeze(input_phase)
-
-        recon_csi = input_amp * np.exp(1.j * input_phase)
-
-        return recon_csi
 
     @staticmethod
     def noise_space(input_csi, ntx=1):
@@ -137,10 +120,10 @@ class MyCommonFuncs:
             dynamic = phase_diff
         return dynamic
 
-    def windowed_divison(self, input_csi, ref, reference_antenna, subtract_mean=True):
-        amp = np.abs(input_csi)
-        phs = np.angle(input_csi)
-        re_csi = self.reconstruct_csi(amp + 1.e-6, phs, squeeze=False)
+    @staticmethod
+    def windowed_divison(input_csi, ref, reference_antenna, subtract_mean=True):
+
+        re_csi = (np.abs(input_csi) + 1.e-6) * np.exp(1.j * np.abs(input_csi))
         if ref == 'rx':
             phase_diff = input_csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(3, axis=2)
         elif ref == 'tx':
@@ -357,8 +340,7 @@ class MyCsi:
         self.name = str(input_name)
         self.path = path
 
-        self.amp = None
-        self.phase = None
+        self.csi = None
         self.timestamps = None
         self.length = None
         self.actual_sr = None
@@ -378,7 +360,7 @@ class MyCsi:
     def __repr__(self):
         return 'MyCsi-' + self.name
 
-    def load_data(self, remove_sm=False):
+    def load_data(self, remove_sm=False, absolute_time=False):
         """
         Loads csi data into current MyCsi instance.\n
         Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).\n
@@ -413,11 +395,14 @@ class MyCsi:
                     csi[i] = csi_loader.remove_sm(csi[i], self.configs.tx_rate)
                 print('Done')
 
-            self.amp = np.abs(csi)
-            self.phase = np.angle(csi)
-            self.timestamps = (t - t[0]) / 1.e6
-            self.actual_sr = self.length / self.timestamps[-1]
-            print(self.name, self.amp.shape, "load complete", time.asctime(time.localtime(time.time())))
+            self.csi = csi
+            if absolute_time is True:
+                self.timestamps = np.array(t) / 1.e6
+                self.actual_sr = self.length / (self.timestamps - self.timestamps[0])[-1]
+            else:
+                self.timestamps = np.array(t - t[0]) / 1.e6
+                self.actual_sr = self.length / self.timestamps[-1]
+            print(self.name, self.csi.shape, "load complete", time.asctime(time.localtime(time.time())))
 
     def load_label(self, path):
         """
@@ -480,33 +465,29 @@ class MyCsi:
                     seg.extend(self.labels['segments'][s])
 
             if overwrite is True:
-                self.amp = self.amp[seg]
-                self.phase = self.phase[seg]
+                self.csi = self.csi[seg]
                 self.timestamps = self.timestamps[seg]
-                self.length = len(self.amp)
+                self.length = len(self.csi)
             else:
-                return self.amp[seg], self.phase[seg], self.timestamps[seg]
+                return self.csi[seg], self.timestamps[seg]
         print('Done')
 
-    def load_lists(self, amp=None, phase=None, timelist=None):
+    def load_lists(self, csilist=None, timelist=None):
         """
         Loads separate items into current MyCsi instance.\n
-        :param amp: input amplitude
-        :param phase: input phase
+        :param csilist: input csi
         :param timelist: input timestamps
         :return: amplitude, phase, timestamps, length, sampling_rate
         """
 
         if self.path is not None:
             dic = np.load(self.path, allow_pickle=True).item()
-            self.amp = dic['amp']
-            self.phase = dic['phs']
+            self.csi = dic['csi']
             self.timestamps = dic['time']
         else:
-            self.amp = amp
-            self.phase = phase
+            self.csi = csilist
             self.timestamps = timelist
-        self.length = len(self.amp)
+        self.length = len(self.csi)
         self.actual_sr = self.length / self.timestamps[-1]
 
     def load_spectrum(self, input_path=None):
@@ -568,8 +549,7 @@ class MyCsi:
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        save = {'amp': self.amp,
-                'phs': self.phase,
+        save = {'csi': self.csi,
                 'time': self.timestamps}
 
         np.save(save_path + self.name + "-csis" + ".npy", save)
@@ -581,14 +561,14 @@ class MyCsi:
         """
 
         try:
-            if self.amp is None:
-                raise DataError("amplitude")
+            if self.csi is None:
+                raise DataError("csi")
 
         except DataError as e:
             print(e, "\nPlease load data")
 
         else:
-            mean_abs = np.mean(np.abs(self.amp), axis=(0, 1))
+            mean_abs = np.mean(np.abs(self.csi), axis=(0, 1))
             return mean_abs
 
     def view_phase_diff(self, packet1=None, packet2=None, autosave=False, notion='', folder_name=''):
@@ -600,17 +580,15 @@ class MyCsi:
             packet2 = np.random.randint(self.length)
             print(packet2)
 
-        csi = self.commonfunc.reconstruct_csi(self.amp, self.phase)
-
         plt.title("Phase Difference of " + str(self.name))
-        plt.plot(np.unwrap(np.angle(csi[packet1, :, 0] * csi[packet1, :, 1].conj())),
+        plt.plot(np.unwrap(np.angle(self.csi[packet1, :, 0] * self.csi[packet1, :, 1].conj())),
                  label='antenna 0-1 #' + str(packet1), color='b')
-        plt.plot(np.unwrap(np.angle(csi[packet2, :, 1] * csi[packet2, :, 2].conj())),
+        plt.plot(np.unwrap(np.angle(self.csi[packet2, :, 1] * self.csi[packet2, :, 2].conj())),
                  label='antenna 1-2 #' + str(packet1), color='r')
-        plt.plot(np.unwrap(np.angle(csi[packet1, :, 0] * csi[packet1, :, 1].conj())),
+        plt.plot(np.unwrap(np.angle(self.csi[packet1, :, 0] * self.csi[packet1, :, 1].conj())),
                  label='antenna 0-1 #' + str(packet2), color='b',
                  linestyle='--')
-        plt.plot(np.unwrap(np.angle(csi[packet2, :, 1] * csi[packet2, :, 2].conj())),
+        plt.plot(np.unwrap(np.angle(self.csi[packet2, :, 1] * self.csi[packet2, :, 2].conj())),
                  label='antenna 1-2 #' + str(packet2), color='r',
                  linestyle='--')
         plt.xlabel('#Subcarrier', loc='right')
@@ -634,7 +612,6 @@ class MyCsi:
     def windowed_phase_difference(self, window_length=100, stride=100, folder_name=''):
 
         print(self.name, "Plotting phase difference...\n",)
-        csi = self.commonfunc.reconstruct_csi(self.amp, self.phase, squeeze=False)
 
         save_path = "../visualization/" + self.name[:4] + '/' + self.name[4:7] + folder_name + '/'
         if not os.path.exists(save_path):
@@ -646,15 +623,15 @@ class MyCsi:
 
             ax1 = plt.subplot(2, 1, 1)
             ax1.set_title('Phasediff_0_1')
-            ax1.plot(np.unwrap(np.angle(csi[step * stride: step * stride + window_length, 14, 0, 0] *
-                                        csi[step * stride: step * stride + window_length, 14, 1, 0].conj())))
+            ax1.plot(np.unwrap(np.angle(self.csi[step * stride: step * stride + window_length, 14, 0, 0] *
+                                        self.csi[step * stride: step * stride + window_length, 14, 1, 0].conj())))
             ax1.set_xlabel('#Packet')
             ax1.set_ylim([-30, 30])
 
             ax2 = plt.subplot(2, 1, 2)
             ax2.set_title('Phasediff_1_2')
-            ax2.plot(np.unwrap(np.angle(csi[step * stride: step * stride + window_length, 14, 1, 0] *
-                                        csi[step * stride: step * stride + window_length, 14, 2, 0].conj())))
+            ax2.plot(np.unwrap(np.angle(self.csi[step * stride: step * stride + window_length, 14, 1, 0] *
+                                        self.csi[step * stride: step * stride + window_length, 14, 2, 0].conj())))
             ax2.set_xlabel('#Packet')
             ax2.set_ylim([-30, 30])
             plt.suptitle(str(self.name) + ' Phase Difference - packet ' + str(step * stride))
@@ -673,14 +650,13 @@ class MyCsi:
         :param notion: Figure title
         :return: Figure
         """
-        recon = self.commonfunc.reconstruct_csi
         nsub = self.configs.nsub
         nrx = self.configs.nrx
         ntx = self.configs.ntx
 
         if index is None:
             index = np.random.randint(self.length)
-        _csi = recon(self.amp[index], self.phase[index]).reshape(nsub, ntx * nrx)
+        _csi = self.csi.reshape(nsub, ntx * nrx)
         _phs = np.unwrap(np.angle(_csi), axis=0)
         for ll in range(9):
             plt.plot(_phs[:, ll], label=ll)
@@ -696,7 +672,7 @@ class MyCsi:
         if end is None:
             end = self.length
 
-        plt.plot(np.unwrap(self.phase[start:end, sub, rx, tx], axis=0))
+        plt.plot(np.unwrap(np.angle(self.csi[start:end, sub, rx, tx]), axis=0))
         plt.grid()
         plt.title(notion)
         plt.xlabel("packet")
@@ -713,10 +689,10 @@ class MyCsi:
 
         try:
             if metric == "amplitude":
-                csi_matrix = self.amp
+                csi_matrix = np.abs(self.csi)
 
             elif metric == "phase":
-                csi_matrix = self.phase
+                csi_matrix = np.angle(self.csi)
 
             else:
                 raise ArgError("metric: " + str(metric))
@@ -751,18 +727,14 @@ class MyCsi:
         nrx = self.configs.nrx
         ntx = self.configs.ntx
         subfreq_list = self.configs.subfreq_list
-        recon = self.commonfunc.reconstruct_csi
         smoothing = self.commonfunc.smooth_csi
         noise = self.commonfunc.noise_space
 
         print(self.name, "AoA by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
         try:
-            if self.amp is None:
-                raise DataError("amplitude: " + str(self.amp) + "\nPlease load data")
-
-            if self.phase is None:
-                raise DataError("phase: " + str(self.phase) + "\nPlease load data")
+            if self.csi is None:
+                raise DataError("amplitude: " + str(self.csi) + "\nPlease load data")
 
             if smooth not in (True, False):
                 raise ArgError("smooth:" + str(smooth))
@@ -777,15 +749,9 @@ class MyCsi:
             for i in range(self.length):
 
                 if smooth is True:
-                    temp_amp = smoothing(np.squeeze(self.amp[i]))
-                    temp_phase = smoothing(np.squeeze(self.phase[i]))
+                    pass
 
-                else:
-                    temp_amp = self.amp[i]
-                    temp_phase = self.phase[i]
-
-                csi = recon(temp_amp, temp_phase, squeeze=True)
-                noise_space = noise(csi, ntx)
+                noise_space = noise(self.csi[i], ntx)
 
                 if smooth is True:
                     steering_vector = np.exp([-1.j * 2 * np.pi * dist_antenna * (np.sin(theta_list * torad) *
@@ -812,25 +778,20 @@ class MyCsi:
 
         subfreq_list = self.configs.subfreq_list - self.configs.center_freq
         ntx = self.configs.ntx
-        recon = self.commonfunc.reconstruct_csi
         noise = self.commonfunc.noise_space
 
         print(self.name, "ToF by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
         try:
-            if self.amp is None:
-                raise DataError("amplitude: " + str(self.amp) + "\nPlease load data")
-
-            if self.phase is None:
-                raise DataError("phase: " + str(self.phase) + "\nPlease load data")
+            if self.csi is None:
+                raise DataError("amplitude: " + str(self.csi) + "\nPlease load data")
 
             dt_list = np.array(input_dt_list[::-1]).reshape(-1, 1)
             spectrum = np.zeros((len(input_dt_list), self.length))
 
             for i in range(self.length):
 
-                csi = recon(self.amp[i], self.phase[i], squeeze=True)
-                noise_space = noise(csi.T, ntx)
+                noise_space = noise(self.csi[i].T, ntx)
 
                 steering_vector = np.exp(-1.j * 2 * np.pi * dt_list.dot(subfreq_list.T))
 
@@ -865,18 +826,14 @@ class MyCsi:
         lightspeed = self.configs.lightspeed
         center_freq = self.configs.center_freq
         ntx = self.configs.ntx
-        recon = self.commonfunc.reconstruct_csi
         noise = self.commonfunc.noise_space
         dynamic = self.commonfunc.windowed_dynamic
 
         print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
         try:
-            if self.amp is None:
-                raise DataError("amplitude: " + str(self.amp) + "\nPlease load data")
-
-            if self.phase is None:
-                raise DataError("phase: " + str(self.phase) + "\nPlease load data")
+            if self.csi is None:
+                raise DataError("amplitude: " + str(self.csi) + "\nPlease load data")
 
             # Each window has (window_length / sampling_rate) seconds of packets
             delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) / sampling_rate
@@ -890,11 +847,10 @@ class MyCsi:
 
             spectrum = np.zeros((len(input_velocity_list), total_strides))
             temp_timestamps = np.zeros(total_strides)
-            csi = recon(self.amp, self.phase, squeeze=False)
 
             for i in range(total_strides):
 
-                csi_windowed = csi[i * stride: i * stride + window_length]
+                csi_windowed = self.csi[i * stride: i * stride + window_length]
 
                 if raw_window is True:
                     noise_space = noise(csi_windowed[:, :, pick_antenna, 0].T, ntx)
@@ -943,18 +899,14 @@ class MyCsi:
         nsub = self.configs.nsub
         nrx = self.configs.nrx
         ntx = self.configs.ntx
-        recon = self.commonfunc.reconstruct_csi
         smoothing = self.commonfunc.smooth_csi
         noise = self.commonfunc.noise_space
 
         print(self.name, "AoA-ToF by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
         try:
-            if self.amp is None:
-                raise DataError("amplitude: " + str(self.amp) + "\nPlease load data")
-
-            if self.phase is None:
-                raise DataError("phase: " + str(self.phase) + "\nPlease load data")
+            if self.csi is None:
+                raise DataError("amplitude: " + str(self.csi) + "\nPlease load data")
 
             if smooth not in (True, False):
                 raise ArgError("smooth:" + str(smooth))
@@ -974,15 +926,9 @@ class MyCsi:
             for i in range(self.length):
 
                 if smooth is True:
-                    temp_amp = smoothing(np.squeeze(self.amp[i]))
-                    temp_phase = smoothing(np.squeeze(self.phase[i]))
+                    pass
 
-                else:
-                    temp_amp = self.amp[i]
-                    temp_phase = self.phase[i]
-
-                csi = recon(temp_amp, temp_phase, squeeze=True).reshape(1, -1)  # nrx * nsub columns
-                noise_space = noise(csi, ntx)
+                noise_space = noise(self.csi[i].reshape(1, -1), ntx)   # nrx * nsub columns
 
                 for j, tof in enumerate(dt_list):
 
@@ -1031,18 +977,14 @@ class MyCsi:
         nrx = self.configs.nrx
         ntx = self.configs.ntx
         nsub = self.configs.nsub
-        recon = self.commonfunc.reconstruct_csi
         noise = self.commonfunc.noise_space
         dynamic = self.commonfunc.windowed_dynamic
 
         print(self.name, "AoA-Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
         try:
-            if self.amp is None:
-                raise DataError("amplitude: " + str(self.amp) + "\nPlease load data")
-
-            if self.phase is None:
-                raise DataError("phase: " + str(self.phase) + "\nPlease load data")
+            if self.csi is None:
+                raise DataError("amplitude: " + str(self.csi) + "\nPlease load data")
 
             # Each window has ts of packets (1 / sampling_rate * window_length = t)
             delay_list = np.arange(0, window_length, 1.).reshape(-1, 1) / sampling_rate
@@ -1055,18 +997,17 @@ class MyCsi:
             spectrum = np.zeros(((self.length - window_length) // stride, len(input_theta_list),
                                  len(input_velocity_list)))
             temp_timestamps = np.zeros((self.length - window_length) // stride)
-            csi = recon(self.amp, self.phase, squeeze=True)
 
             # Using windowed dynamic extraction
             for i in range((self.length - window_length) // stride):
 
-                csi_windowed = csi[i * stride: i * stride + window_length]
+                csi_windowed = self.csi[i * stride: i * stride + window_length]
 
                 if raw_window is True:
                     noise_space = noise(csi_windowed.swapaxes(0, 1).reshape(nsub, window_length * nrx), ntx)
                 else:
                     # Using windowed dynamic extraction
-                    csi_dynamic = dynamic(csi_windowed)
+                    csi_dynamic = dynamic(csi_windowed, ref='rx', reference_antenna=2)
                     noise_space = noise(csi_dynamic.swapaxes(0, 1).reshape(nsub, window_length * nrx), ntx)
 
                 if raw_timestamps is True:
@@ -1087,35 +1028,13 @@ class MyCsi:
                     spectrum[i, :, j] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
             self.spectrum = np.log(spectrum)
-            self.viewer = AoADopplerViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps)
+            self.viewer = AoADopplerViewer(name=self.name, spectrum=self.spectrum, timestamps=temp_timestamps)
             print(self.name, "AoA-Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
             print(e)
         except ArgError as e:
             print(e, "\nPlease specify smooth=True or False")
-
-    def self_calibrate(self, ref_antenna=None):
-        """
-        Self-calibrate using given antenna or the strongest antenna. Default is the strongest antenna.\n
-        :param: ref_antenna: If not specified, use the strongest antenna
-        :return: self-calibrated amplitude and phase
-        """
-        recon = self.commonfunc.reconstruct_csi
-
-        print(self.name, "self calibrating...", end='')
-        if ref_antenna is None:
-            strengths = self.show_antenna_strength()
-            ref_antenna = np.argmax(strengths)
-
-        _csi = recon(self.amp, self.phase) * recon(
-            self.amp, self.phase)[:, :, ref_antenna, :][:, :, np.newaxis, :].conj()
-
-        self.amp = np.abs(_csi)
-        self.phase = np.angle(_csi)
-
-        print("Done")
-        return _csi
 
     def sanitize_phase(self):
         """
@@ -1130,19 +1049,21 @@ class MyCsi:
         print(self.name, "apply SpotFi Algorithm1 to remove STO...", end='')
 
         try:
-            if self.phase is None:
-                raise DataError("phase: " + str(self.phase))
+            if self.csi is None:
+                raise DataError("phase: " + str(self.csi))
 
             fit_x = np.concatenate([np.arange(0, nsub) for _ in range(nrx)])
-            fit_y = np.unwrap(np.squeeze(self.phase), axis=1).swapaxes(1, 2).reshape(self.length, -1)
+            fit_y = np.unwrap(np.squeeze(self.csi), axis=1).swapaxes(1, 2).reshape(self.length, -1)
 
             a = np.stack((fit_x, np.ones_like(fit_x)), axis=-1)
             fit = np.linalg.inv(a.T.dot(a)).dot(a.T).dot(fit_y.T).T
             # fit = np.array([np.polyfit(fit_x, fit_y[i], 1) for i in range(self.data.length)])
 
-            self.phase = np.unwrap(self.phase, axis=1) - np.arange(nsub).reshape(
+            phase = np.unwrap(np.angle(self.csi), axis=1) - np.arange(nsub).reshape(
                 (1, nsub, 1, 1)) * fit[:, 0].reshape(self.length, 1, 1, 1)
             print("Done")
+
+            self.csi = np.abs(self.csi) * np.exp(1.j * phase)
 
         except DataError as e:
             print(e, "\nPlease load data")
@@ -1163,13 +1084,12 @@ class MyCsi:
         torad = self.configs.torad
         lightspeed = self.configs.lightspeed
         center_freq = self.configs.center_freq
-        recon = self.commonfunc.reconstruct_csi
 
         print(self.name, "apply phase calibration according to", str(cal_dict.keys())[10:-1], "...", end='')
 
         try:
-            if self.phase is None:
-                raise DataError("phase: " + str(self.phase))
+            if self.csi is None:
+                raise DataError("csi: " + str(self.csi))
 
             if reference_antenna not in (0, 1, 2):
                 raise ArgError("reference_antenna: " + str(reference_antenna))
@@ -1185,12 +1105,12 @@ class MyCsi:
                 if not isinstance(value, MyCsi):
                     raise DataError("reference csi: " + str(value) + "\nPlease input MyCsi instance.")
 
-                if value.phase is None:
-                    raise DataError("reference phase: " + str(value.phase))
+                if value.csi is None:
+                    raise DataError("reference phase: " + str(value.csi))
 
                 ref_angle = eval(key)
 
-                ref_csi = recon(value.amp, value.phase)
+                ref_csi = value.csi
                 ref_diff = np.mean(ref_csi * ref_csi[:, :, reference_antenna][:, :, np.newaxis].conj(),
                                    axis=(0, 1))
                 true_diff = np.exp([-1.j * 2 * np.pi * distance_antenna * antenna * center_freq * np.sin(
@@ -1200,20 +1120,21 @@ class MyCsi:
 
             ipo = np.squeeze(np.mean(ipo, axis=0))
 
-            current_csi = recon(self.amp, self.phase, squeeze=False)
-            calibrated_csi = current_csi * ipo[np.newaxis, np.newaxis, :, np.newaxis].conj()
+            self.csi = self.csi * ipo[np.newaxis, np.newaxis, :, np.newaxis].conj()
 
-            self.amp = np.abs(calibrated_csi)
-            self.phase = np.angle(calibrated_csi)
             print("Done")
-            print(ipo)
 
         except DataError as e:
             print(e, "\nPlease load data")
         except ArgError as e:
             print(e, "\nPlease specify an integer from 0~2")
 
-    def extract_dynamic(self, mode='overall', ref='rx', reference_antenna=0, window_length=100, stride=100, **kwargs):
+    def extract_dynamic(self, mode='overall-multiply',
+                        ref='rx',
+                        reference_antenna=0,
+                        window_length=100,
+                        stride=100,
+                        **kwargs):
         """
         Removes the static component from csi.\n
         :param mode: 'overall' or 'running' (in terms of averaging) or 'highpass'. Default is 'overall'
@@ -1227,7 +1148,6 @@ class MyCsi:
         nsub = self.configs.nsub
         ntx = self.configs.ntx
         sampling_rate = self.configs.sampling_rate
-        recon = self.commonfunc.reconstruct_csi
         dynamic = self.commonfunc.windowed_dynamic
         division = self.commonfunc.windowed_divison
         highpass = self.commonfunc.highpass
@@ -1235,7 +1155,7 @@ class MyCsi:
         print(self.name, "apply dynamic component extraction...", end='')
 
         try:
-            if self.amp is None or self.phase is None:
+            if self.csi is None:
                 raise DataError("csi data")
 
             if reference_antenna not in range(nrx):
@@ -1245,50 +1165,47 @@ class MyCsi:
                 strengths = self.show_antenna_strength()
                 reference_antenna = np.argmax(strengths)
 
-            complex_csi = recon(self.amp, self.phase, squeeze=False)
-
             if mode == 'overall-multiply':
                 if ref == 'rx':
-                    conjugate_csi = np.conjugate(complex_csi[:, :, reference_antenna, :]).repeat(nrx, axis=2)
+                    conjugate_csi = np.conjugate(self.csi[:, :, reference_antenna, :]).repeat(nrx, axis=2)
                 elif ref == 'tx':
-                    conjugate_csi = np.conjugate(complex_csi[:, :, :, reference_antenna]).repeat(ntx, axis=3)
-                hc = (complex_csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
+                    conjugate_csi = np.conjugate(self.csi[:, :, :, reference_antenna]).repeat(ntx, axis=3)
+                hc = (self.csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
                 average_hc = np.mean(hc, axis=0)[np.newaxis, ...].repeat(self.length, axis=0)
                 dynamic_csi = hc - average_hc
 
             elif mode == 'overall-divide':
-                re_csi = recon(self.amp + 1.e-6, self.phase, squeeze=False)
+                re_csi = (np.abs(self.csi) + 1.e-6) * np.exp(1.j * np.abs(self.csi))
                 if ref == 'rx':
-                    dynamic_csi = complex_csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(nrx, axis=2)
+                    dynamic_csi = self.csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(nrx, axis=2)
                 elif ref == 'tx':
-                    dynamic_csi = complex_csi / re_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(ntx, axis=3)
+                    dynamic_csi = self.csi / re_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(ntx, axis=3)
 
             elif mode == 'running-multiply':
                 dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = dynamic(
-                        complex_csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
+                        self.csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
 
             elif mode == 'running-divide':
                 dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = division(
-                        complex_csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
+                        self.csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
 
             elif mode == 'highpass':
                 b, a = highpass(**kwargs)
-                dynamic_csi = np.zeros_like(complex_csi)
+                dynamic_csi = np.zeros_like(self.csi)
                 for sub in range(nsub):
                     for rx in range(nrx):
                         for tx in range(ntx):
-                            dynamic_csi[:, sub, rx, tx] = signal.filtfilt(b, a, complex_csi[:, sub, rx, tx])
+                            dynamic_csi[:, sub, rx, tx] = signal.filtfilt(b, a, self.csi[:, sub, rx, tx])
 
             else:
                 raise ArgError("mode: " + str(mode) +
                                "\nPlease specify mode=\"overall\", \"running\", \"division\"or \"highpass\"")
 
-            self.amp = np.abs(dynamic_csi)
-            self.phase = np.angle(dynamic_csi)
+            self.csi = dynamic_csi
             print("Done")
 
         except DataError as e:
@@ -1307,7 +1224,7 @@ class MyCsi:
         print(self.name, "resampling at " + str(sampling_rate) + "Hz...", end='')
 
         try:
-            if self.amp is None or self.phase is None:
+            if self.csi is None:
                 raise DataError("csi data")
 
             if not isinstance(sampling_rate, int) or sampling_rate >= self.actual_sr:
@@ -1330,8 +1247,7 @@ class MyCsi:
 
                 resample_indicies.append(index)
 
-            self.amp = self.amp[resample_indicies]
-            self.phase = self.phase[resample_indicies]
+            self.csi = self.csi[resample_indicies]
             self.timestamps = self.timestamps[resample_indicies]
             self.length = new_length
             self.actual_sr = sampling_rate

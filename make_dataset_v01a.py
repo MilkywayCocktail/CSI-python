@@ -13,8 +13,8 @@ class MyDataMaker_v01a(MyDataMaker):
 
     def __init_data__(self):
         # img_size = (width, height)
-        csi = np.zeros((self.total_frames, 2, 90, self.sample_length))
-        images = np.zeros((self.total_frames, self.img_size[1], self.img_size[0]))
+        csi = np.zeros((self.total_frames, 2, 90, self.configs.sample_length))
+        images = np.zeros((self.total_frames, self.configs.img_size[1], self.configs.img_size[0]))
         timestamps = np.zeros(self.total_frames)
         indices = np.zeros(self.total_frames)
         coordinates = np.zeros((self.total_frames, 3))
@@ -38,7 +38,7 @@ class MyDataMaker_v01a(MyDataMaker):
 
                 if areas[i] < min_area:
                     print(areas[i])
-                    self.result['cod'][i] = np.array([self.img_size[1]//2, self.img_size[0]//2, 0])
+                    self.result['cod'][i] = np.array([self.configs.img_size[1]//2, self.configs.img_size[0]//2, 0])
                     if show_img is True:
                         img = self.result['img'][i]
                 else:
@@ -53,7 +53,7 @@ class MyDataMaker_v01a(MyDataMaker):
                         img = cv2.circle(img, (xc, yc), 1, (0, 0, 255), 4)
             else:
                 img = self.result['img'][i]
-                self.result['cod'][i] = np.array([self.img_size[1]//2, self.img_size[0]//2, 0])
+                self.result['cod'][i] = np.array([self.configs.img_size[1]//2, self.configs.img_size[0]//2, 0])
 
             if show_img is True:
                 cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
