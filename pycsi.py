@@ -342,6 +342,7 @@ class MyCsi:
 
         self.csi = None
         self.timestamps = None
+        self.abs_timestamps = None
         self.length = None
         self.actual_sr = None
         self.labels = None
@@ -360,7 +361,7 @@ class MyCsi:
     def __repr__(self):
         return 'MyCsi-' + self.name
 
-    def load_data(self, remove_sm=False, absolute_time=False):
+    def load_data(self, remove_sm=False):
         """
         Loads csi data into current MyCsi instance.\n
         Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).\n
@@ -396,12 +397,8 @@ class MyCsi:
                 print('Done')
 
             self.csi = csi
-            if absolute_time is True:
-                self.timestamps = np.array(t) / 1.e6
-                self.actual_sr = self.length / (self.timestamps - self.timestamps[0])[-1]
-            else:
-                self.timestamps = np.array(t - t[0]) / 1.e6
-                self.actual_sr = self.length / self.timestamps[-1]
+            self.timestamps = np.array(t - t[0]) / 1.e6
+            self.actual_sr = self.length / self.timestamps[-1]
             print(self.name, self.csi.shape, "load complete", time.asctime(time.localtime(time.time())))
 
     def load_label(self, path):

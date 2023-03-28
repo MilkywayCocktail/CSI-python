@@ -65,10 +65,13 @@ class MyDataMaker:
         :param total_frames: Full length of bag file
         """
 
+        # local_timestamps is used as standard.
+
         self.configs = configs
         self.paths = paths
         self.total_frames = total_frames
-        self.video_stream, self.timestamps = self.__setup_video_stream__()
+        self.local_timestamps = self.__load_local_timestamps__()
+        self.video_stream = self.__setup_video_stream__()
         self.csi_stream = self.__setup_csi_stream__()
         self.result = self.__init_data__()
         self.cal_cam = False
@@ -85,18 +88,26 @@ class MyDataMaker:
         config.enable_all_streams()
         profile = pipeline.start(config)
         profile.get_device().as_playback().set_real_time(False)
-
-        local_tf = open(self.paths[1], mode='r', encoding='utf-8')
-        local_time = local_tf.readlines()
-        local_tf.close()
         print('Done')
 
-        return pipeline, local_time
+        return pipeline
+
+    def __load_local_timestamps__(self):
+        local_tf = open(self.paths[1], mode='r', encoding='utf-8')
+        local_time = np.array(local_tf.readlines())
+        for i in range(len(local_time)):
+            local_time[i] = datetime.timestamp(datetime.strptime(local_time[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
+        local_tf.close()
+        return local_time
 
     def __setup_csi_stream__(self):
         print('Setting CSI stream...')
         _csi = pycsi.MyCsi(self.configs, 'CSI', self.paths[2])
-        _csi.load_data(remove_sm=True, absolute_time=True)
+        _csi.load_data(remove_sm=True)
+        csi_abs_tf = open(self.paths[3], mode='r', encoding='utf-8')
+        _csi_abs_timestamps = csi_abs_tf.readlines()
+        csi_abs_tf.close()
+        _csi.abs_timestamps = _csi_abs_timestamps
 
         return _csi  # Calibrated absolute CSI timestamp
 
@@ -188,13 +199,14 @@ class MyDataMaker:
 
     def export_csi(self, dynamic_csi=True, pick_tx=0):
         """
-        Requires export_image
+        Finds csi packets according to the timestamps of images.\n
+        Requires export_image.\n
         """
         tqdm.write('Starting exporting CSI...')
 
         for i in tqdm(range(self.total_frames)):
 
-            csi_index = np.searchsorted(self.csi_stream.timestamps, self.result['tim'][i])
+            csi_index = np.searchsorted(self.csi_stream.abs_timestamps, self.result['tim'][i])
             self.result['ind'][i] = csi_index
             csi_chunk = self.csi_stream.csi[csi_index: csi_index + self.configs.sample_length, :, :, pick_tx]
 
@@ -208,9 +220,14 @@ class MyDataMaker:
             self.result['csi'][i, 1, :, :] = np.angle(csi_chunk)
 
     def slice_by_label(self):
+        """
+        Trim non-labeled segments out of dataset.\n
+        Executed after exporting x and y.\n
+        :return: sliced results
+        """
         print('Slicing...', end='')
         labels = []
-        with open(self.paths[3]) as f:
+        with open(self.paths[4]) as f:
             for i, line in enumerate(f):
                 if i > 0:
                     labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
@@ -258,16 +275,18 @@ class MyDataMaker:
         :return: result['tim']
         """
         print('Calibrating camera time against local time file...', end='')
+        cvt = datetime.fromtimestamp
+
         if self.cal_cam is False:
             temp_lag = np.zeros(self.total_frames)
             for i in range(self.total_frames):
-                temp_lag[i] = self.calculate_timedelta(self.result['tim'][i], self.timestamps[i])
+                temp_lag[i] = self.calculate_timedelta(cvt(self.result['tim'][i]), cvt(self.local_timestamps[i]))
 
             lag = np.mean(temp_lag)
             print('lag=', lag)
 
             for i in range(self.total_frames):
-                self.result['tim'][i] = self.result['tim'][i] - lag
+                self.result['tim'][i] = self.result['tim'][i] - cvt(lag)
             self.cal_cam = True
         print('Done')
 
@@ -337,6 +356,7 @@ if __name__ == '__main__':
     path = [os.path.join('../sense/0124', sub + '.bag'),
             os.path.join('../sense/0124', sub + '_timestamps.txt'),
             os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy'),
+            os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt'),
             os.path.join('../sense/0124', sub + '_labels.csv')]
 
     configs = MyConfigsDM()
