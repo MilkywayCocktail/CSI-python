@@ -16,8 +16,8 @@ class MyDataMaker_v01b(MyDataMaker):
         csi = np.zeros((self.total_frames, 2, 90, self.configs.sample_length))
         images = np.zeros((self.total_frames, self.configs.img_size[1], self.configs.img_size[0]))
         timestamps = np.zeros(self.total_frames)
-        indices = np.zeros(self.total_frames)
-        side_labels = np.zeros(self.total_frames)
+        indices = np.zeros(self.total_frames, dtype=int)
+        side_labels = np.zeros(self.total_frames, dtype=int)
         return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices, 'sid': side_labels}
 
     def export_sidelabel(self, label='x'):
@@ -67,11 +67,10 @@ if __name__ == '__main__':
     mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
     #print(mkdata.csi_stream.abs_timestamps)
-    print(mkdata.local_timestamps)
-    print(mkdata.result['tim'])
-    #mkdata.export_sidelabel(label='x')
-    #mkdata.export_csi(dynamic_csi=False, pick_tx=0)
-    #mkdata.slice_by_label()
-    #print(mkdata.result['sid'])
+    #print(mkdata.local_timestamps)
+    #print(mkdata.result['tim'])
+    mkdata.export_sidelabel(label='x')
+    mkdata.export_csi(dynamic_csi=False, pick_tx=0)
+    mkdata.slice_by_label()
     #mkdata.playback_image()
-    #mkdata.save_dataset('../dataset/0307/make00', sub + '_dyn', 'csi', 'sid')
+    mkdata.save_dataset('../dataset/0307/make00', sub + '_div', 'csi', 'sid')

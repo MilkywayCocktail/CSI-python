@@ -6,12 +6,12 @@ import random
 
 def regroup(in_path, out_path, scope: tuple):
     # Initial cell shapes
-    result = {'csi': np.zeros((1, 2, 100, 30, 3)),
+    result = {'csi': np.zeros((1, 2, 90, 100)),
             'img': np.zeros((1, 128, 128)),
             'tim': np.zeros(1),
             'cod': np.zeros((1, 3)),
             'ind': np.zeros(1),
-            'sid': np.zeros((1, 3))
+            'sid': np.zeros(1)
             }
 
     filenames = os.listdir(in_path)
@@ -32,8 +32,11 @@ def regroup(in_path, out_path, scope: tuple):
     for key in result.keys():
         result[key] = np.delete(result[key], 0, axis=0)
         if len(result[key]) != 0:
+            if key == 'sid':
+                result[key] = result[key] - min(result[key])
             print(key, len(result[key]))
             np.save(out_path + key + '.npy', result[key])
+
 
     print("All saved!")
 
@@ -41,7 +44,7 @@ def regroup(in_path, out_path, scope: tuple):
 def asx(path):
     x = np.load(path)
     print(x.shape)
-    print(x[:10])
+    print(x)
 
 
 def asy(path):
@@ -211,14 +214,10 @@ def simu_dataset(paths, out_path):
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
     #asy('../dataset/0124/make02/03_dyn_img.npy')
-    #asx('../dataset/0208/make00_finished/sid.npy')
+    asx('../dataset/0307/make00-finished/sid.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    ps = ['../npsave/0317/0317GT0-csis.npy',
-          '../npsave/0317/0317GT1-csis.npy',
-          '../npsave/0317/0317GT2-csis.npy']
-
-    simu_dataset(ps, '../dataset/0317/make00_finished/')
+    #regroup('../dataset/0307/make00/', '../dataset/0307/make00-finished/', ('04'))

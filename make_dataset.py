@@ -98,25 +98,30 @@ class MyDataMaker:
         for i in range(len(local_time)):
             local_time[i] = datetime.timestamp(datetime.strptime(local_time[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
         local_tf.close()
-        return local_time
+        return local_time.astype(np.float64)
 
     def __setup_csi_stream__(self):
         print('Setting CSI stream...')
         _csi = pycsi.MyCsi(self.configs, 'CSI', self.paths[2])
         _csi.load_data(remove_sm=True)
-        csi_abs_tf = open(self.paths[3], mode='r', encoding='utf-8')
-        _csi_abs_timestamps = csi_abs_tf.readlines()
-        csi_abs_tf.close()
-        _csi.abs_timestamps = _csi_abs_timestamps
 
-        return _csi  # Calibrated absolute CSI timestamp
+        csi_abs_tf = open(self.paths[3], mode='r', encoding='utf-8')
+        _csi_abs_timestamps = np.array(csi_abs_tf.readlines())
+        for i in range(len(_csi_abs_timestamps)):
+            _csi_abs_timestamps[i] = datetime.timestamp(
+                datetime.strptime(_csi_abs_timestamps[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
+        csi_abs_tf.close()
+
+        _csi.abs_timestamps = _csi_abs_timestamps.astype(np.float64)
+
+        return _csi  # Pre-calibrated absolute CSI timestamp
 
     def __init_data__(self):
         # img_size = (width, height)
         csi = np.zeros((self.total_frames, 2, 90, self.configs.sample_length))
         images = np.zeros((self.total_frames, self.configs.img_size[1], self.configs.img_size[0]))
         timestamps = np.zeros(self.total_frames)
-        indices = np.zeros(self.total_frames)
+        indices = np.zeros(self.total_frames, dtype=int)
         return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices}
 
     def __get_image__(self, mode):
@@ -256,19 +261,6 @@ class MyDataMaker:
         dynamic = phase_diff - static
         return dynamic
 
-    @staticmethod
-    def calculate_timedelta(time1, time2):
-
-        tmp = []
-        for t in (time1, time2):
-            if isinstance(t, str):
-                tmp.append(datetime.timestamp(datetime.strptime(t.strip(), "%Y-%m-%d %H:%M:%S.%f")))
-            elif isinstance(t, float):
-                tmp.append(t)
-
-        time_delta = tmp[0] - tmp[1]
-        return time_delta
-
     def calibrate_camtime(self):
         """
         Calibrate camera timestamps against local timestamps. All timestamps are absolute.\n
@@ -280,13 +272,13 @@ class MyDataMaker:
         if self.cal_cam is False:
             temp_lag = np.zeros(self.total_frames)
             for i in range(self.total_frames):
-                temp_lag[i] = self.calculate_timedelta(cvt(self.result['tim'][i]), cvt(self.local_timestamps[i]))
+                temp_lag[i] = self.result['tim'][i] - self.local_timestamps[i]
 
             lag = np.mean(temp_lag)
             print('lag=', lag)
 
             for i in range(self.total_frames):
-                self.result['tim'][i] = self.result['tim'][i] - cvt(lag)
+                self.result['tim'][i] = self.result['tim'][i] - lag
             self.cal_cam = True
         print('Done')
 

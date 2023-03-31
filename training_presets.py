@@ -170,6 +170,7 @@ class Trainer:
         plt.show()
 
     def test(self):
+        self.__gen_test_loss__()
         self.model.eval()
         for idx, (data_x, data_y) in enumerate(self.test_loader, 0):
             data_x = data_x.to(torch.float32).to(self.args.device)
