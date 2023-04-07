@@ -7,6 +7,7 @@ from make_dataset import MyDataMaker
 
 
 class MyDataMaker_v01a(MyDataMaker):
+    # Generates images, CSI, center coordinates
 
     def __init__(self, *args, **kwargs):
         MyDataMaker.__init__(*args, **kwargs)

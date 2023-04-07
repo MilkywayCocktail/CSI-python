@@ -214,10 +214,10 @@ def simu_dataset(paths, out_path):
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
     #asy('../dataset/0124/make02/03_dyn_img.npy')
-    asx('../dataset/0307/make00-finished/sid.npy')
+    #asx('../dataset/0307/make03-finished/sid.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    #regroup('../dataset/0307/make00/', '../dataset/0307/make00-finished/', ('04'))
+    regroup('../dataset/0307/make04/', '../dataset/0307/make04-finished/', ('04'))

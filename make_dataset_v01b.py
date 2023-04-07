@@ -7,6 +7,7 @@ from make_dataset import MyConfigsDM
 
 
 class MyDataMaker_v01b(MyDataMaker):
+    # Generates images, CSI, side labels
 
     def __init__(self, *args, **kwargs):
         MyDataMaker.__init__(self, *args, **kwargs)
@@ -51,7 +52,7 @@ class MyDataMaker_v01b(MyDataMaker):
 if __name__ == '__main__':
 
     date = '0307'
-    sub = '04'
+    sub = '06'
     length = 3000
 
     path = ['../sense/' + date + '/' + sub + '.bag',
@@ -69,8 +70,8 @@ if __name__ == '__main__':
     #print(mkdata.csi_stream.abs_timestamps)
     #print(mkdata.local_timestamps)
     #print(mkdata.result['tim'])
-    mkdata.export_sidelabel(label='x')
+    mkdata.export_sidelabel(label='y')
     mkdata.export_csi(dynamic_csi=False, pick_tx=0)
     mkdata.slice_by_label()
     #mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0307/make00', sub + '_div', 'csi', 'sid')
+    mkdata.save_dataset('../dataset/0307/make03', sub + '_div', 'csi', 'sid')

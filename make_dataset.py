@@ -58,6 +58,8 @@ class MyConfigsDM(pycsi.MyConfigs):
 
 class MyDataMaker:
 
+    # Generates images, CSI
+
     def __init__(self, configs: MyConfigsDM, paths: list, total_frames: int):
         """
         :param configs: MyConfigsDM
@@ -342,23 +344,27 @@ class MyDataMaker:
 
 if __name__ == '__main__':
 
-    sub = '02'
-    length = 1800
+    date = '0307'
+    sub = '04'
+    length = 3000
 
-    path = [os.path.join('../sense/0124', sub + '.bag'),
-            os.path.join('../sense/0124', sub + '_timestamps.txt'),
-            os.path.join('../npsave/0124', '0124A' + sub + '-csio.npy'),
-            os.path.join('../data/0124', 'csi0124A' + sub + '_time_mod.txt'),
-            os.path.join('../sense/0124', sub + '_labels.csv')]
+    path = ['../sense/' + date + '/' + sub + '.bag',
+            '../sense/' + date + '/' + sub + '_timestamps.txt',
+            '../npsave/' + date + '/' + date + 'A' + sub + '-csio.npy',
+            '../data/' + date + '/csi' + date + 'A' + sub + '_time_mod.txt',
+            '../sense/' + date + '/' + sub + '_labels.csv']
 
     configs = MyConfigsDM()
 
-    mkdata = MyDataMaker(configs, path, length)
+    mkdata = MyDataMaker(configs=configs, paths=path, total_frames=length)
+    mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
+    mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
-    mkdata.depth_mask()
-    #mkdata.export_coordinate(show_img=True, min_area=1000)
-    mkdata.export_csi()
+    #print(mkdata.csi_stream.abs_timestamps)
+    #print(mkdata.local_timestamps)
+    #print(mkdata.result['tim'])
+    mkdata.export_csi(dynamic_csi=False, pick_tx=0)
     mkdata.slice_by_label()
-    mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0124/make02', sub + '_dyn', 'ind', 'csi', 'img', 'tim')
+    #mkdata.playback_image()
+    mkdata.save_dataset('../dataset/0307/make04', sub + '_div', 'csi', 'img')
 

@@ -1,4 +1,3 @@
-# My Dataset
 import torch
 import torch.nn as nn
 import torch.utils.data as Data
@@ -186,6 +185,7 @@ class Trainer:
         self.predicts = [np.argmax(row) for row in self.estimates]
 
     def plot_test_results(self):
+        plt.clf()
         sns.set()
         f, ax = plt.subplots()
         cf = confusion_matrix(self.groundtruth, self.predicts)

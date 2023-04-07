@@ -7,6 +7,7 @@ from make_dataset import MyConfigsDM
 
 
 class MyDataMaker_v01c(MyDataMaker):
+    # Generates images, CSI (in 3D), side labels
 
     def __init__(self, *args, **kwargs):
         MyDataMaker.__init__(self, *args, **kwargs)
