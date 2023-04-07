@@ -194,7 +194,7 @@ class MyDecodeCNN(nn.Module):
         )
 
     def forward(self, x):
-        x = self.layer1(x.view(-1, 1, 16, 16))
+        x = self.layer1(x.view(-1, 1, 32, 32))
         x = self.layer2(x)
 
         # size_x = batch_size * 128 * 128
