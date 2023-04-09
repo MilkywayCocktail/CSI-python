@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.utils.data as Data
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
@@ -207,25 +208,26 @@ class TrainerGenImage(Trainer):
 
     def plot_test_results(self):
 
-        imgs = np.random.randint(len(self.groundtruth), 8)
-        plt.figure()
-        f, ax = plt.subplots(1, 8)
+        imgs = np.random.choice(list(range(len(self.groundtruth))), 8)
 
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle('Estimation Results')
+
+        subfigs = fig.subfigures(nrows=2, ncols=1)
+        subfigs[0].suptitle('Ground Truth')
+        ax = subfigs[0].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
-
-            ax[a].plot(self.groundtruth[imgs[a]])
+            ax[a].imshow(self.groundtruth[imgs[a]])
+            ax[a].axis('off')
+            ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
 
-        plt.suptitle('Ground Truth')
-        plt.show()
-
-        plt.figure()
-        f, ax = plt.subplots(1, 8)
-
+        subfigs[1].suptitle('Estimated')
+        ax = subfigs[1].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
-
-            ax[a].plot(self.estimates[imgs[a]])
+            ax[a].imshow(self.estimates[imgs[a]])
+            ax[a].axis('off')
+            ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
 
-        plt.suptitle('Estimated')
         plt.show()
