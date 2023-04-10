@@ -224,10 +224,10 @@ class MyModel(nn.Module):
         self.decoder = MyDecoder()
 
     def __str__(self):
-        return 'Model_v01b3'
+        return 'Model_v01b2'
 
     def intro(self):
-        print("[CNN-LSTM]-[LSTM-FC]")
+        print("[CNN-LSTM]-[LSTM-FC-CNN]")
 
     def forward(self, x):
         z = self.encoder(x)

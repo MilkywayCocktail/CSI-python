@@ -360,6 +360,7 @@ if __name__ == '__main__':
     mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
     mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
+    mkdata.depth_mask()
     #print(mkdata.csi_stream.abs_timestamps)
     #print(mkdata.local_timestamps)
     #print(mkdata.result['tim'])
