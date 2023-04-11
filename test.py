@@ -5,8 +5,10 @@ import matplotlib.pyplot as plt
 import datetime
 import time
 
-t = time.time()
-t1 = t + 1
-print(t1)
 
-print(datetime.datetime.fromtimestamp(t1) - datetime.datetime.fromtimestamp(t))
+def foo():
+    for i in range(100000):
+        print('\r\r{}\n{}'.format(i, i+10), end='')
+        time.sleep(1)
+
+foo()

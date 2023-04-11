@@ -122,7 +122,7 @@ class Trainer:
 
         if autosave is True:
             torch.save(self.model.state_dict(),
-                       '../Models/' + str(self.model) + notion + '_' + str(self.total_epochs) + '.pth')
+                       '../Models/' + str(self.model) + notion + '_ep' + str(self.total_epochs) + '.pth')
 
         # =====================valid============================
         self.model.eval()
@@ -166,7 +166,7 @@ class Trainer:
         plt.xlabel('#iter')
         plt.legend()
         if autosave is True:
-            plt.savefig(str(self.model) + "_loss" + notion + '_' + str(self.total_epochs) + '.jpg')
+            plt.savefig(str(self.model) + "_loss" + notion + '_ep' + str(self.total_epochs) + '.jpg')
         plt.show()
 
     def test(self):
@@ -179,7 +179,7 @@ class Trainer:
             loss = self.args.criterion(outputs, data_y)
             self.estimates.append(outputs.cpu().detach().numpy().squeeze().tolist())
             self.groundtruth.append(data_y.cpu().detach().numpy().squeeze().tolist())
-            self.test_loss.append(loss.item())
+            self.test_loss.append(np.mean(loss.item()))
             if idx % (len(self.test_loader)//5) == 0:
                 print("\r{}/{}of test, loss={}".format(idx, len(self.test_loader), loss.item()), end='')
 
@@ -231,3 +231,163 @@ class TrainerGenImage(Trainer):
             ax[a].set_xlabel(str(imgs[a]))
 
         plt.show()
+
+
+class TrainerTeacherStudent:
+
+    def __init__(self, teacher_trainer: Trainer,
+                 student_trainer: Trainer,
+                 temperature=20,
+                 alpha=0.3,
+                 divergence_loss=nn.KLDivLoss(reduction='batchmean')):
+        self.teacher_trainer = teacher_trainer
+        self.student_trainer = student_trainer
+        self.__gen_train_loss__()
+        self.__gen_test_loss__()
+        self.temperature = temperature
+        self.alpha = alpha
+        self.div_loss = divergence_loss
+
+    def __gen_train_loss__(self):
+        self.train_loss = []
+        self.valid_loss = []
+        self.train_epochs_loss = []
+        self.valid_epochs_loss = []
+
+    def __gen_test_loss__(self):
+        self.test_loss = []
+        self.estimates = []
+        self.predicts = []
+        self.groundtruth = []
+
+    def train_teacher(self, autosave=False, notion=''):
+        self.teacher_trainer.train_and_eval(autosave, notion)
+
+    def train_student(self, autosave=False, notion=''):
+        start = time.time()
+
+        for epoch in range(self.student_trainer.args.epochs):
+            self.student_trainer.model.train()
+            self.teacher_trainer.model.eval()
+            train_epoch_loss = []
+            student_epoch_loss = []
+            for idx, (data_x, data_y) in enumerate(self.student_trainer.train_loader, 0):
+                data_x = data_x.to(torch.float32).to(self.student_trainer.args.device)
+                data_y = data_y.to(self.student_trainer.y_type).to(self.student_trainer.args.device)
+
+                with torch.no_grad():
+                    teacher_preds = self.teacher_trainer.model(data_x)
+
+                student_preds = self.student_trainer.model(data_x)
+                student_loss = self.student_trainer.args.criterion(student_preds, data_y)
+                self.student_trainer.train_loss.append(student_loss.item())
+                student_epoch_loss.append(student_loss.item())
+
+                distil_loss = self.div_loss(nn.functional.softmax(
+                    student_preds / self.temperature), nn.functional.softmax((teacher_preds / self.temperature)))
+
+                loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
+                self.student_trainer.optimizer.zero_grad()
+                loss.backward()
+                self.student_trainer.optimizer.step()
+
+                train_epoch_loss.append(loss.item())
+                if idx % (len(self.student_trainer.train_loader) // 2) == 0:
+                    print("\repoch={}/{},{}/{}of train, student loss={}, distill loss={}".format(
+                        epoch, self.student_trainer.args.epochs, idx, len(self.student_trainer.train_loader),
+                        student_loss.item(), loss.item()), end='')
+
+            self.student_trainer.train_epochs_loss.append(np.average(student_epoch_loss))
+            self.train_epochs_loss.append(np.average(train_epoch_loss))
+            self.student_trainer.total_epochs += 1
+
+        end = time.time()
+        print("\nTotal training time:", end - start, "sec")
+
+        if autosave is True:
+            torch.save(self.student_trainer.model.state_dict(),
+                       '../Models/' + str(self.student_trainer.model) + notion + '_ep' +
+                       str(self.student_trainer.total_epochs) + '.pth')
+
+        # =====================valid============================
+        self.student_trainer.model.eval()
+        self.teacher_trainer.model.eval()
+        valid_epoch_loss = []
+        student_epoch_loss = []
+        for idx, (data_x, data_y) in enumerate(self.student_trainer.valid_loader, 0):
+            data_x = data_x.to(torch.float32).to(self.student_trainer.args.device)
+            data_y = data_y.to(self.student_trainer.y_type).to(self.student_trainer.args.device)
+
+            teacher_preds = self.teacher_trainer.model(data_x)
+            student_preds = self.student_trainer.model(data_x)
+            student_loss = self.student_trainer.args.criterion(student_preds, data_y)
+
+            distil_loss = self.div_loss(nn.functional.softmax(
+                student_preds / self.temperature), nn.functional.softmax((teacher_preds / self.temperature)))
+
+            loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
+
+            self.student_trainer.valid_loss.append(student_loss.item())
+            student_epoch_loss.append(student_loss.item())
+
+            valid_epoch_loss.append(loss.item())
+            self.valid_loss.append(loss.item())
+
+        self.student_trainer.valid_epochs_loss.append(np.average(student_epoch_loss))
+        self.valid_epochs_loss.append(np.average(valid_epoch_loss))
+
+    def plot_loss(self, autosave=False, notion=''):
+        plt.figure()
+        plt.suptitle("Distillation Training loss and Validation loss")
+        plt.subplot(2, 1, 1)
+        plt.plot(self.train_epochs_loss[1:], 'b', label='training_loss')
+        plt.ylabel('loss')
+        plt.xlabel('#epoch')
+        plt.legend()
+        plt.subplot(2, 1, 2)
+        plt.plot(self.valid_loss, 'b', label='validation_loss')
+        plt.ylabel('loss')
+        plt.xlabel('#iter')
+        plt.legend()
+        if autosave is True:
+            plt.savefig('t_' + str(self.teacher_trainer.model) +
+                        '_ep' + str(self.teacher_trainer.total_epochs) +
+                        '_s_' + str(self.student_trainer.model) +
+                        '_ep' + str(self.student_trainer.total_epochs) +
+                        "_loss" + notion + '_' + '.jpg')
+        plt.show()
+
+    def test_teacher(self):
+        self.teacher_trainer.test()
+
+    def test_student(self, test_set='test'):
+        self.__gen_test_loss__()
+        self.student_trainer.__gen_test_loss__()
+        self.teacher_trainer.model.eval()
+        self.student_trainer.model.eval()
+        if test_set == 'test':
+            test_set = self.teacher_trainer.test_loader
+        elif test_set == 'train':
+            test_set = self.teacher_trainer.train_loader
+
+        for idx, (data_x, data_y) in enumerate(test_set, 0):
+            data_x = data_x.to(torch.float32).to(self.student_trainer.args.device)
+            data_y = data_y.to(self.student_trainer.y_type).to(self.student_trainer.args.device)
+
+            teacher_preds = self.teacher_trainer.model(data_x)
+            student_preds = self.student_trainer.model(data_x)
+            student_loss = self.student_trainer.args.criterion(student_preds, data_y)
+
+            distil_loss = self.div_loss(nn.functional.softmax(
+                student_preds / self.temperature), nn.functional.softmax((teacher_preds / self.temperature)))
+
+            loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
+
+            self.student_trainer.test_loss.append(student_loss.item())
+            self.test_loss.append(np.mean(loss.item()))
+
+            self.estimates.append(student_preds.cpu().detach().numpy().squeeze().tolist())
+            self.groundtruth.append(data_y.cpu().detach().numpy().squeeze().tolist())
+
+        self.student_trainer.valid_epochs_loss.append(np.average(student_epoch_loss))
+        self.valid_epochs_loss.append(np.average(valid_epoch_loss))
