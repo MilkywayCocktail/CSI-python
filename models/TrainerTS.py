@@ -284,7 +284,6 @@ class TrainerTeacherStudent:
     def plot_teacher_test(self):
 
         imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), 8)
-
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Teacher Test Results')
         subfigs = fig.subfigures(nrows=2, ncols=1)
