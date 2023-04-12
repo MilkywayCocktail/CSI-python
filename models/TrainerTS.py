@@ -236,37 +236,115 @@ class TrainerTeacherStudent:
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
                     idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 
-    def plot_loss(self, autosave=False, notion=''):
-        plt.figure()
-        plt.suptitle("Distillation Training loss and Validation loss")
-        plt.subplot(2, 1, 1)
-        plt.plot(self.train_epochs_loss[1:], 'b', label='training_loss')
-        plt.ylabel('loss')
-        plt.xlabel('#epoch')
-        plt.legend()
-        plt.subplot(2, 1, 2)
-        plt.plot(self.valid_loss, 'b', label='validation_loss')
-        plt.ylabel('loss')
-        plt.xlabel('#iter')
-        plt.legend()
+    def plot_train_loss(self, autosave=False, notion=''):
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle('Train Status')
+        subfigs = fig.subfigures(nrows=1, ncols=3)
+
+        subfigs[0].suptitle('Teacher')
+        ax = subfigs[0].subplots(nrows=2, ncols=1)
+        for a in ax:
+            a.set_title('Train')
+            a.ylabel('loss')
+            a.xlabel('#epoch')
+            a.grid(True)
+
+        ax[0].plot(self.train_loss['t_train_epochs'][1:], 'b', label='training_loss')
+        ax[1].plot(self.train_loss['t_valid_epochs'][1:], 'orange', label='training_loss')
+
+        subfigs[1].suptitle('Student')
+        ax = subfigs[1].subplots(nrows=2, ncols=1)
+        for a in ax:
+            a.set_title('Train')
+            a.ylabel('loss')
+            a.xlabel('#epoch')
+            a.grid(True)
+
+        ax[0].plot(self.train_loss['s_train_epochs'][1:], 'b', label='training_loss')
+        ax[1].plot(self.train_loss['s_valid_epochs'][1:], 'orange', label='training_loss')
+
+        subfigs[2].suptitle('Distillation')
+        ax = subfigs[2].subplots(nrows=2, ncols=1)
+        for a in ax:
+            a.set_title('Train')
+            a.ylabel('loss')
+            a.xlabel('#epoch')
+            a.grid(True)
+
+        ax[0].plot(self.train_loss['s_train_epochs_distil'][1:], 'b', label='training_loss')
+        ax[1].plot(self.train_loss['s_valid_epochs_distil'][1:], 'orange', label='training_loss')
+
         if autosave is True:
-            plt.savefig('t_' + str(self.teacher_trainer.model) +
-                        '_ep' + str(self.teacher_trainer.total_epochs) +
-                        '_s_' + str(self.student_trainer.model) +
-                        '_ep' + str(self.student_trainer.total_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_epochs) +
+                        '_s_ep' + str(self.student_epochs) +
                         "_loss" + notion + '_' + '.jpg')
         plt.show()
 
-    def plot_test_results(self):
-        self.predicts = [np.argmax(row) for row in self.estimates]
-        plt.clf()
-        sns.set()
-        f, ax = plt.subplots()
-        cf = confusion_matrix(self.groundtruth, self.predicts)
+    def plot_teacher_test(self):
 
-        sns.heatmap(cf, annot=True, ax=ax)
+        imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), 8)
 
-        ax.set_title('Confusion Matrix')
-        ax.set_xlabel('Predicted')
-        ax.set_ylabel('True')
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle('Teacher Test Results')
+        subfigs = fig.subfigures(nrows=2, ncols=1)
+
+        subfigs[0].suptitle('Ground Truth')
+        ax = subfigs[0].subplots(nrows=1, ncols=8)
+        for a in range(len(ax)):
+            ax[a].imshow(self.t_test_loss['groundtruth'][imgs[a]])
+            ax[a].axis('off')
+            ax[a].set_title('#' + str(imgs[a]))
+            ax[a].set_xlabel(str(imgs[a]))
+
+        subfigs[1].suptitle('Estimated')
+        ax = subfigs[1].subplots(nrows=1, ncols=8)
+        for a in range(len(ax)):
+            ax[a].imshow(self.t_test_loss['predicts'][imgs[a]])
+            ax[a].axis('off')
+            ax[a].set_title('#' + str(imgs[a]))
+            ax[a].set_xlabel(str(imgs[a]))
+
         plt.show()
+
+    def plot_student_test(self):
+
+        imgs = np.random.choice(list(range(len(self.s_test_loss['groundtruth']))), 8)
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle('Student Test Results')
+        subfigs = fig.subfigures(nrows=4, ncols=1)
+
+        subfigs[0].suptitle('Ground Truth')
+        ax = subfigs[0].subplots(nrows=1, ncols=8)
+        for a in range(len(ax)):
+            ax[a].imshow(self.s_test_loss['groundtruth'][imgs[a]])
+            ax[a].axis('off')
+            ax[a].set_title('#' + str(imgs[a]))
+            ax[a].set_xlabel(str(imgs[a]))
+
+        subfigs[1].suptitle('Estimated')
+        ax = subfigs[1].subplots(nrows=1, ncols=8)
+        for a in range(len(ax)):
+            ax[a].imshow(self.t_test_loss['predicts'][imgs[a]])
+            ax[a].axis('off')
+            ax[a].set_title('#' + str(imgs[a]))
+            ax[a].set_xlabel(str(imgs[a]))
+
+        subfigs[2].suptitle('Teacher\'s Latent')
+        ax = subfigs[2].subplots(nrows=1, ncols=8)
+        for a in range(len(ax)):
+            ax[a].plot(self.t_test_loss['teacher_latent_predicts'][imgs[a]])
+            ax[a].axis('off')
+            ax[a].set_title('#' + str(imgs[a]))
+            ax[a].set_xlabel(str(imgs[a]))
+
+        subfigs[3].suptitle('Student\'s Latent')
+        ax = subfigs[3].subplots(nrows=1, ncols=8)
+        for a in range(len(ax)):
+            ax[a].imshow(self.t_test_loss['student_latent_predicts'][imgs[a]])
+            ax[a].axis('off')
+            ax[a].set_title('#' + str(imgs[a]))
+            ax[a].set_xlabel(str(imgs[a]))
+
+        plt.show()
+
