@@ -48,6 +48,7 @@ def asx(path):
     np.set_printoptions(threshold=np.inf)
     x = np.load(path)
     print(x.shape)
+    print(x.dtype)
     print(x[100])
 
 

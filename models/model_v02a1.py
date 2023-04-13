@@ -140,7 +140,7 @@ class ImageDecoder(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
 
-        return x
+        return x.view(-1, 1, 128, 128)
 
 
 class CsiEncoder(nn.Module):

@@ -19,3 +19,21 @@ def plot_this():
     plt.show()
 
 plot_this()
+
+
+def __gen_teacher_loss__():
+    test_loss = {'loss': [],
+                 'predicts': [],
+                 'groundtruth': []}
+    return test_loss
+
+
+@staticmethod
+def __gen_student_loss__():
+    test_loss = {'loss': [],
+                 'latent_loss': [],
+                 'latent_distil_loss': [],
+                 'teacher_latent_predicts': [],
+                 'student_latent_predicts': [],
+                 'student_image_predicts': [],
+                 'groundtruth': []}
