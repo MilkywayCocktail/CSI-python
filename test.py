@@ -11,4 +11,11 @@ def foo():
         print('\r\r{}\n{}'.format(i, i+10), end='')
         time.sleep(1)
 
-foo()
+
+def plot_this():
+    img = np.random.randint(0, 10000, 64).reshape((8, 8))
+    plt.imshow(img)
+    plt.colorbar()
+    plt.show()
+
+plot_this()

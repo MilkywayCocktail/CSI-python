@@ -1,8 +1,55 @@
 import torch
 import torch.nn as nn
+import torch.utils.data as Data
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+
+
+class MyDataset(Data.Dataset):
+    def __init__(self, x_path, y_path, number=0):
+        self.seeds = None
+        self.data = self.load_data(x_path, y_path, number=number)
+        print('loaded')
+
+    def __getitem__(self, index):
+        return self.data['x'][index], self.data['y'][index]
+
+    def __len__(self):
+        return self.data['x'].shape[0]
+
+    def load_data(self, x_path, y_path, number):
+        x = np.load(x_path)
+        y = np.load(y_path)
+
+        if x.shape[0] == y.shape[0]:
+            total_count = x.shape[0]
+            if number != 0:
+                picked = np.random.choice(list(range(total_count)), size=number, replace=False)
+                self.seeds = picked
+                x = x[picked]
+                y = y[picked]
+        else:
+            print(x.shape, y.shape, "lengths not equal!")
+
+        return {'x': x, 'y': y}
+
+
+def split_loader(dataset, train_size, valid_size, test_size, batch_size):
+    train_dataset, valid_dataset, test_dataset = Data.random_split(dataset, [train_size, valid_size, test_size])
+    print(len(train_dataset), len(valid_dataset), len(test_dataset))
+    train_loader = Data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    valid_loader = Data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    test_loader = Data.DataLoader(test_dataset, batch_size=1, shuffle=True)
+    return train_loader, valid_loader, test_loader
+
+
+class MyArgs:
+    def __init__(self, cuda=1, epochs=30, learning_rate=0.001, criterion=nn.CrossEntropyLoss()):
+        self.epochs = epochs
+        self.learning_rate = learning_rate
+        self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
+        self.criterion = criterion
 
 
 class TrainerTeacherStudent:
@@ -25,8 +72,10 @@ class TrainerTeacherStudent:
         self.valid_loader = valid_loader
         self.test_loader = test_loader
 
-        self.teacher_optimizer = optimizer
-        self.student_optimizer = optimizer
+        self.teacher_optimizer = optimizer([{'params': self.img_encoder.parameters()},
+                                           {'params': self.img_decoder.parameters()}],
+                                           lr=self.teacher_args.learning_rate)
+        self.student_optimizer = optimizer(self.csi_encoder.parameters(), lr=self.student_args.learning_rate)
 
         self.train_loss = self.__gen_train_loss__()
         self.t_test_loss = self.__gen_teacher_loss__()
@@ -246,8 +295,8 @@ class TrainerTeacherStudent:
         ax = subfigs[0].subplots(nrows=2, ncols=1)
         for a in ax:
             a.set_title('Train')
-            a.ylabel('loss')
-            a.xlabel('#epoch')
+            a.set_ylabel('loss')
+            a.set_xlabel('#epoch')
             a.grid(True)
 
         ax[0].plot(self.train_loss['t_train_epochs'][1:], 'b', label='training_loss')
@@ -257,8 +306,8 @@ class TrainerTeacherStudent:
         ax = subfigs[1].subplots(nrows=2, ncols=1)
         for a in ax:
             a.set_title('Train')
-            a.ylabel('loss')
-            a.xlabel('#epoch')
+            a.set_ylabel('loss')
+            a.set_xlabel('#epoch')
             a.grid(True)
 
         ax[0].plot(self.train_loss['s_train_epochs'][1:], 'b', label='training_loss')
@@ -268,8 +317,8 @@ class TrainerTeacherStudent:
         ax = subfigs[2].subplots(nrows=2, ncols=1)
         for a in ax:
             a.set_title('Train')
-            a.ylabel('loss')
-            a.xlabel('#epoch')
+            a.set_ylabel('loss')
+            a.set_xlabel('#epoch')
             a.grid(True)
 
         ax[0].plot(self.train_loss['s_train_epochs_distil'][1:], 'b', label='training_loss')
@@ -291,18 +340,20 @@ class TrainerTeacherStudent:
         subfigs[0].suptitle('Ground Truth')
         ax = subfigs[0].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
-            ax[a].imshow(self.t_test_loss['groundtruth'][imgs[a]])
+            ima = ax[a].imshow(self.t_test_loss['groundtruth'][imgs[a]])
             ax[a].axis('off')
             ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
+        subfigs[0].colorbar(ima, ax=ax, shrink=0.8)
 
         subfigs[1].suptitle('Estimated')
         ax = subfigs[1].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
-            ax[a].imshow(self.t_test_loss['predicts'][imgs[a]])
+            imb = ax[a].imshow(self.t_test_loss['predicts'][imgs[a]])
             ax[a].axis('off')
             ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
+        subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
         plt.show()
 
@@ -316,18 +367,20 @@ class TrainerTeacherStudent:
         subfigs[0].suptitle('Ground Truth')
         ax = subfigs[0].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
-            ax[a].imshow(self.s_test_loss['groundtruth'][imgs[a]])
+            ima = ax[a].imshow(self.s_test_loss['groundtruth'][imgs[a]])
             ax[a].axis('off')
             ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
+        subfigs[0].colorbar(ima, ax=ax, shrink=0.8)
 
         subfigs[1].suptitle('Estimated')
         ax = subfigs[1].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
-            ax[a].imshow(self.t_test_loss['predicts'][imgs[a]])
+            imb = ax[a].imshow(self.t_test_loss['predicts'][imgs[a]])
             ax[a].axis('off')
             ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
+        subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
         subfigs[2].suptitle('Teacher\'s Latent')
         ax = subfigs[2].subplots(nrows=1, ncols=8)
@@ -346,4 +399,5 @@ class TrainerTeacherStudent:
             ax[a].set_xlabel(str(imgs[a]))
 
         plt.show()
+
 

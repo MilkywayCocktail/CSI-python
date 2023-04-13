@@ -247,5 +247,5 @@ class CsiEncoder(nn.Module):
 
 
 if __name__ == "__main__":
-    m1 = CsiEncoder(bottleneck='full_gap')
-    summary(m1, input_size=(1, 2, 90, 100))
+    m1 = ImageEncoder()
+    summary(m1, input_size=(1, 128, 128))

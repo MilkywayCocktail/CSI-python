@@ -7,7 +7,7 @@ import random
 def regroup(in_path, out_path, scope: tuple):
     # Initial cell shapes
     result = {'csi': np.zeros((1, 2, 90, 100)),
-            'img': np.zeros((1, 128, 128)),
+            'img': np.zeros((1, 1, 128, 128)),
             'tim': np.zeros(1),
             'cod': np.zeros((1, 3)),
             'ind': np.zeros(1),
@@ -24,7 +24,10 @@ def regroup(in_path, out_path, scope: tuple):
             kind = file[-7:-4]
 
             if kind in result.keys():
-                result[kind] = np.concatenate((result[kind], tmp), axis=0)
+                if kind == 'img':
+                    result[kind] = np.concatenate((result[kind], tmp[:, None, ...]), axis=0)
+                else:
+                    result[kind] = np.concatenate((result[kind], tmp), axis=0)
 
     if not os.path.exists(out_path):
         os.makedirs(out_path)
@@ -42,9 +45,10 @@ def regroup(in_path, out_path, scope: tuple):
 
 
 def asx(path):
+    np.set_printoptions(threshold=np.inf)
     x = np.load(path)
     print(x.shape)
-    print(x)
+    print(x[100])
 
 
 def asy(path):
@@ -213,8 +217,8 @@ def simu_dataset(paths, out_path):
 
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
-    asy('../dataset/0307/make04-finished/img.npy')
-    #asx('../dataset/0307/make03-finished/sid.npy')
+    #asy('../dataset/0307/make04-finished/img.npy')
+    asx('../dataset/0307/make04-finished/img.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
