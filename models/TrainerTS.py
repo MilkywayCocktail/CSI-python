@@ -240,8 +240,8 @@ class TrainerTeacherStudent:
             valid_epoch_loss.append(student_loss.item())
             valid_epoch_loss_distil.append(distil_loss.item())
 
-        self.train_loss['s_valid_epochs'].append(valid_epoch_loss)
-        self.train_loss['s_valid_epochs_distil'].append(valid_epoch_loss_distil)
+        self.train_loss['s_valid_epochs'].append(np.average(valid_epoch_loss))
+        self.train_loss['s_valid_epochs_distil'].append(np.average(valid_epoch_loss_distil))
 
     def test_teacher(self):
         self.t_test_loss = self.__gen_teacher_test__()
@@ -302,35 +302,32 @@ class TrainerTeacherStudent:
         subfigs[0].suptitle('Teacher')
         ax = subfigs[0].subplots(nrows=2, ncols=1)
         for a in ax:
-            a.set_title('Train')
             a.set_ylabel('loss')
             a.set_xlabel('#epoch')
             a.grid(True)
 
         ax[0].plot(self.train_loss['t_train_epochs'][1:], 'b', label='training_loss')
-        ax[1].plot(self.train_loss['t_valid_epochs'][1:], 'orange', label='training_loss')
+        ax[1].plot(self.train_loss['t_valid_epochs'], 'orange', label='training_loss')
 
         subfigs[1].suptitle('Student')
         ax = subfigs[1].subplots(nrows=2, ncols=1)
         for a in ax:
-            a.set_title('Train')
             a.set_ylabel('loss')
             a.set_xlabel('#epoch')
             a.grid(True)
 
         ax[0].plot(self.train_loss['s_train_epochs'][1:], 'b', label='training_loss')
-        ax[1].plot(self.train_loss['s_valid_epochs'][1:], 'orange', label='training_loss')
+        ax[1].plot(self.train_loss['s_valid_epochs'], 'orange', label='training_loss')
 
         subfigs[2].suptitle('Distillation')
         ax = subfigs[2].subplots(nrows=2, ncols=1)
         for a in ax:
-            a.set_title('Train')
             a.set_ylabel('loss')
             a.set_xlabel('#epoch')
             a.grid(True)
 
         ax[0].plot(self.train_loss['s_train_epochs_distil'][1:], 'b', label='training_loss')
-        ax[1].plot(self.train_loss['s_valid_epochs_distil'][1:], 'orange', label='training_loss')
+        ax[1].plot(self.train_loss['s_valid_epochs_distil'], 'orange', label='training_loss')
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
@@ -399,7 +396,6 @@ class TrainerTeacherStudent:
         ax = subfigs[0].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
             ax[a].plot(self.s_test_loss['teacher_latent_predicts'][imgs[a]])
-            ax[a].axis('off')
             ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
 
@@ -407,7 +403,6 @@ class TrainerTeacherStudent:
         ax = subfigs[1].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
             ax[a].plot(self.s_test_loss['student_latent_predicts'][imgs[a]])
-            ax[a].axis('off')
             ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
 
