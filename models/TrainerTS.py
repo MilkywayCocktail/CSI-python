@@ -60,7 +60,8 @@ class TrainerTeacherStudent:
                  optimizer=torch.optim.Adam,
                  div_loss=nn.KLDivLoss(reduction='batchmean'),
                  img_loss=nn.SmoothL1Loss(),
-                 temperature=20):
+                 temperature=20,
+                 alpha=0.3):
         self.img_encoder = img_encoder
         self.img_decoder = img_decoder
         self.csi_encoder = csi_encoder
@@ -86,6 +87,7 @@ class TrainerTeacherStudent:
 
         self.div_loss = div_loss
         self.temperature = temperature
+        self.alpha = alpha
         self.img_loss = img_loss
 
     @staticmethod
@@ -188,11 +190,13 @@ class TrainerTeacherStudent:
                 distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
                                             nn.functional.softmax(teacher_preds / self.temperature, -1))
 
+                loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
+
                 self.train_loss['s_train'].append(student_loss.item())
-                self.train_loss['s_train_distil'].append(distil_loss.item())
+                self.train_loss['s_train_distil'].append(loss.item())
 
                 self.student_optimizer.zero_grad()
-                distil_loss.backward()
+                loss.backward()
                 self.student_optimizer.step()
 
                 train_epoch_loss.append(student_loss.item())
@@ -229,8 +233,10 @@ class TrainerTeacherStudent:
             distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
                                         nn.functional.softmax(teacher_preds / self.temperature, -1))
 
+            loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
+
             self.train_loss['s_valid'].append(student_loss.item())
-            self.train_loss['s_valid_distil'].append(distil_loss.item())
+            self.train_loss['s_valid_distil'].append(loss.item())
             valid_epoch_loss.append(student_loss.item())
             valid_epoch_loss_distil.append(distil_loss.item())
 
@@ -273,9 +279,11 @@ class TrainerTeacherStudent:
             distil_loss = self.div_loss(nn.functional.softmax(student_latent_preds / self.temperature, -1),
                                         nn.functional.softmax(teacher_latent_preds / self.temperature, -1))
 
+            loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
+
             self.s_test_loss['loss'].append(image_loss.item())
             self.s_test_loss['latent_loss'].append(student_loss.item())
-            self.s_test_loss['latent_distil_loss'].append(distil_loss.item())
+            self.s_test_loss['latent_distil_loss'].append(loss.item())
             self.s_test_loss['student_latent_predicts'].append(student_latent_preds.cpu().detach().numpy().squeeze().tolist())
             self.s_test_loss['teacher_latent_predicts'].append(teacher_latent_preds.cpu().detach().numpy().squeeze().tolist())
             self.s_test_loss['student_image_predicts'].append(student_image_preds.cpu().detach().numpy().squeeze().tolist())
@@ -362,7 +370,7 @@ class TrainerTeacherStudent:
         imgs = np.random.choice(list(range(len(self.s_test_loss['groundtruth']))), 8)
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Student Test Results')
-        subfigs = fig.subfigures(nrows=4, ncols=1)
+        subfigs = fig.subfigures(nrows=2, ncols=1)
 
         subfigs[0].suptitle('Ground Truth')
         ax = subfigs[0].subplots(nrows=1, ncols=8)
@@ -382,18 +390,23 @@ class TrainerTeacherStudent:
             ax[a].set_xlabel(str(imgs[a]))
         subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
-        subfigs[2].suptitle('Teacher\'s Latent')
-        ax = subfigs[2].subplots(nrows=1, ncols=8)
+        plt.show()
+
+        fig2 = plt.figure(constrained_layout=True)
+        fig2.suptitle('Student Test Results')
+        subfigs = fig2.subfigures(nrows=2, ncols=1)
+        subfigs[0].suptitle('Teacher\'s Latent')
+        ax = subfigs[0].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
             ax[a].plot(self.s_test_loss['teacher_latent_predicts'][imgs[a]])
             ax[a].axis('off')
             ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
 
-        subfigs[3].suptitle('Student\'s Latent')
-        ax = subfigs[3].subplots(nrows=1, ncols=8)
+        subfigs[1].suptitle('Student\'s Latent')
+        ax = subfigs[1].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
-            ax[a].imshow(self.s_test_loss['student_latent_predicts'][imgs[a]])
+            ax[a].plot(self.s_test_loss['student_latent_predicts'][imgs[a]])
             ax[a].axis('off')
             ax[a].set_title('#' + str(imgs[a]))
             ax[a].set_xlabel(str(imgs[a]))
