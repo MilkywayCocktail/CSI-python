@@ -100,10 +100,10 @@ class TrainerTeacherStudent:
                       's_valid': [],
                       's_train_epochs': [],
                       's_valid_epochs': [],
-                      's_train_straight': [],
-                      's_valid_straight': [],
-                      's_train_distil': [],
-                      's_valid_distil': [],}
+                      's_train_straight_epochs': [],
+                      's_valid_straight_epochs': [],
+                      's_train_distil_epochs': [],
+                      's_valid_distil_epochs': [],}
         return train_loss
 
     @staticmethod
@@ -160,6 +160,7 @@ class TrainerTeacherStudent:
         self.img_encoder.eval()
         self.img_decoder.eval()
         valid_epoch_loss = []
+
         for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
             data_y = data_y.to(torch.float32).to(self.teacher_args.device)
             latent = self.img_encoder(data_y).data
@@ -176,7 +177,8 @@ class TrainerTeacherStudent:
             self.img_encoder.eval()
             self.csi_encoder.train()
             train_epoch_loss = []
-
+            straight_epoch_loss = []
+            distil_epoch_loss = []
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
                 data_x = data_x.to(torch.float32).to(self.teacher_args.device)
                 data_y = data_y.to(torch.float32).to(self.teacher_args.device)
@@ -191,9 +193,6 @@ class TrainerTeacherStudent:
                                             nn.functional.softmax(teacher_preds / self.temperature, -1))
 
                 loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-
-                self.train_loss['s_train_straight'].append(student_loss.item())
-                self.train_loss['s_train_distil'].append(distil_loss.item())
                 self.train_loss['s_train'].append(loss.item())
 
                 self.student_optimizer.zero_grad()
@@ -201,6 +200,8 @@ class TrainerTeacherStudent:
                 self.student_optimizer.step()
 
                 train_epoch_loss.append(loss.item())
+                straight_epoch_loss.append(student_loss.item())
+                distil_epoch_loss.append(distil_loss.item())
 
                 if idx % (len(self.train_loader) // 2) == 0:
                     print("\rStudent: epoch={}/{},{}/{}of train, student loss={}, distill loss={}".format(
@@ -208,6 +209,8 @@ class TrainerTeacherStudent:
                         loss.item(), distil_loss.item()), end='')
 
             self.train_loss['s_train_epochs'].append(np.average(train_epoch_loss))
+            self.train_loss['s_train_straight_epochs'].append(np.average(straight_epoch_loss))
+            self.train_loss['s_train_distil_epochs'].append(np.average(distil_epoch_loss))
             self.student_epochs += 1
 
         end = time.time()
@@ -221,6 +224,8 @@ class TrainerTeacherStudent:
         self.csi_encoder.eval()
         self.img_encoder.eval()
         valid_epoch_loss = []
+        straight_epoch_loss = []
+        distil_epoch_loss = []
 
         for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
             data_x = data_x.to(torch.float32).to(self.student_args.device)
@@ -234,14 +239,15 @@ class TrainerTeacherStudent:
                                         nn.functional.softmax(teacher_preds / self.temperature, -1))
 
             loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-
             self.train_loss['s_valid'].append(loss.item())
-            self.train_loss['s_valid_straight'].append(student_loss.item())
-            self.train_loss['s_valid_distil'].append(distil_loss.item())
 
             valid_epoch_loss.append(loss.item())
+            straight_epoch_loss.append(student_loss.item())
+            distil_epoch_loss.append(distil_loss.item())
 
         self.train_loss['s_valid_epochs'].append(np.average(valid_epoch_loss))
+        self.train_loss['s_valid_straight'].append(np.average(straight_epoch_loss))
+        self.train_loss['s_valid_distil'].append(np.average(distil_epoch_loss))
 
     def test_teacher(self, mode='test'):
         self.t_test_loss = self.__gen_teacher_test__()
@@ -307,6 +313,8 @@ class TrainerTeacherStudent:
 
     def plot_train_loss(self, autosave=False, notion=''):
 
+        plt.rcParams["figure.figsize"] = (20, 10)
+
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Train Status')
         subfigs = fig.subfigures(nrows=2, ncols=1)
@@ -331,7 +339,9 @@ class TrainerTeacherStudent:
             a.grid(True)
 
         ax[0].plot(self.train_loss['t_valid_epochs'], 'orange')
+        ax[0].set_title('Teacher')
         ax[1].plot(self.train_loss['s_valid_epochs'], 'orange')
+        ax[1].set_title('Student')
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
@@ -339,7 +349,11 @@ class TrainerTeacherStudent:
                         "_loss" + notion + '_' + '.jpg')
         plt.show()
 
-        subfigs[1].suptitle('Validation')
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle('Train Status')
+        subfigs = fig.subfigures(nrows=2, ncols=1)
+
+        subfigs[0].suptitle('Train')
         ax = subfigs[0].subplots(nrows=1, ncols=2)
         for a in ax:
             a.set_ylabel('loss')
@@ -351,6 +365,7 @@ class TrainerTeacherStudent:
         ax[1].plot(self.train_loss['s_train_distil'], 'b')
         ax[1].set_title('Distillation')
 
+        subfigs[1].suptitle('Validation')
         ax = subfigs[1].subplots(nrows=1, ncols=2)
         for a in ax:
             a.set_ylabel('loss')
@@ -358,7 +373,9 @@ class TrainerTeacherStudent:
             a.grid(True)
 
         ax[0].plot(self.train_loss['s_valid_straight'], 'orange', label='training_loss')
+        ax[0].set_title('Straight')
         ax[1].plot(self.train_loss['s_valid_distil'], 'orange', label='training_loss')
+        ax[1].set_title('Distillation')
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
@@ -367,6 +384,8 @@ class TrainerTeacherStudent:
         plt.show()
 
     def plot_teacher_test(self):
+
+        plt.rcParams["figure.figsize"] = (20, 10)
 
         imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), 8)
         fig = plt.figure(constrained_layout=True)
@@ -395,6 +414,8 @@ class TrainerTeacherStudent:
 
     def plot_student_test(self):
 
+        plt.rcParams["figure.figsize"] = (20, 10)
+
         imgs = np.random.choice(list(range(len(self.s_test_loss['groundtruth']))), 8)
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Student Test Results - images')
@@ -420,23 +441,18 @@ class TrainerTeacherStudent:
 
         plt.show()
 
-        fig2 = plt.figure(constrained_layout=True)
-        fig2.suptitle('Student Test Results - latent')
-        subfigs = fig2.subfigures(nrows=2, ncols=4)
-        subfigs[0].suptitle('Teacher\'s Latent')
-        ax = subfigs[0].subplots(nrows=1, ncols=8)
-        for a in range(len(ax)):
-            ax[a].plot(self.s_test_loss['teacher_latent_predicts'][imgs[a]])
-            ax[a].set_title('#' + str(imgs[a]))
-            ax[a].set_xlabel(str(imgs[a]))
+        fig, axes = plt.subplots(nrows=2, ncols=4)
+        fig.suptitle('Student Test Results - latent')
 
-        subfigs[1].suptitle('Student\'s Latent')
-        ax = subfigs[1].subplots(nrows=1, ncols=8)
-        for a in range(len(ax)):
-            ax[a].plot(self.s_test_loss['student_latent_predicts'][imgs[a]])
-            ax[a].set_title('#' + str(imgs[a]))
-            ax[a].set_xlabel(str(imgs[a]))
+        axes = axes.flatten()
+        for a in range(len(axes)):
+            axes[a].plot(self.s_test_loss['teacher_latent_predicts'][imgs[a]], 'b', label='Teacher')
+            axes[a].plot(self.s_test_loss['student_latent_predicts'][imgs[a]], 'orange', label='student')
+            axes[a].set_title('#' + str(imgs[a]))
+            axes[a].grid()
 
+        axes[0].legend()
+        plt.tight_layout()
         plt.show()
 
 

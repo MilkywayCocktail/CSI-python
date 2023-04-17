@@ -1130,7 +1130,7 @@ class MyCsi:
         if self.configs.ntx != 3:
             return
         else:
-            csd_1 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-100) * 1.e-9)
+            csd_1 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-400) * 1.e-9)
             csd_2 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-200) * 1.e-9)
 
             self.csi[:, :, :, 1] = self.csi[:, :, :, 1] * csd_1
@@ -1309,7 +1309,10 @@ if __name__ == '__main__':
     #mycsi.load_lists()
     mycsi.load_label('../sense/0307/04_labels.csv')
     mycsi.slice_by_label()
-    mycsi.show_csd()
+    #mycsi.show_csd()
+    mycsi.verbose_packet(index=10, notion='Before')
+    mycsi.remove_csd()
+    mycsi.verbose_packet(index=10, notion='After')
 
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     #mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
