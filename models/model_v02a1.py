@@ -69,7 +69,7 @@ class ImageEncoder(nn.Module):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, 256),
-            nn.ReLU()
+            nn.Sigmoid()
         )
 
     def __str__(self):
@@ -86,6 +86,7 @@ class ImageEncoder(nn.Module):
             x = self.fclayers(x.view(-1, 4 * 4 * 256))
         elif self.bottleneck == 'gap':
             x = self.gap(x)
+            x = nn.Sigmoid(x)
 
         return x.view(-1, 256)
 
@@ -95,7 +96,7 @@ class ImageDecoder(nn.Module):
         super(ImageDecoder, self).__init__()
 
         self.with_fc = with_fc
-        self.fc = 'FC' if self.with_fc is True else 'noFC'
+        self.fc = 'FC' if self.with_fc else 'noFC'
 
         self.fclayers = nn.Sequential(
             nn.Linear(256, 4096),

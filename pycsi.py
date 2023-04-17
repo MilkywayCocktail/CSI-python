@@ -653,7 +653,7 @@ class MyCsi:
 
         if index is None:
             index = np.random.randint(self.length)
-        _csi = self.csi.reshape(nsub, ntx * nrx)
+        _csi = self.csi[index].reshape(nsub, ntx * nrx)
         _phs = np.unwrap(np.angle(_csi), axis=0)
         for ll in range(9):
             plt.plot(_phs[:, ll], label=ll)
@@ -1065,7 +1065,7 @@ class MyCsi:
         except DataError as e:
             print(e, "\nPlease load data")
 
-    def calibrate_phase(self, reference_antenna=0, cal_dict=None):
+    def remove_ipo(self, reference_antenna=0, cal_dict=None):
         """
         Calibrates phase with reference csi data files.\n
         Multiple files is supported.\n
@@ -1125,6 +1125,49 @@ class MyCsi:
             print(e, "\nPlease load data")
         except ArgError as e:
             print(e, "\nPlease specify an integer from 0~2")
+
+    def remove_csd(self):
+        if self.configs.ntx != 3:
+            return
+        else:
+            csd_1 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-100) * 1.e-9)
+            csd_2 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-200) * 1.e-9)
+
+            self.csi[:, :, :, 1] = self.csi[:, :, :, 1] * csd_1
+            self.csi[:, :, :, 2] = self.csi[:, :, :, 2] * csd_2
+
+    def show_csd(self):
+        if self.configs.ntx != 3:
+            return
+        else:
+            csd_1 = self.csi[..., 0] * self.csi[..., 1].conj()
+            csd_2 = self.csi[..., 0] * self.csi[..., 2].conj()
+
+            csd_1 = np.unwrap(np.squeeze(np.angle(np.mean(csd_1, axis=0)))) / (2 * np.pi * self.configs.subfreq_list) * 1.e9
+            csd_2 = np.unwrap(np.squeeze(np.angle(np.mean(csd_2, axis=0)))) / (2 * np.pi * self.configs.subfreq_list) * 1.e9
+
+            plt.subplot(2, 1, 1)
+
+            for rx in range(self.configs.nrx):
+                plt.plot(csd_1[:, rx], label='rx'+str(rx))
+            plt.xlabel('Sub')
+            plt.ylabel('CSD/ns')
+            plt.title('CSD_1')
+            plt.legend()
+            plt.grid()
+
+            plt.subplot(2, 1, 2)
+            for rx in range(self.configs.nrx):
+                plt.plot(csd_2[:, rx], label='rx' + str(rx))
+            plt.xlabel('Sub')
+            plt.ylabel('CSD/ns')
+            plt.title('CSD_2')
+            plt.legend()
+            plt.grid()
+
+            plt.suptitle('CSD')
+            plt.tight_layout()
+            plt.show()
 
     def extract_dynamic(self, mode='overall-multiply',
                         ref='rx',
@@ -1266,17 +1309,7 @@ if __name__ == '__main__':
     #mycsi.load_lists()
     mycsi.load_label('../sense/0307/04_labels.csv')
     mycsi.slice_by_label()
-    #ref = MyCsi(mycon, '0208A00', '../npsave/0208/0208A00-csio.npy')
-    #ref.load_data()
-    #print(mycsi.timestamps)
-    mycsi.verbose_packet(index=10, notion='Raw')
-    mycsi.verbose_series(sub=14, notion='Raw')
-    mycsi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
-    mycsi.verbose_packet(index=10, notion='After division')
-    mycsi.verbose_series(sub=14, notion='After division')
-    mycsi.extract_dynamic(mode='highpass')
-    mycsi.verbose_packet(index=10, notion='After highpass')
-    mycsi.verbose_series(sub=14, notion='After highpass')
+    mycsi.show_csd()
 
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     #mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
