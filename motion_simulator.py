@@ -103,6 +103,100 @@ class GroundTruth:
         plt.show()
 
 
+class GroundTruthMulti:
+    """
+    Ground Truth of movements of a subject considering multiple tx/rx antennas.
+    """
+    def __init__(self, configs: MyConfigsSimu, name, num_links):
+        self.name = name
+        self.configs = configs
+        self.num_links = num_links
+        self.TS = np.zeros((self.configs.render_ticks, num_links, 2))
+        self.RS = np.zeros((self.configs.render_ticks, num_links, 2))
+        self.AoA = np.zeros((self.configs.render_ticks, num_links))
+        self.ToF = np.zeros((self.configs.render_ticks, num_links))
+        self.DFS = np.zeros((self.configs.render_ticks, num_links))
+        self.AMP = np.ones((self.configs.render_ticks, num_links))
+        self.temp_csi_dfs = np.ones(num_links) * np.exp(0.j)
+
+    def __gen_phase__(self, tick, sub_pos, tx_pos, rx_pos):
+
+        tx_pos = np.array(tx_pos)
+        rx_pos = np.array(rx_pos)
+        TS = np.zeros((self.num_links, 2))
+        RS = np.zeros((self.num_links, 2))
+        AoA = np.zeros(self.num_links)
+        ToF = np.zeros(self.num_links)
+        DFS = np.zeros(self.num_links)
+        csi_aoa = np.zeros(self.num_links)
+        csi_tof = np.zeros(self.num_links)
+        csi_dfs = np.zeros(self.num_links)
+
+        for link in range(self.num_links):
+            for i in (0, 1):
+                TS[link, i] = sub_pos[i] - tx_pos[link, i]
+                RS[link, i] = sub_pos[i] - rx_pos[link, i]
+
+            AoA[link] = RS[link, 0] / np.linalg.norm(RS[link])  # in sine
+            csi_aoa = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AoA[link] *
+                                         self.configs.subfreq_list / self.configs.lightspeed).dot(
+                self.configs.antenna_list.reshape(1, -1))))
+            csi_aoa = csi_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
+
+        ToF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed  # in seconds
+        csi_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * ToF))
+        csi_tof = csi_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
+
+        if tick == 0:
+            DFS = 0
+        else:
+            DFS = (np.linalg.norm(TS) + np.linalg.norm(RS) -
+                   np.linalg.norm(self.TS[tick - 1]) - np.linalg.norm(
+                        self.RS[tick - 1])) / self.configs.render_interval  # in m/s
+
+        csi_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
+                                    self.configs.render_interval))
+        csi_dfs = self.temp_csi_dfs * csi_dfs[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(
+            self.configs.ntx, axis=2)
+
+        # Do not multiply csi_dfs with csi
+        csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
+            csi_aoa * csi_tof
+
+        self.TS[tick] = TS
+        self.RS[tick] = RS
+        self.AoA[tick] = np.rad2deg(np.arcsin(AoA))
+        self.ToF[tick] = ToF
+        self.DFS[tick] = DFS
+        self.temp_csi_dfs = csi_dfs
+
+        return csi
+
+    def plot_groundtruth(self):
+        fig, axs = plt.subplots(2, 2, figsize=(12, 8))
+        plt.suptitle(self.name + '_GroundTruth')
+        axs = axs.flatten()
+
+        axs[0].plot(self.ToF)
+        axs[1].plot(self.AoA)
+        axs[2].plot(self.DFS)
+        axs[3].plot(self.AMP)
+
+        axs[0].set_title("ToF")
+        axs[0].set_ylim(np.min(self.ToF), np.max(self.ToF))
+        axs[1].set_title("AoA")
+        axs[1].set_ylim(-90, 90)
+        axs[2].set_title("Doppler")
+        axs[3].set_title("Amplitude")
+
+        for axi in axs:
+            axi.set_xlim(0, self.configs.render_ticks)
+            axi.grid()
+
+        plt.tight_layout()
+        plt.show()
+
+
 class Subject:
     """
     Subject that moves in the sensing zone.
@@ -322,8 +416,7 @@ class SensingZone:
     def derive_MyCsi(self, configs, name):
 
         _csi = pycsi.MyCsi(configs, name)
-        _csi.load_lists(amp=np.abs(self.csi),
-                        phase=np.angle(self.csi),
+        _csi.load_lists(csilist=self.csi,
                         timelist=self.configs.render_indices / self.configs.sampling_rate)
         return _csi
 
@@ -348,7 +441,7 @@ if __name__ == '__main__':
     zone.show_groundtruth()
 
     simu = zone.derive_MyCsi(config, '0317GT5')
-    simu.save_csi()
+    #simu.save_csi()
 
     #simu = pycsi.MyCsi(config, '0310GT0')
     #simu.load_lists(path='../npsave/0310/0310GT0-csis.npy')

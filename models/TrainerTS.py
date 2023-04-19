@@ -124,6 +124,14 @@ class TrainerTeacherStudent:
                      'groundtruth': []}
         return test_loss
 
+    def save_status(self, model=None, notion=''):
+        if model is None:
+            model = ['img_encoder, img_decoder, csi_encoder']
+        for mo in model:
+            torch.save(eval('self.' + mo + '.state_dict()'),
+                       '../Models/' + mo + '_' + str(self.img_encoder) + notion +
+                       '_ep' + str(self.teacher_epochs) + '.pth')
+
     def train_teacher(self, autosave=False, notion=''):
         start = time.time()
 
@@ -246,8 +254,8 @@ class TrainerTeacherStudent:
             distil_epoch_loss.append(distil_loss.item())
 
         self.train_loss['s_valid_epochs'].append(np.average(valid_epoch_loss))
-        self.train_loss['s_valid_straight'].append(np.average(straight_epoch_loss))
-        self.train_loss['s_valid_distil'].append(np.average(distil_epoch_loss))
+        self.train_loss['s_valid_straight_epochs'].append(np.average(straight_epoch_loss))
+        self.train_loss['s_valid_distil_epochs'].append(np.average(distil_epoch_loss))
 
     def test_teacher(self, mode='test'):
         self.t_test_loss = self.__gen_teacher_test__()
@@ -360,9 +368,9 @@ class TrainerTeacherStudent:
             a.set_xlabel('#epoch')
             a.grid(True)
 
-        ax[0].plot(self.train_loss['s_train_straight'], 'b')
+        ax[0].plot(self.train_loss['s_train_straight_epochs'], 'b')
         ax[0].set_title('Straight')
-        ax[1].plot(self.train_loss['s_train_distil'], 'b')
+        ax[1].plot(self.train_loss['s_train_distil_epochs'], 'b')
         ax[1].set_title('Distillation')
 
         subfigs[1].suptitle('Validation')
@@ -372,9 +380,9 @@ class TrainerTeacherStudent:
             a.set_xlabel('#epoch')
             a.grid(True)
 
-        ax[0].plot(self.train_loss['s_valid_straight'], 'orange', label='training_loss')
+        ax[0].plot(self.train_loss['s_valid_straight_epochs'], 'orange', label='training_loss')
         ax[0].set_title('Straight')
-        ax[1].plot(self.train_loss['s_valid_distil'], 'orange', label='training_loss')
+        ax[1].plot(self.train_loss['s_valid_distil_epochs'], 'orange', label='training_loss')
         ax[1].set_title('Distillation')
 
         if autosave is True:
@@ -446,8 +454,8 @@ class TrainerTeacherStudent:
 
         axes = axes.flatten()
         for a in range(len(axes)):
-            axes[a].plot(self.s_test_loss['teacher_latent_predicts'][imgs[a]], 'b', label='Teacher')
-            axes[a].plot(self.s_test_loss['student_latent_predicts'][imgs[a]], 'orange', label='student')
+            axes[a].bar(range(256), self.s_test_loss['teacher_latent_predicts'][imgs[a]], 'b', alpha=0.4, label='Teacher')
+            axes[a].bar(range(256), self.s_test_loss['student_latent_predicts'][imgs[a]], 'orange', alpha=0.4, label='student')
             axes[a].set_title('#' + str(imgs[a]))
             axes[a].grid()
 

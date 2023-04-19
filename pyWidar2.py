@@ -41,26 +41,25 @@ class MyCsiW2(pycsi.MyCsi):
         :param ref_antenna: No use.
         """
         print("Self calibrating...", end='')
-        recon = self.commonfunc.reconstruct_csi
-        csi_ratio = np.mean(self.amp, axis=0) / np.std(self.amp, axis=0)
+        csi_ratio = np.mean(np.abs(self.csi.csi), axis=0) / np.std(np.abs(self.csi.csi), axis=0)
         ant_ratio = np.mean(csi_ratio, axis=0)
         ref = np.argmax(ant_ratio)
 
-        alpha = np.min(self.amp, axis=0)
+        alpha = np.min(np.abs(self.csi.csi), axis=0)
         beta = np.sum(alpha) ** 2 / self.length * 1000
 
-        csi_ref = recon(self.amp[:, :, ref] + beta, self.phase[:, :, ref], squeeze=False)[:, :, np.newaxis]
-        csi_cal = recon(self.amp - alpha, self.phase, squeeze=False) * np.repeat(csi_ref.conj(), 3, axis=2)
+        csi_ref = (np.abs(self.csi.csi[:, :, ref, np.newaxis]) + beta) * np.exp(
+            1.j * np.angle(self.csi.csi[:, :, ref, np.newaxis]))
+        csi_cal = (np.abs(self.csi.csi) - alpha) * np.exp(
+            1.j * np.angle(self.csi.csi)) * np.repeat(csi_ref.conj(), 3, axis=2)
 
-        self.amp = np.abs(csi_cal)
-        self.phase = np.angle(csi_cal)
+        self.csi.csi = csi_cal
 
         print("Done")
         return csi_cal, alpha, beta
 
     def filter_widar2(self, bandstop=0, use_bandstop=False):
         print("Filtering...", end='')
-        recon = self.commonfunc.reconstruct_csi
         half_sr = self.actual_sr / 2.
 
         B33, A33 = signal.butter(1, [max((bandstop - 2), 1) / half_sr, (bandstop + 2) / half_sr], 'bandstop')
@@ -70,10 +69,10 @@ class MyCsiW2(pycsi.MyCsi):
         B, A = signal.butter(4, upper_stop / half_sr, 'lowpass')
         B2, A2 = signal.butter(4, lower_stop / half_sr, 'highpass')
 
-        csi_filter = np.zeros_like(self.amp, dtype=complex)
+        csi_filter = np.zeros_like(self.csi, dtype=complex)
         for i in range(self.configs.nsub):
             for j in range(self.configs.nrx):
-                tmp = recon(self.amp[:, i, j], self.phase[:, i, j])
+                tmp = self.csi.csi[:, i, j]
                 if use_bandstop:
                     tmp = signal.filtfilt(B33, A33, tmp)
 
@@ -87,8 +86,7 @@ class MyCsiW2(pycsi.MyCsi):
         interpolator = interpolate.interp1d(self.timestamps, csi_filter, axis=0)
         csi_interp = interpolator(interp_stamp)
 
-        self.amp = np.abs(csi_interp)
-        self.phase = np.angle(csi_interp)
+        self.csi.csi = csi_interp
         print("Done")
 
 
@@ -163,20 +161,17 @@ class MyWidar2:
         return _estimates, _arg_index
 
     def sage(self, window_dyn=False, dynamic_durations=False):
-        recon = self.csi.commonfunc.reconstruct_csi
         r = self.configs.update_ratio
         stride = self.configs.stride
         window_length = self.configs.window_length
         nsub = self.csi.configs.nsub
         nrx = self.csi.configs.nrx
 
-        csi_signal = recon(self.csi.amp, self.csi.phase, squeeze=False)
-
         print("total steps=", self.total_steps)
 
         for step in range(self.total_steps):
 
-            actual_csi = csi_signal[step * stride: step * stride + window_length]
+            actual_csi = self.csi.csi[step * stride: step * stride + window_length]
             latent_signal = np.zeros((self.configs.window_length, self.configs.nsub, self.configs.nrx,
                                       self.configs.num_paths), dtype=complex)
             self.temp_estimates, self.temp_arg_i = self.__gen_temp_parameters__()
@@ -260,9 +255,7 @@ class MyWidar2:
 
     def run(self, pick_antenna=0, **kwargs):
         start = time.time()
-        if self.configs.ntx > 1:
-            self.csi.amp = self.csi.amp[..., pick_antenna]
-            self.csi.phase = self.csi.phase[..., pick_antenna]
+        self.csi.csi = self.csi.csi[..., pick_antenna]
 
         #_, alpha, beta = self.csi.self_calibrate()
         # self.csi.filter_widar2()
@@ -334,12 +327,13 @@ if __name__ == "__main__":
     conf = MyConfigsW2(num_paths=1)
     conf.ntx = 3
     conf.tx_rate = 0x1c113
-    csi = MyCsiW2(conf, '0307A07', '../npsave/0307/0307A07-csio.npy')
+    csi = MyCsiW2(conf, '0307A04', '../npsave/0307/0307A04-csio.npy')
     csi.load_data(remove_sm=True)
-    csi.load_label('../sense/0307/07_labels.csv')
+    csi.load_label('../sense/0307/04_labels.csv')
+    csi.remove_csd()
     csi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1, subtract_mean=False)
     csi.extract_dynamic(mode='highpass')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
     widar.run(pick_antenna=2, dynamic_durations=False)
-    widar.plot_results()
+    widar.plot_results(),

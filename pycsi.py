@@ -88,7 +88,7 @@ class MyCommonFuncs:
         return np.array(output)
 
     @staticmethod
-    def noise_space(input_csi, ntx=1):
+    def noise_space(input_csi):
         """
         Calculates self-correlation and eigen vectors of given csi.\n
         For AoA, please input CSI of (nsub, nrx).\n
@@ -97,13 +97,13 @@ class MyCommonFuncs:
         :param ntx: number of tx antenna, default is 1
         :return: noise space vectors
         """
-        if ntx == 1:
-            input_csi = np.squeeze(input_csi)
+
+        input_csi = np.squeeze(input_csi)
 
         value, vector = np.linalg.eigh(input_csi.T.dot(np.conjugate(input_csi)))
         descend_order_index = np.argsort(-value)
         vector = vector[:, descend_order_index]
-        noise_space = vector[:, ntx:]
+        noise_space = vector[:, 1:]
 
         return noise_space
 
@@ -252,9 +252,9 @@ class ToFViewer(MySpectrumViewer):
             ax = sns.heatmap(self.spectrum)
             label0, label1 = self.replace(self.timestamps, self.num_ticks)
 
-        ax.yaxis.set_major_formatter(ticker.FixedFormatter([250, 200, 150, 100, 50, 0, -50]))
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
-        ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
+        ax.yaxis.set_major_formatter(ticker.FixedFormatter([450, 400, 300, 200, 100, 0, -100]))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(100))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(20))
         plt.xticks(label0, label1)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
         ax.set_xlabel("Time / $s$")
@@ -616,7 +616,7 @@ class MyCsi:
 
         for step in range((self.length - window_length) // stride):
             print('\rSaving figure', step, end='')
-            fig = plt.figure(figsize=(12, 9))
+            plt.figure(figsize=(12, 9))
 
             ax1 = plt.subplot(2, 1, 1)
             ax1.set_title('Phasediff_0_1')
@@ -710,19 +710,18 @@ class MyCsi:
 
             print(self.name, metric, "plot complete", time.asctime(time.localtime(time.time())))
 
-    def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False):
+    def aoa_by_music(self, input_theta_list=np.arange(-90, 91, 1.), smooth=False, pick_tx=0):
         """
         Computes AoA spectrum by MUSIC.\n
         :param input_theta_list: list of angels, default = -90~90
         :param smooth: whether apply SpotFi smoothing or not, default = False
+        :param pick_tx: select 1 tx antenna, default is 0
         :return: AoA spectrum by MUSIC stored in self.data.spectrum
         """
         lightspeed = self.configs.lightspeed
         center_freq = self.configs.center_freq
         dist_antenna = self.configs.dist_antenna
         torad = self.configs.torad
-        nrx = self.configs.nrx
-        ntx = self.configs.ntx
         subfreq_list = self.configs.subfreq_list
         smoothing = self.commonfunc.smooth_csi
         noise = self.commonfunc.noise_space
@@ -732,9 +731,6 @@ class MyCsi:
         try:
             if self.csi is None:
                 raise DataError("amplitude: " + str(self.csi) + "\nPlease load data")
-
-            if smooth not in (True, False):
-                raise ArgError("smooth:" + str(smooth))
 
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
@@ -748,7 +744,7 @@ class MyCsi:
                 if smooth is True:
                     pass
 
-                noise_space = noise(self.csi[i], ntx)
+                noise_space = noise(self.csi[i, :, :, pick_tx])
 
                 if smooth is True:
                     steering_vector = np.exp([-1.j * 2 * np.pi * dist_antenna * (np.sin(theta_list * torad) *
@@ -768,13 +764,16 @@ class MyCsi:
 
         except DataError as e:
             print(e)
-        except ArgError as e:
-            print(e, "\nPlease specify smooth=True or False")
 
-    def tof_by_music(self, input_dt_list=np.arange(-0.5e-7, 2.e-7, 1.e-9)):
+    def tof_by_music(self, input_dt_list=np.arange(-1.e-7, 4.e-7, 1.e-9), pick_tx=0):
+        """
+        Computes AoA spectrum by MUSIC.\n
+        :param input_dt_list: list of tofs, default = -0.5e-7~2e-7
+        :param pick_tx: select 1 tx antenna, default is 0
+        :return: ToF spectrum by MUSIC stored in self.data.spectrum
+        """
 
         subfreq_list = self.configs.subfreq_list - self.configs.center_freq
-        ntx = self.configs.ntx
         noise = self.commonfunc.noise_space
 
         print(self.name, "ToF by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
@@ -788,7 +787,7 @@ class MyCsi:
 
             for i in range(self.length):
 
-                noise_space = noise(self.csi[i].T, ntx)
+                noise_space = noise(self.csi[i, :, :, pick_tx].T)
 
                 steering_vector = np.exp(-1.j * 2 * np.pi * dt_list.dot(subfreq_list.T))
 
@@ -805,7 +804,8 @@ class MyCsi:
     def doppler_by_music(self, input_velocity_list=np.arange(-5, 5.01, 0.01),
                          window_length=100,
                          stride=100,
-                         pick_antenna=1,
+                         pick_rx=0,
+                         pick_tx=0,
                          raw_timestamps=False,
                          raw_window=False):
         """
@@ -814,15 +814,15 @@ class MyCsi:
         :param input_velocity_list: list of velocities. Default = -5~5
         :param window_length: window length for each step
         :param stride: stride for each step
-        :param pick_antenna: select data of which antenna is used
-        :param raw_timestamps: whether use original timestamps. Default is False
+        :param pick_rx: select 1 rx antenna, default is 0. (You can also Specify 'strong' or 'weak')
+        :param pick_tx: select 1 tx antenna, default is 0
+        :param raw_timestamps: whether to use original timestamps. Default is False
         :param raw_window: whether skip extracting dynamic CSI. Default is False
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
         sampling_rate = self.configs.sampling_rate
         lightspeed = self.configs.lightspeed
         center_freq = self.configs.center_freq
-        ntx = self.configs.ntx
         noise = self.commonfunc.noise_space
         dynamic = self.commonfunc.windowed_dynamic
 
@@ -837,10 +837,10 @@ class MyCsi:
             velocity_list = np.array(input_velocity_list[::-1]).reshape(-1, 1)
             total_strides = (self.length - window_length) // stride
 
-            if pick_antenna == 'strong':
-                pick_antenna = np.argmax(self.show_antenna_strength())
-            elif pick_antenna == 'weak':
-                pick_antenna = np.argmin(self.show_antenna_strength())
+            if pick_rx == 'strong':
+                pick_rx = np.argmax(self.show_antenna_strength())
+            elif pick_rx == 'weak':
+                pick_rx = np.argmin(self.show_antenna_strength())
 
             spectrum = np.zeros((len(input_velocity_list), total_strides))
             temp_timestamps = np.zeros(total_strides)
@@ -850,11 +850,11 @@ class MyCsi:
                 csi_windowed = self.csi[i * stride: i * stride + window_length]
 
                 if raw_window is True:
-                    noise_space = noise(csi_windowed[:, :, pick_antenna, 0].T, ntx)
+                    noise_space = noise(csi_windowed[:, :, pick_rx, pick_tx].T)
                 else:
                     # Using windowed dynamic extraction
                     csi_dynamic = dynamic(csi_windowed, ref='rx', reference_antenna=2)
-                    noise_space = noise(csi_dynamic[:, :, pick_antenna, 0].T, ntx)
+                    noise_space = noise(csi_dynamic[:, :, pick_rx, pick_tx].T)
 
                 if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
@@ -878,7 +878,7 @@ class MyCsi:
             print(e)
 
     def aoa_tof_by_music(self, input_theta_list=np.arange(-90, 91, 1.),
-                         input_dt_list=np.arange(-0.5e-7, 2.e-7, 1.e-9),
+                         input_dt_list=np.arange(-1.e-7, 2.e-7, 1.e-9),
                          smooth=False):
         """
         Computes AoA-ToF spectrum by MUSIC.\n
@@ -895,7 +895,6 @@ class MyCsi:
         subfreq_list = self.configs.subfreq_list
         nsub = self.configs.nsub
         nrx = self.configs.nrx
-        ntx = self.configs.ntx
         smoothing = self.commonfunc.smooth_csi
         noise = self.commonfunc.noise_space
 
@@ -925,7 +924,7 @@ class MyCsi:
                 if smooth is True:
                     pass
 
-                noise_space = noise(self.csi[i].reshape(1, -1), ntx)   # nrx * nsub columns
+                noise_space = noise(self.csi[i].reshape(1, -1))   # nrx * nsub columns
 
                 for j, tof in enumerate(dt_list):
 
@@ -972,7 +971,6 @@ class MyCsi:
         sampling_rate = self.configs.sampling_rate
         torad = self.configs.torad
         nrx = self.configs.nrx
-        ntx = self.configs.ntx
         nsub = self.configs.nsub
         noise = self.commonfunc.noise_space
         dynamic = self.commonfunc.windowed_dynamic
@@ -1001,11 +999,11 @@ class MyCsi:
                 csi_windowed = self.csi[i * stride: i * stride + window_length]
 
                 if raw_window is True:
-                    noise_space = noise(csi_windowed.swapaxes(0, 1).reshape(nsub, window_length * nrx), ntx)
+                    noise_space = noise(csi_windowed.swapaxes(0, 1).reshape(nsub, window_length * nrx))
                 else:
                     # Using windowed dynamic extraction
                     csi_dynamic = dynamic(csi_windowed, ref='rx', reference_antenna=2)
-                    noise_space = noise(csi_dynamic.swapaxes(0, 1).reshape(nsub, window_length * nrx), ntx)
+                    noise_space = noise(csi_dynamic.swapaxes(0, 1).reshape(nsub, window_length * nrx))
 
                 if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
@@ -1126,15 +1124,39 @@ class MyCsi:
         except ArgError as e:
             print(e, "\nPlease specify an integer from 0~2")
 
-    def remove_csd(self):
-        if self.configs.ntx != 3:
-            return
-        else:
-            csd_1 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-400) * 1.e-9)
-            csd_2 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-200) * 1.e-9)
+    def remove_csd(self, HT=False):
+        """
+        Remove CSD based on values in 802.11 standard.\n
+        Requires 3 tx.\n
+        non-HT: -200ns, -100ns\n
+        HT: -400ns, -200ns\n
+        :param HT: Default is False
+        :return: CSI with CSD removed
+        """
+
+        print(self.name, "removing CSD...", end='')
+
+        try:
+            if self.csi is None:
+                raise DataError("csi: " + str(self.csi))
+
+            if self.configs.ntx != 3:
+                raise DataError(str(self.csi) + 'does not have multiple tx')
+            else:
+                if HT:
+                    csd_1 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-400) * 1.e-9)
+                    csd_2 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-200) * 1.e-9)
+                else:
+                    csd_1 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-200) * 1.e-9)
+                    csd_2 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-100) * 1.e-9)
 
             self.csi[:, :, :, 1] = self.csi[:, :, :, 1] * csd_1
             self.csi[:, :, :, 2] = self.csi[:, :, :, 2] * csd_2
+
+            print("Done")
+
+        except DataError as e:
+            print(e, "\nPlease load data")
 
     def show_csd(self):
         if self.configs.ntx != 3:
@@ -1308,13 +1330,12 @@ if __name__ == '__main__':
     mycsi.load_data(remove_sm=True)
     #mycsi.load_lists()
     mycsi.load_label('../sense/0307/04_labels.csv')
-    mycsi.slice_by_label()
+    mycsi.slice_by_label(overwrite=True)
     #mycsi.show_csd()
-    mycsi.verbose_packet(index=10, notion='Before')
     mycsi.remove_csd()
-    mycsi.verbose_packet(index=10, notion='After')
-
+    mycsi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1, subtract_mean=False)
+    mycsi.extract_dynamic(mode='highpass')
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     #mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
-    #mycsi.doppler_by_music()
-    #mycsi.viewer.view()
+    mycsi.aoa_by_music()
+    mycsi.viewer.view()
