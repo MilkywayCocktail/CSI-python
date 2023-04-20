@@ -35,6 +35,7 @@ class GroundTruth:
         self.TS = np.zeros((self.configs.render_ticks, 2))
         self.RS = np.zeros((self.configs.render_ticks, 2))
         self.AoA = np.zeros(self.configs.render_ticks)
+        self.AoD = np.zeros(self.configs.render_ticks)
         self.ToF = np.zeros(self.configs.render_ticks)
         self.DFS = np.zeros(self.configs.render_ticks)
         self.AMP = np.ones(self.configs.render_ticks)
@@ -49,99 +50,10 @@ class GroundTruth:
                                      self.configs.lightspeed).dot(self.configs.antenna_list.reshape(1, -1))))
         csi_aoa = csi_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
 
-        ToF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed  # in seconds
-        csi_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * ToF))
-        csi_tof = csi_tof[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(self.configs.ntx, axis=2)
-
-        if tick == 0:
-            DFS = 0
-        else:
-            DFS = (np.linalg.norm(TS) + np.linalg.norm(RS) -
-                   np.linalg.norm(self.TS[tick - 1]) - np.linalg.norm(
-                        self.RS[tick - 1])) / self.configs.render_interval  # in m/s
-
-        csi_dfs = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * DFS / self.configs.lightspeed *
-                                    self.configs.render_interval))
-        csi_dfs = self.temp_csi_dfs * csi_dfs[:, np.newaxis, np.newaxis].repeat(self.configs.nrx, axis=1).repeat(
-            self.configs.ntx, axis=2)
-
-        # Do not multiply csi_dfs with csi
-        csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
-            csi_aoa * csi_tof
-
-        self.TS[tick] = TS
-        self.RS[tick] = RS
-        self.AoA[tick] = np.rad2deg(np.arcsin(AoA))
-        self.ToF[tick] = ToF
-        self.DFS[tick] = DFS
-        self.temp_csi_dfs = csi_dfs
-
-        return csi
-
-    def plot_groundtruth(self):
-        fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-        plt.suptitle(self.name + '_GroundTruth')
-        axs = axs.flatten()
-
-        axs[0].plot(self.ToF)
-        axs[1].plot(self.AoA)
-        axs[2].plot(self.DFS)
-        axs[3].plot(self.AMP)
-
-        axs[0].set_title("ToF")
-        axs[0].set_ylim(np.min(self.ToF), np.max(self.ToF))
-        axs[1].set_title("AoA")
-        axs[1].set_ylim(-90, 90)
-        axs[2].set_title("Doppler")
-        axs[3].set_title("Amplitude")
-
-        for axi in axs:
-            axi.set_xlim(0, self.configs.render_ticks)
-            axi.grid()
-
-        plt.tight_layout()
-        plt.show()
-
-
-class GroundTruthMulti:
-    """
-    Ground Truth of movements of a subject considering multiple tx/rx antennas.
-    """
-    def __init__(self, configs: MyConfigsSimu, name, num_links):
-        self.name = name
-        self.configs = configs
-        self.num_links = num_links
-        self.TS = np.zeros((self.configs.render_ticks, num_links, 2))
-        self.RS = np.zeros((self.configs.render_ticks, num_links, 2))
-        self.AoA = np.zeros((self.configs.render_ticks, num_links))
-        self.ToF = np.zeros((self.configs.render_ticks, num_links))
-        self.DFS = np.zeros((self.configs.render_ticks, num_links))
-        self.AMP = np.ones((self.configs.render_ticks, num_links))
-        self.temp_csi_dfs = np.ones(num_links) * np.exp(0.j)
-
-    def __gen_phase__(self, tick, sub_pos, tx_pos, rx_pos):
-
-        tx_pos = np.array(tx_pos)
-        rx_pos = np.array(rx_pos)
-        TS = np.zeros((self.num_links, 2))
-        RS = np.zeros((self.num_links, 2))
-        AoA = np.zeros(self.num_links)
-        ToF = np.zeros(self.num_links)
-        DFS = np.zeros(self.num_links)
-        csi_aoa = np.zeros(self.num_links)
-        csi_tof = np.zeros(self.num_links)
-        csi_dfs = np.zeros(self.num_links)
-
-        for link in range(self.num_links):
-            for i in (0, 1):
-                TS[link, i] = sub_pos[i] - tx_pos[link, i]
-                RS[link, i] = sub_pos[i] - rx_pos[link, i]
-
-            AoA[link] = RS[link, 0] / np.linalg.norm(RS[link])  # in sine
-            csi_aoa = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AoA[link] *
-                                         self.configs.subfreq_list / self.configs.lightspeed).dot(
-                self.configs.antenna_list.reshape(1, -1))))
-            csi_aoa = csi_aoa[:, :, np.newaxis].repeat(self.configs.ntx, axis=2)
+        AoD = TS[0] / np.linalg.norm(TS)  # in sine
+        csi_aod = np.squeeze(np.exp((-2.j * np.pi * self.configs.dist_antenna * AoD * self.configs.subfreq_list /
+                                     self.configs.lightspeed).dot(self.configs.antenna_list.reshape(1, -1))))
+        csi_aod = csi_aod[:, np.newaxis, :].repeat(self.configs.nrx, axis=1)
 
         ToF = (np.linalg.norm(TS) + np.linalg.norm(RS)) / self.configs.lightspeed  # in seconds
         csi_tof = np.squeeze(np.exp(-2.j * np.pi * self.configs.subfreq_list * ToF))
@@ -161,11 +73,12 @@ class GroundTruthMulti:
 
         # Do not multiply csi_dfs with csi
         csi = np.exp(1.j * np.zeros((self.configs.nsub, self.configs.nrx, self.configs.ntx))) * \
-            csi_aoa * csi_tof
+            csi_aoa * csi_aod * csi_tof
 
         self.TS[tick] = TS
         self.RS[tick] = RS
         self.AoA[tick] = np.rad2deg(np.arcsin(AoA))
+        self.AoD[tick] = np.rad2deg(np.arcsin(AoD))
         self.ToF[tick] = ToF
         self.DFS[tick] = DFS
         self.temp_csi_dfs = csi_dfs
@@ -180,14 +93,15 @@ class GroundTruthMulti:
         axs[0].plot(self.ToF)
         axs[1].plot(self.AoA)
         axs[2].plot(self.DFS)
-        axs[3].plot(self.AMP)
+        axs[3].plot(self.AoD)
 
         axs[0].set_title("ToF")
         axs[0].set_ylim(np.min(self.ToF), np.max(self.ToF))
         axs[1].set_title("AoA")
         axs[1].set_ylim(-90, 90)
         axs[2].set_title("Doppler")
-        axs[3].set_title("Amplitude")
+        axs[3].set_title("AoD")
+        axs[3].set_ylim(-90, 90)
 
         for axi in axs:
             axi.set_xlim(0, self.configs.render_ticks)
@@ -422,7 +336,8 @@ class SensingZone:
 
 
 if __name__ == '__main__':
-    config = MyConfigsSimu(length=50)
+    config = MyConfigsSimu(length=50,)
+    config.ntx = 3
     sub1 = Subject(config, 'sub1')
     #sub1.random_velocity(velocity='vx', num_points=15, vrange=(-1, 1, 0.01))
     sub1.constant_velocity('vy')
@@ -431,7 +346,7 @@ if __name__ == '__main__':
     #sub1.circle_trajectory(period=10, center=(1, 3))
     sub1.plot_velocity()
 
-    zone = SensingZone(config, inbound=True)
+    zone = SensingZone(config, inbound=False)
     zone.add_subject(sub1)
 
     sub1.generate_trajectory()
@@ -445,15 +360,17 @@ if __name__ == '__main__':
 
     #simu = pycsi.MyCsi(config, '0310GT0')
     #simu.load_lists(path='../npsave/0310/0310GT0-csis.npy')
-    simu.aoa_by_music()
-    simu.viewer.view(autosave=True)
-    simu.tof_by_music()
-    simu.viewer.view(autosave=True)
+    #simu.aoa_by_music()
+    #simu.viewer.view(autosave=True)
+    #simu.tof_by_music()
+    #simu.viewer.view(autosave=True)
+    simu.aod_by_music()
+    simu.viewer.view()
     #simu.extract_dynamic(mode='running', subtract_mean=False)
-    simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
-    simu.viewer.view(threshold=0.1, autosave=True)
+    #simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
+    #simu.viewer.view(threshold=0.1, autosave=True)
 
-    conf = pyWidar2.MyConfigsW2(num_paths=1)
-    widar = pyWidar2.MyWidar2(conf, simu)
-    widar.run(dynamic_durations=False)
-    widar.plot_results()
+    #conf = pyWidar2.MyConfigsW2(num_paths=1)
+    #widar = pyWidar2.MyWidar2(conf, simu)
+    #widar.run(dynamic_durations=False)
+    #widar.plot_results()

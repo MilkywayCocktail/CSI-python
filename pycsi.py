@@ -238,6 +238,31 @@ class AoAViewer(MySpectrumViewer):
         ax.collections[0].colorbar.set_label('Power / $dB$')
 
 
+class AoDViewer(MySpectrumViewer):
+
+    def __init__(self, *args, **kwargs):
+        MySpectrumViewer.__init__(self, *args, **kwargs)
+        self.algorithm = '_AoD'
+
+    def show(self, srange=None, notion=''):
+        if isinstance(srange, list):
+            ax = sns.heatmap(self.spectrum[srange])
+            label0, label1 = self.replace(self.timestamps[srange], self.num_ticks)
+        else:
+            ax = sns.heatmap(self.spectrum)
+            label0, label1 = self.replace(self.timestamps, self.num_ticks)
+
+        ax.yaxis.set_major_formatter(ticker.FixedFormatter([120, 90, 60, 30, 0, -30, -60, -90]))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
+        plt.xticks(label0, label1)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+        ax.set_xlabel("Time / $s$")
+        ax.set_ylabel("AoD / $deg$")
+        plt.title(self.name + " AoD Spectrum" + str(notion))
+        ax.collections[0].colorbar.set_label('Power / $dB$')
+
+
 class ToFViewer(MySpectrumViewer):
 
     def __init__(self, *args, **kwargs):
@@ -730,7 +755,7 @@ class MyCsi:
 
         try:
             if self.csi is None:
-                raise DataError("amplitude: " + str(self.csi) + "\nPlease load data")
+                raise DataError("csi: " + str(self.csi) + "\nPlease load data")
 
             if smooth is True:
                 print(self.name, "apply Smoothing via SpotFi...")
@@ -761,6 +786,46 @@ class MyCsi:
             self.spectrum = np.log(spectrum)
             self.viewer = AoAViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps)
             print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
+
+        except DataError as e:
+            print(e)
+
+    def aod_by_music(self, input_theta_list=np.arange(-90, 91, 1.), pick_rx=0):
+        """
+        Computes AoA spectrum by MUSIC.\n
+        :param input_theta_list: list of angels, default = -90~90
+        :param pick_rx: select 1 tx antenna, default is 0
+        :return: AoA spectrum by MUSIC stored in self.data.spectrum
+        """
+        lightspeed = self.configs.lightspeed
+        center_freq = self.configs.center_freq
+        dist_antenna = self.configs.dist_antenna
+        torad = self.configs.torad
+        noise = self.commonfunc.noise_space
+
+        print(self.name, "AoD by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
+
+        try:
+            if self.csi is None:
+                raise DataError("csi: " + str(self.csi) + "\nPlease load data")
+
+            antenna_list = self.configs.antenna_list
+            theta_list = np.array(input_theta_list[::-1]).reshape(-1, 1)
+            spectrum = np.zeros((len(input_theta_list), self.length))
+
+            for i in range(self.length):
+
+                noise_space = noise(self.csi[i, :, pick_rx, :])
+
+                steering_vector = np.exp(-1.j * 2 * np.pi * dist_antenna * np.sin(theta_list * torad).dot(
+                                            antenna_list.T) * center_freq / lightspeed)
+
+                a_en = steering_vector.conj().dot(noise_space)
+                spectrum[:, i] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
+
+            self.spectrum = np.log(spectrum)
+            self.viewer = AoDViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps)
+            print(self.name, "AoD by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
             print(e)
