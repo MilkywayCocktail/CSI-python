@@ -451,11 +451,12 @@ class TrainerTeacherStudent:
 
         fig, axes = plt.subplots(nrows=2, ncols=4)
         fig.suptitle('Student Test Results - latent')
-
         axes = axes.flatten()
         for a in range(len(axes)):
-            axes[a].bar(range(256), self.s_test_loss['teacher_latent_predicts'][imgs[a]], 'b', alpha=0.4, label='Teacher')
-            axes[a].bar(range(256), self.s_test_loss['student_latent_predicts'][imgs[a]], 'orange', alpha=0.4, label='student')
+            axes[a].bar(range(256), self.s_test_loss['teacher_latent_predicts'][imgs[a]], width=1, fc='blue',
+                        alpha=0.8, label='Teacher')
+            axes[a].bar(range(256), self.s_test_loss['student_latent_predicts'][imgs[a]], width=1, fc='orange',
+                        alpha=0.8, label='student')
             axes[a].set_title('#' + str(imgs[a]))
             axes[a].grid()
 

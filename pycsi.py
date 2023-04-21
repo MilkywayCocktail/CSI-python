@@ -108,7 +108,7 @@ class MyCommonFuncs:
         return noise_space
 
     @staticmethod
-    def windowed_dynamic(input_csi, ref, reference_antenna, subtract_mean=True):
+    def dynamic(input_csi, ref, reference_antenna, subtract_mean=True):
         if ref == 'rx':
             phase_diff = input_csi * input_csi[:, :, reference_antenna, :][..., np.newaxis, :].conj().repeat(3, axis=2)
         elif ref == 'tx':
@@ -871,6 +871,7 @@ class MyCsi:
                          stride=100,
                          pick_rx=0,
                          pick_tx=0,
+                         ref_antenna=1,
                          raw_timestamps=False,
                          raw_window=False):
         """
@@ -881,15 +882,16 @@ class MyCsi:
         :param stride: stride for each step
         :param pick_rx: select 1 rx antenna, default is 0. (You can also Specify 'strong' or 'weak')
         :param pick_tx: select 1 tx antenna, default is 0
+        :param ref_antenna: select 2 rx antenna for dynamic extraction, default is 1
         :param raw_timestamps: whether to use original timestamps. Default is False
-        :param raw_window: whether skip extracting dynamic CSI. Default is False
+        :param raw_window: whether to use raw CSI or dynamic CSI. Default is False
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
         sampling_rate = self.configs.sampling_rate
         lightspeed = self.configs.lightspeed
         center_freq = self.configs.center_freq
         noise = self.commonfunc.noise_space
-        dynamic = self.commonfunc.windowed_dynamic
+        dynamic = self.commonfunc.dynamic
 
         print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
@@ -918,7 +920,7 @@ class MyCsi:
                     noise_space = noise(csi_windowed[:, :, pick_rx, pick_tx].T)
                 else:
                     # Using windowed dynamic extraction
-                    csi_dynamic = dynamic(csi_windowed, ref='rx', reference_antenna=2)
+                    csi_dynamic = dynamic(csi_windowed, ref='rx', reference_antenna=ref_antenna)
                     noise_space = noise(csi_dynamic[:, :, pick_rx, pick_tx].T)
 
                 if raw_timestamps is True:
@@ -1038,7 +1040,7 @@ class MyCsi:
         nrx = self.configs.nrx
         nsub = self.configs.nsub
         noise = self.commonfunc.noise_space
-        dynamic = self.commonfunc.windowed_dynamic
+        dynamic = self.commonfunc.dynamic
 
         print(self.name, "AoA-Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
@@ -1275,7 +1277,7 @@ class MyCsi:
         nsub = self.configs.nsub
         ntx = self.configs.ntx
         sampling_rate = self.configs.sampling_rate
-        dynamic = self.commonfunc.windowed_dynamic
+        dynamic = self.commonfunc.dynamic
         division = self.commonfunc.windowed_divison
         highpass = self.commonfunc.highpass
 

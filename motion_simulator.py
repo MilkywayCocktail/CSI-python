@@ -323,6 +323,17 @@ class SensingZone:
                     self.csi[tick] += csi
         print('\n')
 
+    def apply_csd(self, HT=False):
+        if HT:
+            csd_1 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-400) * 1.e-9)
+            csd_2 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-200) * 1.e-9)
+        else:
+            csd_1 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-200) * 1.e-9)
+            csd_2 = np.exp(2.j * np.pi * self.configs.subfreq_list * (-100) * 1.e-9)
+
+        self.csi[:, :, :, 1] = self.csi[:, :, :, 1] * csd_1.conj()
+        self.csi[:, :, :, 2] = self.csi[:, :, :, 2] * csd_2.conj()
+
     def show_groundtruth(self):
         for subject in self.subjects:
             subject.groundtruth.plot_groundtruth()
@@ -344,18 +355,20 @@ if __name__ == '__main__':
     sub1.sine_velocity(velocity='vx', period=5, magnitude=2.5)
     sub1.set_init_location(-2, 1)
     #sub1.circle_trajectory(period=10, center=(1, 3))
-    sub1.plot_velocity()
+    #sub1.plot_velocity()
 
-    zone = SensingZone(config, inbound=False)
+    zone = SensingZone(config, tx_pos=(-1, 0), rx_pos=(1, 0), inbound=False)
     zone.add_subject(sub1)
 
     sub1.generate_trajectory()
-    sub1.plot_trajectory()
+    #sub1.plot_trajectory()
 
     zone.collect()
-    zone.show_groundtruth()
+    #zone.show_groundtruth()
+    #zone.apply_csd()
 
-    simu = zone.derive_MyCsi(config, '0317GT5')
+    simu = zone.derive_MyCsi(config, '0421GT0')
+    #simu.remove_csd()
     #simu.save_csi()
 
     #simu = pycsi.MyCsi(config, '0310GT0')
@@ -364,13 +377,13 @@ if __name__ == '__main__':
     #simu.viewer.view(autosave=True)
     #simu.tof_by_music()
     #simu.viewer.view(autosave=True)
-    simu.aod_by_music()
-    simu.viewer.view()
-    #simu.extract_dynamic(mode='running', subtract_mean=False)
-    #simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
-    #simu.viewer.view(threshold=0.1, autosave=True)
+    #simu.aod_by_music()
+    #simu.viewer.view(autosave=True)
+    simu.extract_dynamic(mode='running', subtract_mean=False)
+    simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
+    simu.viewer.view(autosave=True)
 
-    #conf = pyWidar2.MyConfigsW2(num_paths=1)
+    #conf = pyWidar2.MyConfigsW2(num_paths=2)
     #widar = pyWidar2.MyWidar2(conf, simu)
     #widar.run(dynamic_durations=False)
     #widar.plot_results()

@@ -345,7 +345,7 @@ class MyDataMaker:
 if __name__ == '__main__':
 
     date = '0307'
-    sub = '04'
+    sub = '07'
     length = 3000
 
     path = ['../sense/' + date + '/' + sub + '.bag',
@@ -367,5 +367,5 @@ if __name__ == '__main__':
     mkdata.export_csi(dynamic_csi=False, pick_tx=0)
     mkdata.slice_by_label()
     #mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0307/make04', sub + '_div', 'csi', 'img')
+    mkdata.save_dataset('../dataset/0307/make06', sub + '_div', 'csi', 'img')
 
