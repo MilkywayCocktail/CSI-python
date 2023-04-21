@@ -1296,9 +1296,9 @@ class MyCsi:
 
             if mode == 'overall-multiply':
                 if ref == 'rx':
-                    conjugate_csi = np.conjugate(self.csi[:, :, reference_antenna, :]).repeat(nrx, axis=2)
+                    conjugate_csi = self.csi[..., reference_antenna, :][..., np.newaxis, :].repeat(nrx, axis=2).conj()
                 elif ref == 'tx':
-                    conjugate_csi = np.conjugate(self.csi[:, :, :, reference_antenna]).repeat(ntx, axis=3)
+                    conjugate_csi = self.csi[..., reference_antenna][..., np.newaxis].repeat(ntx, axis=3).conj()
                 hc = (self.csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
                 average_hc = np.mean(hc, axis=0)[np.newaxis, ...].repeat(self.length, axis=0)
                 dynamic_csi = hc - average_hc
@@ -1306,9 +1306,9 @@ class MyCsi:
             elif mode == 'overall-divide':
                 re_csi = (np.abs(self.csi) + 1.e-6) * np.exp(1.j * np.abs(self.csi))
                 if ref == 'rx':
-                    dynamic_csi = self.csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(nrx, axis=2)
+                    dynamic_csi = self.csi / re_csi[..., reference_antenna, :][..., np.newaxis, :].repeat(nrx, axis=2)
                 elif ref == 'tx':
-                    dynamic_csi = self.csi / re_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(ntx, axis=3)
+                    dynamic_csi = self.csi / re_csi[..., reference_antenna][..., np.newaxis].repeat(ntx, axis=3)
 
             elif mode == 'running-multiply':
                 dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
@@ -1332,7 +1332,8 @@ class MyCsi:
 
             else:
                 raise ArgError("mode: " + str(mode) +
-                               "\nPlease specify mode=\"overall\", \"running\", \"division\"or \"highpass\"")
+                               "\nPlease specify mode=\"overall-multiply\", \"overall-divide\", \"running-divide\"or "
+                               "\"highpass\"")
 
             self.csi = dynamic_csi
             print("Done")

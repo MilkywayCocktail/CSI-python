@@ -365,7 +365,7 @@ if __name__ == '__main__':
 
     zone.collect()
     #zone.show_groundtruth()
-    #zone.apply_csd()
+    zone.apply_csd()
 
     simu = zone.derive_MyCsi(config, '0421GT0')
     #simu.remove_csd()
@@ -379,7 +379,7 @@ if __name__ == '__main__':
     #simu.viewer.view(autosave=True)
     #simu.aod_by_music()
     #simu.viewer.view(autosave=True)
-    simu.extract_dynamic(mode='running', subtract_mean=False)
+    #simu.extract_dynamic(subtract_mean=False)
     simu.doppler_by_music(window_length=100, stride=10, raw_window=True)
     simu.viewer.view(autosave=True)
 
