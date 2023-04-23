@@ -327,7 +327,7 @@ class TrainerTeacherStudent:
         fig.suptitle('Train Status')
         subfigs = fig.subfigures(nrows=2, ncols=1)
 
-        subfigs[0].suptitle('Train')
+        subfigs[0].suptitle('Model Loss')
         ax = subfigs[0].subplots(nrows=1, ncols=2)
         for a in ax:
             a.set_ylabel('loss')
@@ -339,41 +339,41 @@ class TrainerTeacherStudent:
         ax[1].plot(self.train_loss['s_train_epochs'], 'b')
         ax[1].set_title('Student')
 
-        subfigs[1].suptitle('Validation')
+        subfigs[1].suptitle('Detailed Loss')
         ax = subfigs[1].subplots(nrows=1, ncols=2)
         for a in ax:
             a.set_ylabel('loss')
             a.set_xlabel('#epoch')
             a.grid(True)
 
-        ax[0].plot(self.train_loss['t_valid_epochs'], 'orange')
-        ax[0].set_title('Teacher')
-        ax[1].plot(self.train_loss['s_valid_epochs'], 'orange')
-        ax[1].set_title('Student')
+        ax[0].plot(self.train_loss['s_train_straight_epochs'], 'orange')
+        ax[0].set_title('Straight')
+        ax[1].plot(self.train_loss['s_train_distil_epochs'], 'orange')
+        ax[1].set_title('Distillation')
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
                         '_s_ep' + str(self.student_epochs) +
-                        "_loss" + notion + '_' + '.jpg')
+                        "_train" + notion + '_' + '.jpg')
         plt.show()
 
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Train Status')
+        fig.suptitle('Validation Status')
         subfigs = fig.subfigures(nrows=2, ncols=1)
 
-        subfigs[0].suptitle('Train')
+        subfigs[0].suptitle('Model Loss')
         ax = subfigs[0].subplots(nrows=1, ncols=2)
         for a in ax:
             a.set_ylabel('loss')
             a.set_xlabel('#epoch')
             a.grid(True)
 
-        ax[0].plot(self.train_loss['s_train_straight_epochs'], 'b')
-        ax[0].set_title('Straight')
-        ax[1].plot(self.train_loss['s_train_distil_epochs'], 'b')
-        ax[1].set_title('Distillation')
+        ax[0].plot(self.train_loss['t_valid_epochs'], 'b')
+        ax[0].set_title('Teacher')
+        ax[1].plot(self.train_loss['s_valid_epochs'], 'b')
+        ax[1].set_title('Student')
 
-        subfigs[1].suptitle('Validation')
+        subfigs[1].suptitle('Detailed Loss')
         ax = subfigs[1].subplots(nrows=1, ncols=2)
         for a in ax:
             a.set_ylabel('loss')
@@ -388,7 +388,7 @@ class TrainerTeacherStudent:
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
                         '_s_ep' + str(self.student_epochs) +
-                        "_loss_disti" + notion + '_' + '.jpg')
+                        "_valid" + notion + '_' + '.jpg')
         plt.show()
 
     def plot_teacher_test(self):

@@ -9,16 +9,22 @@ from torchinfo import summary
 # ImageDecoder: in = 1 * 256, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * 256
 
+def bn(channels, batchnorm):
+    if batchnorm:
+        return nn.BatchNorm2d(channels)
+    else:
+        return nn.Identity(channels)
+
 
 class ImageEncoder(nn.Module):
-    def __init__(self, bottleneck='fc'):
+    def __init__(self, bottleneck='fc', batchnorm=False):
         super(ImageEncoder, self).__init__()
 
         self.bottleneck = bottleneck
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(16),
+            bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
             nn.MaxPool2d(2, stride=2)
             # In = 128 * 128 * 1
@@ -27,7 +33,7 @@ class ImageEncoder(nn.Module):
 
         self.layer2 = nn.Sequential(
             nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(32),
+            bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
             nn.MaxPool2d(2, stride=2)
             # In = 64 * 64 * 16
@@ -36,7 +42,7 @@ class ImageEncoder(nn.Module):
 
         self.layer3 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(64),
+            bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
             nn.MaxPool2d(2, stride=2)
             # In = 32 * 32 * 32
@@ -45,7 +51,7 @@ class ImageEncoder(nn.Module):
 
         self.layer4 = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(128),
+            bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
             nn.MaxPool2d(2, stride=2)
             # In = 16 * 16 * 64
@@ -54,7 +60,7 @@ class ImageEncoder(nn.Module):
 
         self.layer5 = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(256),
+            bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
             nn.MaxPool2d(2, stride=2)
             # In = 8 * 8 * 128
@@ -92,7 +98,7 @@ class ImageEncoder(nn.Module):
 
 
 class ImageDecoder(nn.Module):
-    def __init__(self, with_fc=True):
+    def __init__(self, with_fc=True, batchnorm=False):
         super(ImageDecoder, self).__init__()
 
         self.with_fc = with_fc
@@ -107,7 +113,7 @@ class ImageDecoder(nn.Module):
 
         self.layer1 = nn.Sequential(
             nn.ConvTranspose2d(1, 64, kernel_size=4, stride=2, padding=1),
-            # nn.BatchNorm2d(32),
+            bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
             # In = 16 * 16 * 1
             # Out = 32 * 32 * 64
@@ -115,7 +121,7 @@ class ImageDecoder(nn.Module):
 
         self.layer2 = nn.Sequential(
             nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
-            # nn.BatchNorm2d(32),
+            bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
             # In = 32 * 32 * 64
             # Out = 64 * 64 * 32
@@ -123,7 +129,7 @@ class ImageDecoder(nn.Module):
 
         self.layer3 = nn.Sequential(
             nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1),
-            # nn.BatchNorm2d(32),
+            bn(1, batchnorm),
             nn.LeakyReLU(inplace=True),
             # In = 64 * 64 * 32
             # Out = 128 * 128 * 1
@@ -145,14 +151,14 @@ class ImageDecoder(nn.Module):
 
 
 class CsiEncoder(nn.Module):
-    def __init__(self, bottleneck='last'):
+    def __init__(self, bottleneck='last', batchnorm=False):
         super(CsiEncoder, self).__init__()
 
         self.bottleneck = bottleneck
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
-            # nn.BatchNorm2d(32),
+            bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
             # No Padding
             # No Pooling
@@ -162,7 +168,7 @@ class CsiEncoder(nn.Module):
 
         self.layer2 = nn.Sequential(
             nn.Conv2d(16, 32, kernel_size=3, stride=(2, 2), padding=0),
-            # nn.BatchNorm2d(64),
+            bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
             # No Padding
             # No Pooling
@@ -172,7 +178,7 @@ class CsiEncoder(nn.Module):
 
         self.layer3 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size=3, stride=(1, 1), padding=0),
-            # nn.BatchNorm2d(128),
+            bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
             # No Padding
             # No Pooling
@@ -182,7 +188,7 @@ class CsiEncoder(nn.Module):
 
         self.layer4 = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=3, stride=(1, 1), padding=0),
-            # nn.BatchNorm2d(128),
+            bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
             # No Padding
             # No Pooling
@@ -192,7 +198,7 @@ class CsiEncoder(nn.Module):
 
         self.layer5 = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=3, stride=(1, 1), padding=0),
-            # nn.BatchNorm2d(512),
+            bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
             # No Padding
             # No Pooling
@@ -248,5 +254,5 @@ class CsiEncoder(nn.Module):
 
 
 if __name__ == "__main__":
-    m1 = ImageEncoder()
-    summary(m1, input_size=(1, 128, 128))
+    m1 = CsiEncoder(batchnorm=False)
+    summary(m1, input_size=(2, 90, 100))
