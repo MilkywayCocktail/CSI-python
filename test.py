@@ -19,3 +19,7 @@ def plot_this():
     plt.show()
 
 print(np.arange(2))
+
+'latent_straight_loss': [],
+'latent_distil_loss': [],
+'student_image_loss': [],

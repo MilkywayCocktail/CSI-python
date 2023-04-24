@@ -166,6 +166,12 @@ class MySpectrumViewer:
             print(e)
 
         else:
+            plt.rcParams['figure.figsize'] = (20, 10)
+            plt.rcParams['axes.titlesize'] = 35
+            plt.rcParams['axes.labelsize'] = 30
+            plt.rcParams['xtick.labelsize'] = 20
+            plt.rcParams['ytick.labelsize'] = 20
+
             if threshold != 0:
                 self.spectrum[self.spectrum > threshold] = threshold
             self.show(*args, **kwargs)
@@ -220,6 +226,7 @@ class AoAViewer(MySpectrumViewer):
         self.algorithm = '_AoA'
 
     def show(self, srange=None, notion=''):
+
         if isinstance(srange, list):
             ax = sns.heatmap(self.spectrum[srange])
             label0, label1 = self.replace(self.timestamps[srange], self.num_ticks)
@@ -873,7 +880,7 @@ class MyCsi:
                          pick_tx=0,
                          ref_antenna=1,
                          raw_timestamps=False,
-                         raw_window=False):
+                         dynamic=True):
         """
         Computes Doppler spectrum by MUSIC.\n
         Involves self-calibration, windowed dynamic component extraction and resampling (if specified).\n
@@ -884,14 +891,14 @@ class MyCsi:
         :param pick_tx: select 1 tx antenna, default is 0
         :param ref_antenna: select 2 rx antenna for dynamic extraction, default is 1
         :param raw_timestamps: whether to use original timestamps. Default is False
-        :param raw_window: whether to use raw CSI or dynamic CSI. Default is False
+        :param dynamic: whether to use raw CSI or dynamic CSI. Default is True
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
         sampling_rate = self.configs.sampling_rate
         lightspeed = self.configs.lightspeed
         center_freq = self.configs.center_freq
         noise = self.commonfunc.noise_space
-        dynamic = self.commonfunc.dynamic
+        wdyn = self.commonfunc.dynamic
 
         print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
@@ -916,12 +923,12 @@ class MyCsi:
 
                 csi_windowed = self.csi[i * stride: i * stride + window_length]
 
-                if raw_window is True:
-                    noise_space = noise(csi_windowed[:, :, pick_rx, pick_tx].T)
-                else:
+                if dynamic is True:
                     # Using windowed dynamic extraction
-                    csi_dynamic = dynamic(csi_windowed, ref='rx', reference_antenna=ref_antenna)
+                    csi_dynamic = wdyn(csi_windowed, ref='rx', reference_antenna=ref_antenna)
                     noise_space = noise(csi_dynamic[:, :, pick_rx, pick_tx].T)
+                else:
+                    noise_space = noise(csi_windowed[:, :, pick_rx, pick_tx].T)
 
                 if raw_timestamps is True:
                     # Using original timestamps (possibly uneven intervals)
@@ -1399,11 +1406,16 @@ if __name__ == '__main__':
     #mycsi.load_lists()
     mycsi.load_label('../sense/0307/04_labels.csv')
     mycsi.slice_by_label(overwrite=True)
-    #mycsi.show_csd()
+    #mycsi.verbose_packet(index=10)
     mycsi.remove_csd()
-    mycsi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1, subtract_mean=False)
-    mycsi.extract_dynamic(mode='highpass')
+    #mycsi.verbose_packet(index=10)
+    mycsi.extract_dynamic(mode='overall-divide', ref='rx', reference_antenna=1, subtract_mean=False)
+    #mycsi.extract_dynamic(mode='highpass')
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     #mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
-    mycsi.aoa_by_music()
-    mycsi.viewer.view()
+
+    mycsi.aod_by_music()
+    mycsi.viewer.view(autosave=True, notion='_nocsd_rx0divbyrx1')
+
+
+
