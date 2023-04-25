@@ -90,10 +90,14 @@ class TrainerTeacherStudent:
         self.alpha = alpha
         self.img_loss = img_loss
 
+    @staticmethod
+    def __plot_settings__():
+
         # Plot settings
         plt.rcParams['figure.figsize'] = (20, 10)
+        plt.rcParams["figure.titlesize"] = 35
         plt.rcParams['lines.markersize'] = 10
-        plt.rcParams['axes.titlesize'] = 35
+        plt.rcParams['axes.titlesize'] = 30
         plt.rcParams['axes.labelsize'] = 30
         plt.rcParams['xtick.labelsize'] = 20
         plt.rcParams['ytick.labelsize'] = 20
@@ -112,7 +116,7 @@ class TrainerTeacherStudent:
                       's_valid_straight_epochs': [],
                       's_train_distil_epochs': [],
                       's_valid_distil_epochs': [],
-                      's_train_image': [],
+                      's_train_image_epochs': [],
                       's_valid_image_epochs': []}
         return train_loss
 
@@ -210,7 +214,7 @@ class TrainerTeacherStudent:
                     teacher_preds = self.img_encoder(data_y)
                     image_preds = self.img_decoder(student_preds)
 
-                image_loss = nn.SmoothL1Loss(image_preds, data_y)
+                image_loss = self.img_loss(image_preds, data_y)
                 student_loss = self.student_args.criterion(student_preds, teacher_preds)
 
                 distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
@@ -237,7 +241,7 @@ class TrainerTeacherStudent:
             self.train_loss['s_train_epochs'].append(np.average(train_epoch_loss))
             self.train_loss['s_train_straight_epochs'].append(np.average(straight_epoch_loss))
             self.train_loss['s_train_distil_epochs'].append(np.average(distil_epoch_loss))
-            self.train_loss['s_train_image'].append(np.average(image_epoch_loss))
+            self.train_loss['s_train_image_epochs'].append(np.average(image_epoch_loss))
             self.student_epochs += 1
 
         end = time.time()
@@ -263,7 +267,7 @@ class TrainerTeacherStudent:
             teacher_preds = self.img_encoder(data_y)
             student_preds = self.csi_encoder(data_x)
             image_preds = self.img_decoder(student_preds)
-            image_loss = nn.SmoothL1Loss(image_preds, data_y)
+            image_loss = self.img_loss(image_preds, data_y)
 
             student_loss = self.student_args.criterion(student_preds, teacher_preds)
 
@@ -349,7 +353,9 @@ class TrainerTeacherStudent:
                     idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 
     def plot_teacher_loss(self, autosave=False, notion=''):
+        self.__plot_settings__()
 
+        # Training Loss
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Teacher Train Loss')
         axes = fig.subplots(2, 1)
@@ -372,12 +378,17 @@ class TrainerTeacherStudent:
         plt.show()
 
     def plot_student_loss(self, autosave=False, notion=''):
+        self.__plot_settings__()
 
-        # Train Loss
+        # Training Loss
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Validation Status')
         axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
+        axes[0].set_title('Student Loss')
+        axes[1].set_title('Straight Loss')
+        axes[2].set_title('Distillation Loss')
+        axes[3].set_title('Image Loss')
 
         loss_items = ('s_train_epochs', 's_train_straight_epochs', 's_train_distil_epochs', 's_train_image_epochs')
 
@@ -386,11 +397,6 @@ class TrainerTeacherStudent:
             axes[i].set_ylabel('loss')
             axes[i].set_xlabel('#epoch')
             axes[i].grid(True)
-
-        axes[0].set_title('Student Loss')
-        axes[1].set_title('Straight Loss')
-        axes[2].set_title('Distillation Loss')
-        axes[3].set_title('Image Loss')
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
@@ -403,6 +409,10 @@ class TrainerTeacherStudent:
         fig.suptitle('Validation Status')
         axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
+        axes[0].set_title('Student Loss')
+        axes[1].set_title('Straight Loss')
+        axes[2].set_title('Distillation Loss')
+        axes[3].set_title('Image Loss')
 
         loss_items = ('s_valid_epochs', 's_valid_straight_epochs', 's_valid_distil_epochs', 's_valid_image_epochs')
 
@@ -412,11 +422,6 @@ class TrainerTeacherStudent:
             axes[i].set_xlabel('#epoch')
             axes[i].grid(True)
 
-        axes[0].set_title('Student Loss')
-        axes[1].set_title('Straight Loss')
-        axes[2].set_title('Distillation Loss')
-        axes[3].set_title('Image Loss')
-
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
                         '_s_ep' + str(self.student_epochs) +
@@ -424,6 +429,7 @@ class TrainerTeacherStudent:
         plt.show()
 
     def plot_teacher_test(self, autosave=False, notion=''):
+        self.__plot_settings__()
 
         # Depth Images
         imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), 8)
@@ -472,6 +478,7 @@ class TrainerTeacherStudent:
         plt.show()
 
     def plot_student_test(self, autosave=False, notion=''):
+        self.__plot_settings__()
 
         # Depth Images
         imgs = np.random.choice(list(range(len(self.s_test_loss['groundtruth']))), 8)
@@ -529,20 +536,20 @@ class TrainerTeacherStudent:
         fig.suptitle('Train Status')
         axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
+        axes[0].set_title('Student Loss')
+        axes[1].set_title('Straight Loss')
+        axes[2].set_title('Distillation Loss')
+        axes[3].set_title('Image Loss')
+
         loss_items = ('loss', 'latent_straight_loss', 'latent_distil_loss', 'student_image_loss')
 
         for i, lo in enumerate(loss_items):
             axes[i].scatter(list(range(len(self.s_test_loss['groundtruth']))), self.s_test_loss[lo], alpha=0.6)
             for m in imgs:
-                axes[i].scatter(m, self.s_test_loss[lo], c='magenta', marker=(5, 1), linewidths=4)
+                axes[i].scatter(m, self.s_test_loss[lo][m], c='magenta', marker=(5, 1), linewidths=4)
             axes[i].set_ylabel('loss')
             axes[i].set_xlabel('#epoch')
             axes[i].grid(True)
-
-        axes[0].set_title('Student Loss')
-        axes[1].set_title('Straight Loss')
-        axes[2].set_title('Distillation Loss')
-        axes[3].set_title('Image Loss')
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
