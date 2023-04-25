@@ -351,20 +351,19 @@ class TrainerTeacherStudent:
     def plot_teacher_loss(self, autosave=False, notion=''):
 
         fig = plt.figure(constrained_layout=True)
-        fig.subtitle('Teacher Train Loss')
-        plt.subplots(2, 1, 1)
-        plt.plot(self.train_loss['t_train_epochs'], 'b')
-        plt.title('Train')
-        plt.xlabel('#epoch')
-        plt.ylabel('loss')
-        plt.grid()
+        fig.suptitle('Teacher Train Loss')
+        axes = fig.subplots(2, 1)
+        axes[0].plot(self.train_loss['t_train_epochs'], 'b')
+        axes[0].set_title('Train')
+        axes[0].set_xlabel('#epoch')
+        axes[0].set_ylabel('loss')
+        axes[0].grid()
 
-        plt.subplots(2, 1, 2)
-        plt.plot(self.train_loss['t_valid_epochs'], 'orange')
-        plt.title('Validation')
-        plt.xlabel('#epoch')
-        plt.ylabel('loss')
-        plt.grid()
+        axes[1].plot(self.train_loss['t_valid_epochs'], 'orange')
+        axes[1].set_title('Validation')
+        axes[1].set_xlabel('#epoch')
+        axes[1].set_ylabel('loss')
+        axes[1].grid()
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
@@ -375,8 +374,9 @@ class TrainerTeacherStudent:
     def plot_student_loss(self, autosave=False, notion=''):
 
         # Train Loss
-        fig, axes = plt.subplots(nrows=2, ncols=2)
+        fig = plt.figure(constrained_layout=True)
         fig.suptitle('Validation Status')
+        axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
 
         loss_items = ('s_train_epochs', 's_train_straight_epochs', 's_train_distil_epochs', 's_train_image_epochs')
@@ -391,7 +391,6 @@ class TrainerTeacherStudent:
         axes[1].set_title('Straight Loss')
         axes[2].set_title('Distillation Loss')
         axes[3].set_title('Image Loss')
-        plt.tight_layout()
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
@@ -400,8 +399,9 @@ class TrainerTeacherStudent:
         plt.show()
 
         # Validation Loss
-        fig, axes = plt.subplots(nrows=2, ncols=2)
+        fig = plt.figure(constrained_layout=True)
         fig.suptitle('Validation Status')
+        axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
 
         loss_items = ('s_valid_epochs', 's_valid_straight_epochs', 's_valid_distil_epochs', 's_valid_image_epochs')
@@ -416,7 +416,6 @@ class TrainerTeacherStudent:
         axes[1].set_title('Straight Loss')
         axes[2].set_title('Distillation Loss')
         axes[3].set_title('Image Loss')
-        plt.tight_layout()
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
@@ -505,8 +504,9 @@ class TrainerTeacherStudent:
         plt.show()
 
         # Latent Vectors
-        fig, axes = plt.subplots(nrows=2, ncols=4)
+        fig = plt.figure(constrained_layout=True)
         fig.suptitle('Student Test Results - latent')
+        axes = fig.subplots(nrows=2, ncols=4)
         axes = axes.flatten()
         for a in range(len(axes)):
             axes[a].bar(range(256), self.s_test_loss['teacher_latent_predicts'][imgs[a]], width=1, fc='blue',
@@ -517,7 +517,6 @@ class TrainerTeacherStudent:
             axes[a].grid()
 
         axes[0].legend()
-        plt.tight_layout()
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
@@ -526,8 +525,9 @@ class TrainerTeacherStudent:
         plt.show()
 
         # Test Loss
-        fig, axes = plt.subplots(nrows=2, ncols=2)
+        fig = plt.figure(constrained_layout=True)
         fig.suptitle('Train Status')
+        axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
         loss_items = ('loss', 'latent_straight_loss', 'latent_distil_loss', 'student_image_loss')
 
@@ -543,7 +543,6 @@ class TrainerTeacherStudent:
         axes[1].set_title('Straight Loss')
         axes[2].set_title('Distillation Loss')
         axes[3].set_title('Image Loss')
-        plt.tight_layout()
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
