@@ -382,7 +382,7 @@ class TrainerTeacherStudent:
 
         # Training Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Validation Status')
+        fig.suptitle('Train Status')
         axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
         axes[0].set_title('Student Loss')
@@ -433,6 +433,7 @@ class TrainerTeacherStudent:
 
         # Depth Images
         imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), 8)
+        imgs = np.sort(imgs)
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Teacher Test Results')
         subfigs = fig.subfigures(nrows=2, ncols=1)
@@ -482,6 +483,7 @@ class TrainerTeacherStudent:
 
         # Depth Images
         imgs = np.random.choice(list(range(len(self.s_test_loss['groundtruth']))), 8)
+        imgs = np.sort(imgs)
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Student Test Results - images')
         subfigs = fig.subfigures(nrows=2, ncols=1)

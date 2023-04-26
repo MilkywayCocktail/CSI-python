@@ -17,5 +17,3 @@ def plot_this():
     plt.imshow(img)
     plt.colorbar()
     plt.show()
-
-print(np.arange(2))
