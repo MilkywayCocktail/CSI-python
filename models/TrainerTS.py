@@ -535,7 +535,7 @@ class TrainerTeacherStudent:
 
         # Test Loss
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Train Status')
+        fig.suptitle('Student Test Loss')
         axes = fig.subplots(nrows=2, ncols=2)
         axes = axes.flatten()
         axes[0].set_title('Student Loss')
