@@ -287,11 +287,10 @@ class MyDataMaker:
             self.cal_cam = True
         print('Done')
 
-    def depth_mask(self):
+    def depth_mask(self, threshold=0.5):
         tqdm.write("Masking...")
         median = np.median(self.result['img'], axis=0)
-        threshold = median * 0.75
-
+        threshold = median * threshold
         for i in tqdm(range(len(self.result['img']))):
             mask = self.result['img'][i] < threshold
             masked = self.result['img'][i] * mask
@@ -387,7 +386,7 @@ if __name__ == '__main__':
     #mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
     #mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
-    mkdata.depth_mask()
+    mkdata.depth_mask(0.7)
     #print(mkdata.csi_stream.abs_timestamps)
     #print(mkdata.local_timestamps)
     #print(mkdata.result['tim'])
