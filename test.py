@@ -17,3 +17,13 @@ def plot_this():
     plt.imshow(img)
     plt.colorbar()
     plt.show()
+
+
+def timestamp2time(timestamp):
+    t = datetime.datetime.fromtimestamp(timestamp)
+    print(t)
+    print(t.strftime("%Y-%m-%d %H:%M:%S.%f"))
+
+
+timestamp2time(1683623879384.4 / 1e3)
+timestamp2time(1683623879351 / 1e3)

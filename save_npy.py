@@ -42,8 +42,7 @@ def remove_sm_loop(inpath, rate, autosave=True):
     plt.ylabel("phase")
 
     out_path = inpath.replace('csio', 'csis')
-    save = {'amp': np.abs(csi),
-            'phs': np.angle(csi),
+    save = {'csi': csi,
             'time': np.array(tim) / 1e6}
     if autosave is True:
         np.save(out_path, save)
@@ -53,19 +52,19 @@ def remove_sm_loop(inpath, rate, autosave=True):
     return csi
 
 
-def save_npy(inpath, outpath, rate):
+def save_npy(inpath, outpath):
 
     filenames = os.listdir(inpath)
 
     for file in filenames:
         if file[-3:] == 'txt':
             continue
-        csi = csi_loader.dat2npy(inpath + file, autosave=False)
+        csi = csi_loader.dat2npy(inpath + file, outpath, autosave=True)
 
 
 if __name__ == '__main__':
 
-    npypath = '../npsave/0307/'
-    datapath = "../data/0307/"
-    #save_npy(datapath, npypath)
-    remove_sm_loop('../npsave/0307/0307A04-csio.npy', 0x113, autosave=False)
+    npypath = '../npsave/0509/'
+    datapath = "../data/0509/"
+    save_npy(datapath, npypath)
+    #remove_sm_loop('../npsave/0509/0509A00-csio.npy', 0x1c113, autosave=False)

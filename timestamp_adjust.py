@@ -78,14 +78,14 @@ def calibrate_lag(in_path1, in_path2, out_path):
 file = '../sense/0124/03_timestamps.txt'
 result = '../sense/0124/03_timediff.txt'
 
-file2 = '../data/0307/csi0307A07_time.txt'
-result2 = '../data/0307/csi0307A07_time_mod.txt'
+file2 = '../data/0509/csi0509A05_time.txt'
+result2 = file2[:-4] + '_mod.txt'
 
 file3 = '../sense/0124/00_cameratime.txt'
 file4 = '../sense/0124/00_timestamps.txt'
 result3 = '../sense/0124/00_camtime_mod.txt'
 
-compensate(file2, result2, '25.29')
+compensate(file2, result2, '56.699')
 
 #calculate_timediff(file, result)
 

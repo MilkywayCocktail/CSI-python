@@ -6,6 +6,7 @@ import numpy as np
 import sys
 import os
 import pycsi
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 from datetime import datetime
 
@@ -77,6 +78,7 @@ class MyDataMaker:
         self.csi_stream = self.__setup_csi_stream__()
         self.result = self.__init_data__()
         self.cal_cam = False
+        self.camtime_delta = 0.
 
     def __len__(self):
         return self.total_frames
@@ -239,14 +241,15 @@ class MyDataMaker:
                 if i > 0:
                     labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
 
-        labels = np.array(labels)
+        labels = np.array(labels) / 1e3
 
-        rel_timestamps = self.result['tim'] - self.result['tim'][0]
+        # Absolute timestamps or relative timestamps?
+        # rel_timestamps = self.result['tim'] - self.result['tim'][0]
         full = list(range(self.total_frames))
         ids = []
         for (start, end) in labels:
-            start_id = np.searchsorted(rel_timestamps, start)
-            end_id = np.searchsorted(rel_timestamps, end)
+            start_id = np.searchsorted(self.result['tim'], start - self.camtime_delta)
+            end_id = np.searchsorted(self.result['tim'], end - self.camtime_delta)
             ids.extend(full[start_id:end_id])
 
         self.total_frames = len(ids)
@@ -276,18 +279,18 @@ class MyDataMaker:
             for i in range(self.total_frames):
                 temp_lag[i] = self.result['tim'][i] - self.local_timestamps[i]
 
-            lag = np.mean(temp_lag)
-            print('lag=', lag)
+            self.camtime_delta = np.mean(temp_lag)
+            print('lag=', self.camtime_delta)
 
             for i in range(self.total_frames):
-                self.result['tim'][i] = self.result['tim'][i] - lag
+                self.result['tim'][i] = self.result['tim'][i] - self.camtime_delta
             self.cal_cam = True
         print('Done')
 
     def depth_mask(self):
         tqdm.write("Masking...")
         median = np.median(self.result['img'], axis=0)
-        threshold = median * 0.5
+        threshold = median * 0.75
 
         for i in tqdm(range(len(self.result['img']))):
             mask = self.result['img'][i] < threshold
@@ -314,15 +317,13 @@ class MyDataMaker:
         for i in range(self.total_frames):
             if self.result['img'].dtype == 'uint16':
                 image = (self.result['img'][i]/256).astype('uint8')
-                cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
-                cv2.imshow('Image', image)
-                key = cv2.waitKey(33) & 0xFF
-
             else:
                 image = cv2.convertScaleAbs(self.result['img'][i], alpha=0.02)
-                cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
-                cv2.imshow('Image', image)
-                key = cv2.waitKey(33) & 0xFF
+
+            image = cv2.resize(image, (512, 512), interpolation=cv2.INTER_AREA)
+            cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
+            cv2.imshow('Image', image)
+            key = cv2.waitKey(33) & 0xFF
 
             if save_flag is True:
                 videowriter.write(image)
@@ -330,6 +331,31 @@ class MyDataMaker:
 
         if save_flag is True:
             videowriter.release()
+
+    def lookup_image(self):
+        print("\033[32mLOOKUP MODE" +
+              "\033[0m")
+        while True:
+            print("Please input a timestamp of the image to show:\n",
+                  "- Enter exit to quit")
+
+            accept_string = input()
+
+            if accept_string == 'exit':
+                print("\033[32mExiting Lookup Mode...\033[0m")
+                break
+
+            else:
+                timestamp = eval(accept_string)
+                try:
+                    t = datetime.fromtimestamp(timestamp)
+                    print(t.strftime("%Y-%m-%d %H:%M:%S.%f"))
+                    ind = np.searchsorted(self.result['tim'], timestamp)
+                    print(ind)
+                    plt.imshow(self.result['img'][ind])
+                    plt.show()
+                except:
+                    pass
 
     def save_dataset(self, save_path, save_name, *args):
         print("Saving...", end='')
@@ -344,28 +370,31 @@ class MyDataMaker:
 
 if __name__ == '__main__':
 
-    date = '0307'
-    sub = '07'
-    length = 3000
+    date = '0509'
+    sub = '01'
+    length = 5400
 
     path = ['../sense/' + date + '/' + sub + '.bag',
             '../sense/' + date + '/' + sub + '_timestamps.txt',
             '../npsave/' + date + '/' + date + 'A' + sub + '-csio.npy',
             '../data/' + date + '/csi' + date + 'A' + sub + '_time_mod.txt',
-            '../sense/' + date + '/' + sub + '_labels.csv']
+            '../sense/' + date + '/' + sub + '_labels_abs.csv']
 
     configs = MyConfigsDM()
+    configs.tx_rate = 0x1c113
 
     mkdata = MyDataMaker(configs=configs, paths=path, total_frames=length)
-    mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
-    mkdata.csi_stream.extract_dynamic(mode='highpass')
+    #mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
+    #mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
     mkdata.depth_mask()
     #print(mkdata.csi_stream.abs_timestamps)
     #print(mkdata.local_timestamps)
     #print(mkdata.result['tim'])
-    mkdata.export_csi(dynamic_csi=False, pick_tx=0)
+    #mkdata.export_csi(dynamic_csi=False, pick_tx=0)
+    #mkdata.lookup_image()
     mkdata.slice_by_label()
-    #mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0307/make06', sub + '_div', 'csi', 'img')
+
+    mkdata.playback_image()
+    #mkdata.save_dataset('../dataset/0509/make00', sub + '_div', 'csi', 'img')
 
