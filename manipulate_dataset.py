@@ -55,13 +55,15 @@ def asx(path):
 
 
 def asy(path):
-    vmap = np.load(path)
+    imgs = np.load(path)
+    imgs = np.squeeze(imgs)
+    print(imgs.shape)
 
-    for i in range(len(vmap)):
-        img = cv2.convertScaleAbs(vmap[i], alpha=0.03)
+    for i in range(len(imgs)):
+        img = cv2.convertScaleAbs(imgs[i], alpha=0.03)
         cv2.namedWindow('Velocity Image', cv2.WINDOW_AUTOSIZE)
         img = cv2.resize(img,(512, 512), interpolation=cv2.INTER_AREA)
-        cv2.imshow('Velocity Image', img)
+        cv2.imshow('Image', img)
         #cv2.imwrite('../dataset/view/' + str(i).zfill(4) + '.jpg', img)
         key = cv2.waitKey(33) & 0xFF
         if key == ord('q'):
@@ -221,7 +223,7 @@ def simu_dataset(paths, out_path):
 
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
-    asy('../dataset/0509/make00/01_div_img.npy')
+    asy('../dataset/0307/make06-finished/img.npy')
     #asx('../dataset/0307/make04-finished/img.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
