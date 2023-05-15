@@ -239,6 +239,7 @@ class MyDataMaker:
         with open(self.paths[4]) as f:
             for i, line in enumerate(f):
                 if i > 0:
+                    #if eval(line.split(',')[2][2:]) not in (-2, 2):
                     labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
 
         labels = np.array(labels) / 1e3
@@ -370,8 +371,8 @@ class MyDataMaker:
 if __name__ == '__main__':
 
     date = '0509'
-    sub = '01'
-    length = 5400
+    sub = '04'
+    length = 5100
 
     path = ['../sense/' + date + '/' + sub + '.bag',
             '../sense/' + date + '/' + sub + '_timestamps.txt',
@@ -383,17 +384,17 @@ if __name__ == '__main__':
     configs.tx_rate = 0x1c113
 
     mkdata = MyDataMaker(configs=configs, paths=path, total_frames=length)
-    #mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
-    #mkdata.csi_stream.extract_dynamic(mode='highpass')
+    mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
+    mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
     mkdata.depth_mask(0.7)
     #print(mkdata.csi_stream.abs_timestamps)
     #print(mkdata.local_timestamps)
     #print(mkdata.result['tim'])
-    #mkdata.export_csi(dynamic_csi=False, pick_tx=0)
+    mkdata.export_csi(dynamic_csi=False, pick_tx=0)
     #mkdata.lookup_image()
     mkdata.slice_by_label()
 
-    mkdata.playback_image()
-    #mkdata.save_dataset('../dataset/0509/make00', sub + '_div', 'csi', 'img')
+    #mkdata.playback_image()
+    mkdata.save_dataset('../dataset/0509/make00', sub + '_div', 'csi', 'img')
 

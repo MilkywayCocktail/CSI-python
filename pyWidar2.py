@@ -337,10 +337,10 @@ if __name__ == "__main__":
     csi = MyCsiW2(conf, '0509A01', '../npsave/0509/0509A01-csio.npy')
     csi.load_data(remove_sm=True)
     csi.load_label('../sense/0509/01_labels.csv')
-    csi.remove_csd()
-    csi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=0, subtract_mean=False)
+    #csi.remove_csd()
+    csi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=2, subtract_mean=False)
     csi.extract_dynamic(mode='highpass')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
     widar.run(pick_antenna=1, dynamic_durations=False)
-    widar.plot_results(),
+    widar.plot_results()

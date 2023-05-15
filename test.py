@@ -25,5 +25,16 @@ def timestamp2time(timestamp):
     print(t.strftime("%Y-%m-%d %H:%M:%S.%f"))
 
 
-timestamp2time(1683623879384.4 / 1e3)
-timestamp2time(1683623879351 / 1e3)
+#timestamp2time(1683623879384.4 / 1e3)
+#timestamp2time(1683623879351 / 1e3)
+
+def labels(path):
+    label = []
+    with open(path) as f:
+        for i, line in enumerate(f):
+            if i > 0:
+                print(eval(line.split(',')[2][2:]))
+                #label.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
+
+
+labels('../sense/0509/01_labels_abs.csv')

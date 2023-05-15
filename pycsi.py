@@ -1401,21 +1401,22 @@ if __name__ == '__main__':
 
     mycon = MyConfigs(5.32, 20)
     mycon.ntx = 3
-    mycsi = MyCsi(mycon, '0307A04', '../npsave/0307/0307A04-csio.npy')
+    mycon.tx_rate = 0x1c113
+    mycsi = MyCsi(mycon, '0509A03', '../npsave/0509/0509A03-csio.npy')
     mycsi.load_data(remove_sm=True)
     #mycsi.load_lists()
-    mycsi.load_label('../sense/0307/04_labels.csv')
+    mycsi.load_label('../sense/0509/03_labels.csv')
     mycsi.slice_by_label(overwrite=True)
     #mycsi.verbose_packet(index=10)
-    mycsi.remove_csd()
+    #mycsi.remove_csd()
     #mycsi.verbose_packet(index=10)
-    mycsi.extract_dynamic(mode='overall-divide', ref='rx', reference_antenna=1, subtract_mean=False)
-    #mycsi.extract_dynamic(mode='highpass')
+    mycsi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1, subtract_mean=False)
+    mycsi.extract_dynamic(mode='highpass')
     #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     #mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
 
-    mycsi.aod_by_music()
-    mycsi.viewer.view(autosave=True, notion='_nocsd_rx0divbyrx1')
+    mycsi.doppler_by_music(pick_rx=0)
+    mycsi.viewer.view(threshold=-4.2)
 
 
 
