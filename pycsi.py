@@ -1,5 +1,4 @@
 from CSIKit.tools.batch_graph import BatchGraph
-from CSIKit.filters.passband import highpass
 
 import numpy as np
 import time
@@ -91,10 +90,9 @@ class MyCommonFuncs:
     def noise_space(input_csi):
         """
         Calculates self-correlation and eigen vectors of given csi.\n
-        For AoA, please input CSI of (nsub, nrx).\n
-        For ToF and Doppler, please input CSI of (nrx, nsub).\n
+        For AoA, input CSI of (nsub, nrx).\n
+        For ToF and Doppler, input CSI of (nrx, nsub).\n
         :param input_csi: complex csi
-        :param ntx: number of tx antenna, default is 1
         :return: noise space vectors
         """
 
@@ -108,11 +106,12 @@ class MyCommonFuncs:
         return noise_space
 
     @staticmethod
-    def dynamic(input_csi, ref, reference_antenna, subtract_mean=True):
+    def conjmul_dynamic(input_csi, ref, reference_antenna, subtract_mean=True):
         if ref == 'rx':
-            phase_diff = input_csi * input_csi[:, :, reference_antenna, :][..., np.newaxis, :].conj().repeat(3, axis=2)
+            phase_diff = input_csi * input_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(3, axis=2).conj()
         elif ref == 'tx':
-            phase_diff = input_csi * input_csi[:, :, :, reference_antenna][..., np.newaxis].conj().repeat(3, axis=3)
+            phase_diff = input_csi * input_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(3, axis=3).conj()
+
         if subtract_mean is True:
             static = np.mean(phase_diff, axis=0)
             dynamic = phase_diff - static
@@ -121,7 +120,7 @@ class MyCommonFuncs:
         return dynamic
 
     @staticmethod
-    def windowed_divison(input_csi, ref, reference_antenna, subtract_mean=True):
+    def divison_dynamic(input_csi, ref, reference_antenna, subtract_mean=True):
 
         re_csi = (np.abs(input_csi) + 1.e-6) * np.exp(1.j * np.abs(input_csi))
         if ref == 'rx':
@@ -511,7 +510,10 @@ class MyCsi:
 
         if self.path is not None:
             dic = np.load(self.path, allow_pickle=True).item()
-            self.csi = dic['csi']
+            if 'csi' in dic.keys():
+                self.csi = dic['csi']
+            else:
+                self.csi = dic['amp'] * np.exp(1.j * dic['phs'])
             self.timestamps = dic['time']
         else:
             self.csi = csilist
@@ -898,7 +900,7 @@ class MyCsi:
         lightspeed = self.configs.lightspeed
         center_freq = self.configs.center_freq
         noise = self.commonfunc.noise_space
-        wdyn = self.commonfunc.dynamic
+        wdyn = self.commonfunc.conjmul_dynamic
 
         print(self.name, "Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
@@ -1047,7 +1049,7 @@ class MyCsi:
         nrx = self.configs.nrx
         nsub = self.configs.nsub
         noise = self.commonfunc.noise_space
-        dynamic = self.commonfunc.dynamic
+        dynamic = self.commonfunc.conjmul_dynamic
 
         print(self.name, "AoA-Doppler by MUSIC - compute start...", time.asctime(time.localtime(time.time())))
 
@@ -1283,9 +1285,8 @@ class MyCsi:
         nrx = self.configs.nrx
         nsub = self.configs.nsub
         ntx = self.configs.ntx
-        sampling_rate = self.configs.sampling_rate
-        dynamic = self.commonfunc.dynamic
-        division = self.commonfunc.windowed_divison
+        dynamic = self.commonfunc.conjmul_dynamic
+        division = self.commonfunc.divison_dynamic
         highpass = self.commonfunc.highpass
 
         print(self.name, "apply dynamic component extraction...", end='')
@@ -1302,29 +1303,19 @@ class MyCsi:
                 reference_antenna = np.argmax(strengths)
 
             if mode == 'overall-multiply':
-                if ref == 'rx':
-                    conjugate_csi = self.csi[..., reference_antenna, :][..., np.newaxis, :].repeat(nrx, axis=2).conj()
-                elif ref == 'tx':
-                    conjugate_csi = self.csi[..., reference_antenna][..., np.newaxis].repeat(ntx, axis=3).conj()
-                hc = (self.csi * conjugate_csi).reshape((-1, nsub, nrx, ntx))
-                average_hc = np.mean(hc, axis=0)[np.newaxis, ...].repeat(self.length, axis=0)
-                dynamic_csi = hc - average_hc
+                dynamic_csi = dynamic(self.csi, ref, reference_antenna, **kwargs)
 
             elif mode == 'overall-divide':
-                re_csi = (np.abs(self.csi) + 1.e-6) * np.exp(1.j * np.abs(self.csi))
-                if ref == 'rx':
-                    dynamic_csi = self.csi / re_csi[..., reference_antenna, :][..., np.newaxis, :].repeat(nrx, axis=2)
-                elif ref == 'tx':
-                    dynamic_csi = self.csi / re_csi[..., reference_antenna][..., np.newaxis].repeat(ntx, axis=3)
+                dynamic_csi = division(self.csi, ref, reference_antenna, **kwargs)
 
             elif mode == 'running-multiply':
-                dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
+                dynamic_csi = np.zeros((self.length, nsub, nrx, ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = dynamic(
                         self.csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
 
             elif mode == 'running-divide':
-                dynamic_csi = np.zeros((self.length, self.configs.nsub, self.configs.nrx, self.configs.ntx), dtype=complex)
+                dynamic_csi = np.zeros((self.length, nsub, nrx, ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = division(
                         self.csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
@@ -1402,21 +1393,19 @@ if __name__ == '__main__':
     mycon = MyConfigs(5.32, 20)
     mycon.ntx = 3
     mycon.tx_rate = 0x1c113
-    mycsi = MyCsi(mycon, '0509A03', '../npsave/0509/0509A03-csio.npy')
+    mycsi = MyCsi(mycon, '0307A04', '../npsave/0307/0307A04-csio.npy')
     mycsi.load_data(remove_sm=True)
-    #mycsi.load_lists()
-    mycsi.load_label('../sense/0509/03_labels.csv')
-    mycsi.slice_by_label(overwrite=True)
-    #mycsi.verbose_packet(index=10)
-    #mycsi.remove_csd()
-    #mycsi.verbose_packet(index=10)
+    # mycsi.load_lists()
+    # mycsi.load_label('../sense/0509/01_labels.csv')
+    # mycsi.slice_by_label(overwrite=True)
+    # mycsi.verbose_packet(index=10)
+    # mycsi.remove_csd()
+    # mycsi.verbose_packet(index=10)
     mycsi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1, subtract_mean=False)
     mycsi.extract_dynamic(mode='highpass')
-    #mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
-    #mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
+    # mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
+    # mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
 
-    mycsi.doppler_by_music(pick_rx=0)
+    mycsi.doppler_by_music(pick_tx=0)
     mycsi.viewer.view(threshold=-4.2)
-
-
 

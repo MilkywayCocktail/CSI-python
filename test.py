@@ -37,4 +37,5 @@ def labels(path):
                 #label.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
 
 
-labels('../sense/0509/01_labels_abs.csv')
+#labels('../sense/0509/01_labels_abs.csv')
+print(np.bitwise_and(0x1c113, 2048) == 2048)
