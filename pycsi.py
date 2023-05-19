@@ -108,15 +108,15 @@ class MyCommonFuncs:
     @staticmethod
     def conjmul_dynamic(input_csi, ref, reference_antenna, subtract_mean=True):
         if ref == 'rx':
-            phase_diff = input_csi * input_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(3, axis=2).conj()
+            hc = input_csi * input_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(3, axis=2).conj()
         elif ref == 'tx':
-            phase_diff = input_csi * input_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(3, axis=3).conj()
+            hc = input_csi * input_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(3, axis=3).conj()
 
         if subtract_mean is True:
-            static = np.mean(phase_diff, axis=0)
-            dynamic = phase_diff - static
+            static = np.mean(hc, axis=0)
+            dynamic = hc - static
         else:
-            dynamic = phase_diff
+            dynamic = hc
         return dynamic
 
     @staticmethod
@@ -124,15 +124,15 @@ class MyCommonFuncs:
 
         re_csi = (np.abs(input_csi) + 1.e-6) * np.exp(1.j * np.abs(input_csi))
         if ref == 'rx':
-            phase_diff = input_csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(3, axis=2)
+            hc = input_csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(3, axis=2)
         elif ref == 'tx':
-            phase_diff = input_csi / re_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(3, axis=3)
+            hc = input_csi / re_csi[:, :, :, reference_antenna][..., np.newaxis].repeat(3, axis=3)
 
         if subtract_mean is True:
-            static = np.mean(phase_diff, axis=0)
-            dynamic = phase_diff - static
+            static = np.mean(hc, axis=0)
+            dynamic = hc - static
         else:
-            dynamic = phase_diff
+            dynamic = hc
         return dynamic
 
     @staticmethod
