@@ -1269,9 +1269,10 @@ class MyCsi:
 
     def extract_dynamic(self, mode='overall-multiply',
                         ref='rx',
-                        reference_antenna=0,
+                        ref_antenna=0,
                         window_length=100,
                         stride=100,
+                        subtract_mean=False,
                         **kwargs):
         """
         Removes the static component from csi.\n
@@ -1279,8 +1280,9 @@ class MyCsi:
         :param ref: 'rx' or 'tx'
         :param window_length: if mode is 'running', specify a window length for running mean. Default is 100
         :param stride: if mode is 'running', specify a stride for running mean. Default is 100
-        :param reference_antenna: select one antenna with which to remove random phase offsets. Default is 0
-        :return: phase and amplitude of dynamic component of csi
+        :param ref_antenna: select one antenna with which to remove random phase offsets. Default is 0
+        :param subtract_mean: whether to subtract mean of cSI. Default is False
+        :return: dynamic component of csi
         """
         nrx = self.configs.nrx
         nsub = self.configs.nsub
@@ -1289,36 +1291,36 @@ class MyCsi:
         division = self.commonfunc.divison_dynamic
         highpass = self.commonfunc.highpass
 
-        print(self.name, "apply dynamic component extraction...", end='')
+        print(self.name, "apply dynamic component extraction: " + mode + " versus " + ref + str(ref_antenna) + "...", end='')
 
         try:
             if self.csi is None:
                 raise DataError("csi data")
 
-            if reference_antenna not in range(nrx):
-                raise ArgError("reference_antenna: " + str(reference_antenna) + "\nPlease specify an integer from 0~2")
+            if ref_antenna not in range(nrx):
+                raise ArgError("reference_antenna: " + str(ref_antenna) + "\nPlease specify an integer from 0~2")
 
-            if reference_antenna is None:
+            if ref_antenna is None:
                 strengths = self.show_antenna_strength()
-                reference_antenna = np.argmax(strengths)
+                ref_antenna = np.argmax(strengths)
 
             if mode == 'overall-multiply':
-                dynamic_csi = dynamic(self.csi, ref, reference_antenna, **kwargs)
+                dynamic_csi = dynamic(self.csi, ref, ref_antenna, subtract_mean)
 
             elif mode == 'overall-divide':
-                dynamic_csi = division(self.csi, ref, reference_antenna, **kwargs)
+                dynamic_csi = division(self.csi, ref, ref_antenna, subtract_mean)
 
             elif mode == 'running-multiply':
                 dynamic_csi = np.zeros((self.length, nsub, nrx, ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = dynamic(
-                        self.csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
+                        self.csi[step * stride: step * stride + window_length], ref, ref_antenna, subtract_mean)
 
             elif mode == 'running-divide':
                 dynamic_csi = np.zeros((self.length, nsub, nrx, ntx), dtype=complex)
                 for step in range((self.length - window_length) // stride):
                     dynamic_csi[step * stride: step * stride + window_length] = division(
-                        self.csi[step * stride: step * stride + window_length], ref, reference_antenna, **kwargs)
+                        self.csi[step * stride: step * stride + window_length], ref, ref_antenna, subtract_mean)
 
             elif mode == 'highpass':
                 b, a = highpass(**kwargs)
@@ -1401,8 +1403,8 @@ if __name__ == '__main__':
     # mycsi.verbose_packet(index=10)
     # mycsi.remove_csd()
     # mycsi.verbose_packet(index=10)
-    mycsi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1, subtract_mean=False)
-    mycsi.extract_dynamic(mode='highpass')
+    #mycsi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1, subtract_mean=False)
+    #mycsi.extract_dynamic(mode='highpass')
     # mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     # mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
 

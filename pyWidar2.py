@@ -167,11 +167,13 @@ class MyWidar2:
         nsub = self.csi.configs.nsub
         nrx = self.csi.configs.nrx
 
+        csi_signal = self.csi.csi[..., 0]
+
         print("total steps=", self.total_steps)
 
         for step in range(self.total_steps):
 
-            actual_csi = self.csi.csi[step * stride: step * stride + window_length]
+            actual_csi = csi_signal[step * stride: step * stride + window_length]
             latent_signal = np.zeros((self.configs.window_length, self.configs.nsub, self.configs.nrx,
                                       self.configs.num_paths), dtype=complex)
             self.temp_estimates, self.temp_arg_i = self.__gen_temp_parameters__()
@@ -256,7 +258,8 @@ class MyWidar2:
     def run(self, pick_tx=0, **kwargs):
         start = time.time()
 
-        self.csi.csi = self.csi.csi[..., pick_tx]
+        if self.configs.ntx > 1:
+            self.csi.csi = self.csi.csi[..., pick_tx][..., np.newaxis]
 
         #_, alpha, beta = self.csi.self_calibrate()
         # self.csi.filter_widar2()
@@ -335,13 +338,13 @@ if __name__ == "__main__":
     conf = MyConfigsW2(5.32, 20, num_paths=1)
     conf.ntx = 3
     conf.tx_rate = 0x1c113
-    csi = MyCsiW2(conf, '0509A01', '../npsave/0509/0509A01-csio.npy')
+    csi = MyCsiW2(conf, '0307A04', '../npsave/0307/0307A04-csio.npy')
     csi.load_data(remove_sm=True)
-    #si.load_lists()
-    csi.load_label('../sense/0509/01_labels.csv')
+    #csi.load_lists()
+    csi.load_label('../sense/0307/04_labels.csv')
     #csi.remove_csd()
-    #csi.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=2, subtract_mean=False)
-    csi.extract_dynamic(mode='running-multiply', ref='tx', reference_antenna=1, subtract_mean=False)
+    csi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1, subtract_mean=False)
+    csi.extract_dynamic(mode='overall-multiply', ref='tx', ref_antenna=0, subtract_mean=False)
     csi.extract_dynamic(mode='highpass')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)
