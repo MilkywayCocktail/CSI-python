@@ -371,8 +371,8 @@ class MyDataMaker:
 if __name__ == '__main__':
 
     date = '0509'
-    sub = '04'
-    length = 5100
+    sub = '01'
+    length = 5400
 
     path = ['../sense/' + date + '/' + sub + '.bag',
             '../sense/' + date + '/' + sub + '_timestamps.txt',

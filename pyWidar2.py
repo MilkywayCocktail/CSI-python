@@ -338,13 +338,12 @@ if __name__ == "__main__":
     conf = MyConfigsW2(5.32, 20, num_paths=1)
     conf.ntx = 3
     conf.tx_rate = 0x1c113
-    csi = MyCsiW2(conf, '0307A04', '../npsave/0307/0307A04-csio.npy')
+    csi = MyCsiW2(conf, '0509A04', '../npsave/0509/0509A04-csio.npy')
     csi.load_data(remove_sm=True)
     #csi.load_lists()
-    csi.load_label('../sense/0307/04_labels.csv')
+    csi.load_label('../sense/0509/04_labels.csv')
     #csi.remove_csd()
     csi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1, subtract_mean=False)
-    csi.extract_dynamic(mode='overall-multiply', ref='tx', ref_antenna=0, subtract_mean=False)
     csi.extract_dynamic(mode='highpass')
     #csi.slice_by_label(overwrite=True)
     widar = MyWidar2(conf, csi)

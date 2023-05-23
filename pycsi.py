@@ -122,7 +122,7 @@ class MyCommonFuncs:
     @staticmethod
     def divison_dynamic(input_csi, ref, reference_antenna, subtract_mean=True):
 
-        re_csi = (np.abs(input_csi) + 1.e-6) * np.exp(1.j * np.abs(input_csi))
+        re_csi = (np.abs(input_csi) + 1.e-6) * np.exp(1.j * np.angle(input_csi))
         if ref == 'rx':
             hc = input_csi / re_csi[:, :, reference_antenna, :][..., np.newaxis, :].repeat(3, axis=2)
         elif ref == 'tx':
@@ -1395,7 +1395,7 @@ if __name__ == '__main__':
     mycon = MyConfigs(5.32, 20)
     mycon.ntx = 3
     mycon.tx_rate = 0x1c113
-    mycsi = MyCsi(mycon, '0307A04', '../npsave/0307/0307A04-csio.npy')
+    mycsi = MyCsi(mycon, '0509A04', '../npsave/0509/0509A04-csio.npy')
     mycsi.load_data(remove_sm=True)
     # mycsi.load_lists()
     # mycsi.load_label('../sense/0509/01_labels.csv')
@@ -1403,11 +1403,11 @@ if __name__ == '__main__':
     # mycsi.verbose_packet(index=10)
     # mycsi.remove_csd()
     # mycsi.verbose_packet(index=10)
-    #mycsi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1, subtract_mean=False)
-    #mycsi.extract_dynamic(mode='highpass')
+    mycsi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1, subtract_mean=False)
+    mycsi.extract_dynamic(mode='highpass')
     # mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     # mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
 
-    mycsi.doppler_by_music(pick_tx=0)
+    mycsi.doppler_by_music(pick_tx=0, dynamic=False)
     mycsi.viewer.view(threshold=-4.2)
 
