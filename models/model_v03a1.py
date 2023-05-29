@@ -96,7 +96,9 @@ class ImageEncoder(nn.Module):
             x = self.gap(x)
             x = nn.Sigmoid(x)
 
-        return x.view(-1, 2 * self.latent_dim)
+        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+
+        return x, mu, logvar
 
 
 class ImageDecoder(nn.Module):
@@ -258,9 +260,15 @@ class CsiEncoder(nn.Module):
         elif self.bottleneck == 'last':
             out = out[:, -1, :]
 
-        return out
+        mu, logvar = out.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+
+        return out, mu, logvar
 
 
 if __name__ == "__main__":
-    m1 = ImageDecoder(batchnorm=False)
-    summary(m1, input_size=(1, 16))
+    m1 = ImageEncoder(batchnorm=False)
+    summary(m1, input_size=(1, 128, 128))
+    #m2 = ImageDecoder(batchnorm=False)
+    #summary(m1, input_size=(1, 16))
+    #m3 = CsiEncoder(batchnorm=False)
+    #summary(m1, input_size=(2, 90, 100))
