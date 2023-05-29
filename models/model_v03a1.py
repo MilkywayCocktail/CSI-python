@@ -4,11 +4,11 @@ from torchinfo import summary
 
 
 # ------------------------------------- #
-# Model v02a1
+# Model v03a1
+# VAE version
 # ImageEncoder: in = 128 * 128, out = 1 * 256
 # ImageDecoder: in = 1 * 256, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * 256
-# Unified bottleneck loss (sigmoid + BCEloss)
 
 def bn(channels, batchnorm):
     if batchnorm:
@@ -18,10 +18,11 @@ def bn(channels, batchnorm):
 
 
 class ImageEncoder(nn.Module):
-    def __init__(self, bottleneck='fc', batchnorm=False):
+    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8):
         super(ImageEncoder, self).__init__()
 
         self.bottleneck = bottleneck
+        self.latent_dim = latent_dim
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1),
@@ -75,12 +76,12 @@ class ImageEncoder(nn.Module):
         self.fclayers = nn.Sequential(
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
-            nn.Linear(4096, 256),
-            nn.Sigmoid()
+            nn.Linear(4096, 2 * self.latent_dim),
+            # nn.Sigmoid()
         )
 
     def __str__(self):
-        return 'Model_v02a2_ImgEn_' + self.bottleneck.capitalize()
+        return 'Model_v02a1_ImgEn_' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = self.layer1(x)
@@ -95,18 +96,17 @@ class ImageEncoder(nn.Module):
             x = self.gap(x)
             x = nn.Sigmoid(x)
 
-        return x.view(-1, 256)
+        return x.view(-1, 2 * self.latent_dim)
 
 
 class ImageDecoder(nn.Module):
-    def __init__(self, with_fc=True, batchnorm=False):
+    def __init__(self, batchnorm=False, latent_dim=8):
         super(ImageDecoder, self).__init__()
 
-        self.with_fc = with_fc
-        self.fc = 'FC' if self.with_fc else 'noFC'
+        self.latent_dim = latent_dim
 
         self.fclayers = nn.Sequential(
-            nn.Linear(256, 4096),
+            nn.Linear(self.latent_dim, 4096),
             nn.ReLU(),
             nn.Linear(4096, 256),
             nn.ReLU()
@@ -137,25 +137,32 @@ class ImageDecoder(nn.Module):
         )
 
     def __str__(self):
-        return 'Model_v02a2_ImgDe_' + self.fc
+        return 'Model_v03a1_ImgDe_' + self.fc
+
+    def reparameterize(self, mu, logvar):
+        eps = torch.randn_like(mu)
+        return mu + eps * torch.exp(logvar/2)
 
     def forward(self, x):
 
-        if self.with_fc is True:
-            x = self.fclayers(x.view(-1, 256))
+        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = self.reparameterize(mu, logvar)
 
-        x = self.layer1(x.view(-1, 1, 16, 16))
-        x = self.layer2(x)
-        x = self.layer3(x)
+        z = self.fclayers(z)
 
-        return x.view(-1, 1, 128, 128)
+        z = self.layer1(z.view(-1, 1, 16, 16))
+        z = self.layer2(z)
+        z = self.layer3(z)
+
+        return z.view(-1, 1, 128, 128)
 
 
 class CsiEncoder(nn.Module):
-    def __init__(self, bottleneck='last', batchnorm=False):
+    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=8):
         super(CsiEncoder, self).__init__()
 
         self.bottleneck = bottleneck
+        self.latent_dim = latent_dim
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
@@ -215,15 +222,15 @@ class CsiEncoder(nn.Module):
             nn.Linear(256 * 8 * 42, 4096),
             nn.ReLU(),
             nn.Linear(4096, 256),
-            nn.Sigmoid()
+            nn.ReLU()
         )
 
         self.lstm = nn.Sequential(
-            nn.LSTM(512, 256, 2, batch_first=True, dropout=0.1)
+            nn.LSTM(512, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1)
         )
 
     def __str__(self):
-        return 'Model_v02a2_CsiEn_' + self.bottleneck.capitalize()
+        return 'Model_v03a1_CsiEn_' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = torch.chunk(x.view(-1, 2, 90, 100), 2, dim=1)
@@ -255,5 +262,5 @@ class CsiEncoder(nn.Module):
 
 
 if __name__ == "__main__":
-    m1 = CsiEncoder(batchnorm=False)
-    summary(m1, input_size=(2, 90, 100))
+    m1 = ImageDecoder(batchnorm=False)
+    summary(m1, input_size=(1, 16))

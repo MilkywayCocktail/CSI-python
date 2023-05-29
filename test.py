@@ -38,4 +38,5 @@ def labels(path):
 
 
 #labels('../sense/0509/01_labels_abs.csv')
-print(np.bitwise_and(0x1c113, 2048) == 2048)
+#print(np.bitwise_and(0x1c113, 2048) == 2048)
+foo()
