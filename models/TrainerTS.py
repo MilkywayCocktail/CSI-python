@@ -140,14 +140,6 @@ class TrainerTeacherStudent:
                      'groundtruth': []}
         return test_loss
 
-    def save_status(self, model=None, notion=''):
-        if model is None:
-            model = ['img_encoder, img_decoder, csi_encoder']
-        for mo in model:
-            torch.save(eval('self.' + mo + '.state_dict()'),
-                       '../Models/' + mo + '_' + str(self.img_encoder) + notion +
-                       '_ep' + str(self.teacher_epochs) + '.pth')
-
     def train_teacher(self, autosave=False, notion=''):
         start = time.time()
 

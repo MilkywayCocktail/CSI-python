@@ -10,8 +10,24 @@ from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent
 
 
 class TrainerVariationalTS(TrainerTeacherStudent):
-    def __init__(self, latent_dim):
-        super(TrainerVariationalTS, self).__init__()
+    def __init__(self, img_encoder, img_decoder, csi_encoder,
+                 teacher_args, student_args,
+                 train_loader, valid_loader, test_loader,
+                 optimizer=torch.optim.Adam,
+                 div_loss=nn.KLDivLoss(reduction='batchmean'),
+                 img_loss=nn.SmoothL1Loss(),
+                 temperature=20,
+                 alpha=0.3,
+                 latent_dim=8
+                 ):
+        super(TrainerVariationalTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
+                                                    teacher_args=teacher_args, student_args=student_args,
+                                                    train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
+                                                    optimizer=optimizer,
+                                                    div_loss=div_loss,
+                                                    img_loss=img_loss,
+                                                    temperature=temperature,
+                                                    alpha=alpha)
         self.latent_dim = latent_dim
 
     @staticmethod
@@ -50,6 +66,10 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                      'groundtruth': []}
         return test_loss
 
+    @staticmethod
+    def kl_loss(mu, logvar):
+        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+
     def train_teacher(self, autosave=False, notion=''):
         start = time.time()
 
@@ -62,11 +82,11 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.teacher_args.device)
                 self.teacher_optimizer.zero_grad()
-                latent, mu, logvar = self.img_encoder(data_y).data
+                latent, mu, logvar = self.img_encoder(data_y)
                 output = self.img_decoder(latent)
 
                 recon_loss = self.teacher_args.criterion(output, data_y)
-                kl_loss = lambda mu, logvar: -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+                kl_loss = self.kl_loss(mu, logvar)
                 loss = recon_loss + kl_loss
 
                 loss.backward()
@@ -101,11 +121,11 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
         for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
             data_y = data_y.to(torch.float32).to(self.teacher_args.device)
-            latent, mu, logvar = self.img_encoder(data_y).data
+            latent, mu, logvar = self.img_encoder(data_y)
             output = self.img_decoder(latent)
 
             recon_loss = self.teacher_args.criterion(output, data_y)
-            kl_loss = lambda mu, logvar: -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+            kl_loss = self.kl_loss(mu, logvar)
             loss = recon_loss + kl_loss
 
             valid_epoch_loss.append(loss.item())
@@ -131,11 +151,11 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
 
-            latent, mu, logvar = self.img_encoder(data_y).data
+            latent, mu, logvar = self.img_encoder(data_y)
             output = self.img_decoder(latent)
 
             recon_loss = self.teacher_args.criterion(output, data_y)
-            kl_loss = lambda mu, logvar: -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+            kl_loss = self.kl_loss(mu, logvar)
             loss = recon_loss + kl_loss
 
             self.t_test_loss['loss'].append(loss.item())

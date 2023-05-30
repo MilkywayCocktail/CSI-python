@@ -37,6 +37,16 @@ def labels(path):
                 #label.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
 
 
-#labels('../sense/0509/01_labels_abs.csv')
-#print(np.bitwise_and(0x1c113, 2048) == 2048)
-foo()
+class onii:
+    def __init__(self, name='o'):
+        self.name = name
+
+
+class ototoi(onii):
+    def __init__(self, age):
+        super(ototoi, self).__init__()
+        self.age = age
+
+
+ojoj = ototoi(name='j', age=22)
+print(ojoj.name)
