@@ -32,21 +32,13 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
     @staticmethod
     def __gen_train_loss__():
-        train_loss = {'t_train': [],
-                      't_valid': [],
-                      't_train_epochs': [],
+        train_loss = {'t_train_epochs': [],
                       't_valid_epochs': [],
-                      't_train_kl': [],
-                      't_valid_kl': [],
                       't_train_kl_epochs': [],
                       't_valid_kl_epochs': [],
-                      't_train_recon': [],
-                      't_valid_recon': [],
                       't_train_recon_epochs': [],
                       't_valid_recon_epochs': [],
 
-                      's_train': [],
-                      's_valid': [],
                       's_train_epochs': [],
                       's_valid_epochs': [],
                       's_train_straight_epochs': [],
@@ -92,9 +84,9 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                 loss.backward()
                 self.teacher_optimizer.step()
                 train_epoch_loss.append(loss.item())
-                self.train_loss['t_train'].append(loss.item())
-                self.train_loss['t_train_kl'].append(kl_loss)
-                self.train_loss['t_train_recon'].append(recon_loss.item())
+                kl_epoch_loss.append(kl_loss.item())
+                recon_epoch_loss.append(recon_loss.item())
+
                 if idx % (len(self.train_loader) // 2) == 0:
                     print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
                         epoch, self.teacher_args.epochs, idx, len(self.train_loader), loss.item()), end='')
@@ -129,12 +121,11 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             loss = recon_loss + kl_loss
 
             valid_epoch_loss.append(loss.item())
-            self.train_loss['t_valid'].append(loss.item())
-            self.train_loss['t_valid_kl'].append(kl_loss)
-            self.train_loss['t_valid_recon'].append(recon_loss.item())
+            valid_kl_epoch_loss.append(kl_loss.item())
+            valid_recon_epoch_loss.append(recon_loss.item())
         self.train_loss['t_valid_epochs'].append(np.average(valid_epoch_loss))
         self.train_loss['t_valid_kl_epochs'].append(np.average(valid_kl_epoch_loss))
-        self.train_loss['t_valid__recon_epochs'].append(np.average(valid_recon_epoch_loss))
+        self.train_loss['t_valid_recon_epochs'].append(np.average(valid_recon_epoch_loss))
 
     def test_teacher(self, mode='test'):
         self.t_test_loss = self.__gen_teacher_test__()
@@ -159,7 +150,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             loss = recon_loss + kl_loss
 
             self.t_test_loss['loss'].append(loss.item())
-            self.t_test_loss['kl'].append(kl_loss)
+            self.t_test_loss['kl'].append(kl_loss.item())
             self.t_test_loss['recon'].append(recon_loss.item())
             self.t_test_loss['predicts'].append(output.cpu().detach().numpy().squeeze().tolist())
             self.t_test_loss['groundtruth'].append(data_y.cpu().detach().numpy().squeeze().tolist())
@@ -291,8 +282,6 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
                 loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
 
-                self.train_loss['s_train'].append(loss.item())
-
                 self.student_optimizer.zero_grad()
                 loss.backward()
                 self.student_optimizer.step()
@@ -345,7 +334,6 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                                         nn.functional.softmax(teacher_preds / self.temperature, -1))
 
             loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-            self.train_loss['s_valid'].append(loss.item())
 
             valid_epoch_loss.append(loss.item())
             straight_epoch_loss.append(student_loss.item())
