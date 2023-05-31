@@ -27,6 +27,7 @@ def regroup(in_path, out_path, scope: tuple):
                 if kind == 'img':
                     tmp = tmp[:, None, ...]
                     tmp[tmp > 3000] = 3000
+                    tmp = tmp / 3000
 
                 result[kind] = np.concatenate((result[kind], tmp), axis=0)
 
@@ -230,4 +231,4 @@ if __name__ == '__main__':
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    regroup('../dataset/0509/make00/', '../dataset/0509/make00-finished/', ('01', '02', '03', '04'))
+    regroup('../dataset/0509/make00/', '../dataset/0509/make01-finished/', ('01', '02', '03', '04'))

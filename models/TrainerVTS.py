@@ -165,6 +165,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Teacher Train Loss')
         axes = fig.subplots(2, 3)
+        axes = axes.flatten()
         axes[0].plot(self.train_loss['t_train_epochs'], 'b')
         axes[1].plot(self.train_loss['t_train_kl_epochs'], 'b')
         axes[2].plot(self.train_loss['t_train_recon_epochs'], 'b')
@@ -196,7 +197,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         self.__plot_settings__()
 
         # Depth Images
-        imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), 8)
+        imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), 8, replace=False)
         imgs = np.sort(imgs)
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Teacher Test Results')
@@ -229,23 +230,21 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         # Test Loss
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Teacher Test Loss')
-        subfigs = fig.subfigures(nrows=1, ncols=3)
-        subfigs[0].suptitle('Loss')
-        subfigs[0].suptitle('KL Loss')
-        subfigs[0].suptitle('Recon Loss')
-        subfigs[0].scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['loss'], alpha=0.6)
+        axes = fig.subplots(nrows=1, ncols=3)
+        axes[0].set_title('Loss')
+        axes[1].set_title('KL Loss')
+        axes[2].set_title('Recon Loss')
+        axes[0].scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['loss'], alpha=0.6)
+        axes[1].scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['kl'], alpha=0.6)
+        axes[2].scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['recon'], alpha=0.6)
         for i in imgs:
-            subfigs[0].scatter(i, self.t_test_loss['loss'][i], c='magenta', marker=(5, 1), linewidths=4)
-        subfigs[1].scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['kl'], alpha=0.6)
-        for i in imgs:
-            subfigs[1].scatter(i, self.t_test_loss['loss'][i], c='magenta', marker=(5, 1), linewidths=4)
-        subfigs[2].scatter(list(range(len(self.t_test_loss['groundtruth']))), self.t_test_loss['recon'], alpha=0.6)
-        for i in imgs:
-            subfigs[2].scatter(i, self.t_test_loss['loss'][i], c='magenta', marker=(5, 1), linewidths=4)
-        for subfig in subfigs:
-            subfig.xlabel('#Sample')
-            subfig.ylabel('Loss')
-            subfig.grid()
+            axes[0].scatter(i, self.t_test_loss['loss'][i], c='magenta', marker=(5, 1), linewidths=4)
+            axes[1].scatter(i, self.t_test_loss['kl'][i], c='magenta', marker=(5, 1), linewidths=4)
+            axes[2].scatter(i, self.t_test_loss['recon'][i], c='magenta', marker=(5, 1), linewidths=4)
+        for ax in axes:
+            ax.set_xlabel('#Sample')
+            ax.set_ylabel('Loss')
+            ax.grid()
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +

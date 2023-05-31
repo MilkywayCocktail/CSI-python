@@ -5,8 +5,8 @@ from torchinfo import summary
 
 # ------------------------------------- #
 # Model v03a1
-# VAE version; Adaptive to normalized depth images
-# Matched activation functions
+# VAE version
+# Adaptive to normalized depth images
 # ImageEncoder: in = 128 * 128, out = 1 * 256
 # ImageDecoder: in = 1 * 256, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * 256
@@ -16,13 +16,6 @@ def bn(channels, batchnorm):
         return nn.BatchNorm2d(channels)
     else:
         return nn.Identity(channels)
-
-
-def activefunc(normalized=False):
-    if normalized:
-        return nn.Sigmoid()
-    else:
-        return nn.LeakyReLU(inplace=True)
 
 
 class ImageEncoder(nn.Module):
@@ -85,7 +78,7 @@ class ImageEncoder(nn.Module):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2 * self.latent_dim),
-            nn.Tanh()
+            # nn.Sigmoid()
         )
 
     def __str__(self):
@@ -110,11 +103,10 @@ class ImageEncoder(nn.Module):
 
 
 class ImageDecoder(nn.Module):
-    def __init__(self, batchnorm=False, latent_dim=8, normalized=False):
+    def __init__(self, batchnorm=False, latent_dim=8):
         super(ImageDecoder, self).__init__()
 
         self.latent_dim = latent_dim
-        self.normalized = normalized
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -142,7 +134,7 @@ class ImageDecoder(nn.Module):
         self.layer3 = nn.Sequential(
             nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
-            activefunc(self.normalized),
+            nn.Sigmoid(),
             # In = 64 * 64 * 32
             # Out = 128 * 128 * 1
         )
