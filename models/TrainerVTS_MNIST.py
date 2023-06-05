@@ -71,7 +71,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             train_epoch_loss = []
             kl_epoch_loss = []
             recon_epoch_loss = []
-            for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
+            for idx, (data_y, data_x) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.teacher_args.device)
                 self.teacher_optimizer.zero_grad()
                 latent, mu, logvar = self.img_encoder(data_y)
@@ -111,7 +111,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         valid_kl_epoch_loss = []
         valid_recon_epoch_loss = []
 
-        for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
+        for idx, (data_y, data_x) in enumerate(self.valid_loader, 0):
             data_y = data_y.to(torch.float32).to(self.teacher_args.device)
             latent, mu, logvar = self.img_encoder(data_y)
             output = self.img_decoder(latent)
@@ -137,7 +137,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y) in enumerate(loader, 0):
+        for idx, (data_y, data_x) in enumerate(loader, 0):
             data_y = data_y.to(torch.float32).to(self.teacher_args.device)
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
