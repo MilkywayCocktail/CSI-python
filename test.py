@@ -37,16 +37,4 @@ def labels(path):
                 #label.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
 
 
-class onii:
-    def __init__(self, name='o'):
-        self.name = name
-
-
-class ototoi(onii):
-    def __init__(self, age):
-        super(ototoi, self).__init__()
-        self.age = age
-
-
-ojoj = ototoi(name='j', age=22)
-print(ojoj.name)
+print(np.random.randint(99))
