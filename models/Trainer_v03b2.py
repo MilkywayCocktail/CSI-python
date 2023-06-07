@@ -24,16 +24,30 @@ def bn(channels, batchnorm):
         return nn.Identity(channels)
 
 
-def activefunc(sigmoid=False):
-    if sigmoid:
-        return nn.Sigmoid()
-    else:
-        return nn.LeakyReLU(inplace=True)
+def activefunc(input_func=nn.Sigmoid()):
+    """
+    Specify the activation function of the last layer.
+    :param input_func: Please fill in the correct name.
+    :return: activation function
+    """
+    return input_func
 
 
 def reparameterize(mu, logvar):
     eps = torch.randn_like(mu)
     return mu + eps * torch.exp(logvar/2)
+
+
+class Interpolate(nn.Module):
+    def __init__(self, size, mode='bilinear'):
+        super(Interpolate, self).__init__()
+        self.interp = nn.functional.interpolate
+        self.size = size
+        self.mode = mode
+
+    def forward(self, x):
+        x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
+        return x
 
 
 class ImageEncoder(nn.Module):
@@ -121,11 +135,11 @@ class ImageEncoder(nn.Module):
 
 
 class ImageDecoder(nn.Module):
-    def __init__(self, batchnorm=False, latent_dim=8, normalized=False):
+    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
         super(ImageDecoder, self).__init__()
 
         self.latent_dim = latent_dim
-        self.normalized = normalized
+        self.active_func = active_func
 
         self.fclayers = nn.Sequential(
             nn.Linear(self.latent_dim, 4096),
@@ -153,7 +167,7 @@ class ImageDecoder(nn.Module):
         self.layer3 = nn.Sequential(
             nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
-            activefunc(self.normalized),
+            activefunc(self.active_func),
             # In = 64 * 64 * 32
             # Out = 128 * 128 * 1
         )
@@ -173,6 +187,48 @@ class ImageDecoder(nn.Module):
         z = self.layer3(z)
 
         return z.view(-1, 1, 128, 128)
+
+
+class ImageDecoderInterp(ImageDecoder):
+    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
+        super(ImageDecoderInterp, self).__init__()
+
+        self.latent_dim = latent_dim
+        self.active_func = active_func
+
+        self.fclayers = nn.Sequential(
+            nn.Linear(self.latent_dim, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 256),
+            nn.ReLU()
+        )
+
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1),
+            Interpolate(size=(32, 32)),
+            bn(64, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # In = 16 * 16 * 1
+            # Out = 32 * 32 * 64
+        )
+
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1),
+            Interpolate(size=(64, 64)),
+            bn(32, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # In = 32 * 32 * 64
+            # Out = 64 * 64 * 32
+        )
+
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(32, 1, kernel_size=3, stride=1, padding=1),
+            Interpolate(size=(128, 128)),
+            bn(1, batchnorm),
+            activefunc(self.active_func),
+            # In = 64 * 64 * 32
+            # Out = 128 * 128 * 1
+        )
 
 
 class CsiEncoder(nn.Module):
@@ -668,3 +724,5 @@ if __name__ == "__main__":
     #summary(m1, input_size=(1, 16))
     #m3 = CsiEncoder(batchnorm=False)
     #summary(m1, input_size=(2, 90, 100))
+    m4 = ImageDecoderInterp()
+    summary(m4, input_size=(1, 16))
