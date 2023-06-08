@@ -5,49 +5,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from scipy.stats import norm
-from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent
+from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, activefunc, Interpolate
 
 
 # ------------------------------------- #
 # Model v03b2
 # VAE version; Adaptive to normalized depth images
+# Added interpolating decoder
 # Adjusted for MNIST
 
 # ImageEncoder: in = 128 * 128, out = 1 * 256
 # ImageDecoder: in = 1 * 256, out = 128 * 128
 # CSIEncoder: in = 2 * 90 * 100, out = 1 * 256 (Unused)
 
-def bn(channels, batchnorm):
-    if batchnorm:
-        return nn.BatchNorm2d(channels)
-    else:
-        return nn.Identity(channels)
-
-
-def activefunc(input_func=nn.Sigmoid()):
-    """
-    Specify the activation function of the last layer.
-    :param input_func: Please fill in the correct name.
-    :return: activation function
-    """
-    return input_func
-
 
 def reparameterize(mu, logvar):
     eps = torch.randn_like(mu)
     return mu + eps * torch.exp(logvar/2)
-
-
-class Interpolate(nn.Module):
-    def __init__(self, size, mode='bilinear'):
-        super(Interpolate, self).__init__()
-        self.interp = nn.functional.interpolate
-        self.size = size
-        self.mode = mode
-
-    def forward(self, x):
-        x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
-        return x
 
 
 class ImageEncoder(nn.Module):
@@ -58,7 +32,7 @@ class ImageEncoder(nn.Module):
         self.latent_dim = latent_dim
 
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
             # nn.MaxPool2d(2, stride=2)
@@ -67,37 +41,37 @@ class ImageEncoder(nn.Module):
         )
 
         self.layer2 = nn.Sequential(
-            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
             bn(32, batchnorm),
             nn.LeakyReLU(inplace=True),
-            nn.MaxPool2d(2, stride=2)
+            # nn.MaxPool2d(2, stride=2)
             # In = 64 * 64 * 16
             # Out = 32 * 32 * 32
         )
 
         self.layer3 = nn.Sequential(
-            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
             bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
-            nn.MaxPool2d(2, stride=2)
+            # nn.MaxPool2d(2, stride=2)
             # In = 32 * 32 * 32
             # Out = 16 * 16 * 64
         )
 
         self.layer4 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
             bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            nn.MaxPool2d(2, stride=2)
+            # nn.MaxPool2d(2, stride=2)
             # In = 16 * 16 * 64
             # Out = 8 * 8 * 128
         )
 
         self.layer5 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             bn(256, batchnorm),
             nn.LeakyReLU(inplace=True),
-            nn.MaxPool2d(2, stride=2)
+            # nn.MaxPool2d(2, stride=2)
             # In = 8 * 8 * 128
             # Out = 4 * 4 * 256
         )
@@ -397,7 +371,8 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                  img_loss=nn.SmoothL1Loss(),
                  temperature=20,
                  alpha=0.3,
-                 latent_dim=8
+                 latent_dim=8,
+                 kl_weight=0.0025
                  ):
         super(TrainerVariationalTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
                                                     teacher_args=teacher_args, student_args=student_args,
@@ -408,6 +383,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                                                     temperature=temperature,
                                                     alpha=alpha)
         self.latent_dim = latent_dim
+        self.kl_weight = kl_weight
 
     @staticmethod
     def __gen_train_loss__():
@@ -441,6 +417,12 @@ class TrainerVariationalTS(TrainerTeacherStudent):
     def kl_loss(mu, logvar):
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
+    def loss(self, y, gt, mu, logvar):
+        recon_loss = self.teacher_args.criterion(gt, y) / 64
+        kl_loss = self.kl_loss(mu, logvar)
+        loss = recon_loss + kl_loss * self.kl_weight
+        return loss, kl_loss, recon_loss
+
     def train_teacher(self, autosave=False, notion=''):
         start = time.time()
 
@@ -456,9 +438,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                 latent, mu, logvar = self.img_encoder(data_y)
                 output = self.img_decoder(latent)
 
-                recon_loss = self.teacher_args.criterion(output, data_y) / 64
-                kl_loss = self.kl_loss(mu, logvar)
-                loss = recon_loss + kl_loss
+                loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
                 loss.backward()
                 self.teacher_optimizer.step()
@@ -495,9 +475,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             latent, mu, logvar = self.img_encoder(data_y)
             output = self.img_decoder(latent)
 
-            recon_loss = self.teacher_args.criterion(output, data_y)
-            kl_loss = self.kl_loss(mu, logvar)
-            loss = recon_loss + kl_loss
+            loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
             valid_epoch_loss.append(loss.item())
             valid_kl_epoch_loss.append(kl_loss.item())
@@ -524,9 +502,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             latent, mu, logvar = self.img_encoder(data_y)
             output = self.img_decoder(latent)
 
-            recon_loss = self.teacher_args.criterion(output, data_y)
-            kl_loss = self.kl_loss(mu, logvar)
-            loss = recon_loss + kl_loss
+            loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
             self.t_test_loss['loss'].append(loss.item())
             self.t_test_loss['kl'].append(kl_loss.item())
@@ -769,11 +745,11 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
 
 if __name__ == "__main__":
-    #m1 = ImageEncoder(batchnorm=False)
-    #summary(m1, input_size=(1, 128, 128))
+    m1 = ImageEncoder(batchnorm=False, latent_dim=256)
+    summary(m1, input_size=(1, 128, 128))
     #m2 = ImageDecoder(batchnorm=False)
     #summary(m1, input_size=(1, 16))
     #m3 = CsiEncoder(batchnorm=False)
     #summary(m1, input_size=(2, 90, 100))
-    m4 = ImageDecoderInterp()
-    summary(m4, input_size=(1, 256))
+    #m4 = ImageDecoder(latent_dim=256)
+    #summary(m4, input_size=(1, 512))

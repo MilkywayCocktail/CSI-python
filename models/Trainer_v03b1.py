@@ -1,170 +1,353 @@
 import torch
 import torch.nn as nn
-import torch.utils.data as Data
+from torchinfo import summary
 import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
+from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, activefunc, Interpolate
 
 
-def bn(channels, batchnorm):
-    if batchnorm:
-        return nn.BatchNorm2d(channels)
-    else:
-        return nn.Identity(channels)
+# ------------------------------------- #
+# Model v03b1
+# Added interpolating decoder
+# Adjusted for MNIST
+
+# ImageEncoder: in = 128 * 128, out = 1 * 256
+# ImageDecoder: in = 1 * 256, out = 128 * 128
+# CSIEncoder: in = 2 * 90 * 100, out = 1 * 256
 
 
-def activefunc(normalized=False):
-    if normalized:
-        return nn.Sigmoid()
-    else:
-        return nn.LeakyReLU(inplace=True)
+class ImageEncoder(nn.Module):
+    def __init__(self, bottleneck='fc', batchnorm=False):
+        super(ImageEncoder, self).__init__()
 
+        self.bottleneck = bottleneck
 
-class Interpolate(nn.Module):
-    def __init__(self, size, mode='bilinear'):
-        super(Interpolate, self).__init__()
-        self.interp = nn.functional.interpolate
-        self.size = size
-        self.mode = mode
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
+            bn(16, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # nn.MaxPool2d(2, stride=2)
+            # In = 128 * 128 * 1
+            # Out = 64 * 64 * 16
+        )
+
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
+            bn(32, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # nn.MaxPool2d(2, stride=2)
+            # In = 64 * 64 * 16
+            # Out = 32 * 32 * 32
+        )
+
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            bn(64, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # nn.MaxPool2d(2, stride=2)
+            # In = 32 * 32 * 32
+            # Out = 16 * 16 * 64
+        )
+
+        self.layer4 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # nn.MaxPool2d(2, stride=2)
+            # In = 16 * 16 * 64
+            # Out = 8 * 8 * 128
+        )
+
+        self.layer5 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # nn.MaxPool2d(2, stride=2)
+            # In = 8 * 8 * 128
+            # Out = 4 * 4 * 256
+        )
+
+        self.gap = nn.Sequential(
+            nn.AvgPool2d(kernel_size=(4, 4), stride=1, padding=0)
+        )
+
+        self.fclayers = nn.Sequential(
+            nn.Linear(4 * 4 * 256, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 256),
+            nn.Sigmoid()
+        )
+
+    def __str__(self):
+        return 'Model_v02a1_ImgEn_' + self.bottleneck.capitalize()
 
     def forward(self, x):
-        x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
-        return x
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.layer5(x)
+
+        if self.bottleneck == 'fc':
+            x = self.fclayers(x.view(-1, 4 * 4 * 256))
+        elif self.bottleneck == 'gap':
+            x = self.gap(x)
+            x = nn.Sigmoid(x)
+
+        return x.view(-1, 256)
 
 
-class MyDataset(Data.Dataset):
-    def __init__(self, x_path, y_path, number=0):
-        self.seeds = None
-        self.data = self.load_data(x_path, y_path, number=number)
-        print('loaded')
+class ImageDecoder(nn.Module):
+    def __init__(self, with_fc=True, batchnorm=False):
+        super(ImageDecoder, self).__init__()
 
-    def __getitem__(self, index):
-        return self.data['x'][index], self.data['y'][index]
+        self.with_fc = with_fc
+        self.fc = 'FC' if self.with_fc else 'noFC'
 
-    def __len__(self):
-        return self.data['x'].shape[0]
+        self.fclayers = nn.Sequential(
+            nn.Linear(256, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 256),
+            nn.ReLU()
+        )
 
-    def load_data(self, x_path, y_path, number):
-        x = np.load(x_path)
-        y = np.load(y_path)
+        self.layer1 = nn.Sequential(
+            nn.ConvTranspose2d(256, 128, kernel_size=4),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # In = 1 * 1 * 256
+            # Out = 4 * 4 * 128
+        )
 
-        if x.shape[0] == y.shape[0]:
-            total_count = x.shape[0]
-            if number != 0:
-                picked = np.random.choice(list(range(total_count)), size=number, replace=False)
-                self.seeds = picked
-                x = x[picked]
-                y = y[picked]
-        else:
-            print(x.shape, y.shape, "lengths not equal!")
+        self.layer2 = nn.Sequential(
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+            bn(64, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # In = 4 * 4 * 128
+            # Out = 8 * 8 * 64
+        )
 
-        return {'x': x, 'y': y}
+        self.layer3 = nn.Sequential(
+            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+            bn(32, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # In = 8 * 8 * 64
+            # Out = 16 * 16 * 32
+        )
+
+        self.layer4 = nn.Sequential(
+            nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
+            bn(16, batchnorm),
+            activefunc(self.active_func),
+            # In = 16 * 16 * 32
+            # Out = 32 * 32 * 16
+        )
+
+        self.layer5 = nn.Sequential(
+            nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2, padding=1),
+            bn(8, batchnorm),
+            activefunc(self.active_func),
+            # In = 32 * 32 * 16
+            # Out = 64 * 64 * 8
+        )
+
+        self.layer6 = nn.Sequential(
+            nn.ConvTranspose2d(8, 1, kernel_size=4, stride=2, padding=1),
+            bn(1, batchnorm),
+            activefunc(self.active_func),
+            # In = 64 * 64 * 8
+            # Out = 128 * 128 * 1
+        )
+
+    def __str__(self):
+        return 'Model_v03a1_ImgDe_' + self.fc
+
+    def forward(self, x):
+
+        if self.with_fc is True:
+            x = self.fclayers(x.view(-1, 256))
+
+        x = self.layer1(x.view(-1, 1, 16, 16))
+        x = self.layer2(x)
+        x = self.layer3(x)
+
+        return x.view(-1, 1, 128, 128)
 
 
-def split_loader(dataset, train_size, valid_size, test_size, batch_size):
-    train_dataset, valid_dataset, test_dataset = Data.random_split(dataset, [train_size, valid_size, test_size])
-    print(len(train_dataset), len(valid_dataset), len(test_dataset))
-    train_loader = Data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    valid_loader = Data.DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    test_loader = Data.DataLoader(test_dataset, batch_size=1, shuffle=True)
-    return train_loader, valid_loader, test_loader
+class ImageDecoderInterp(ImageDecoder):
+    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
+        super(ImageDecoderInterp, self).__init__()
+
+        self.latent_dim = latent_dim
+        self.active_func = active_func
+
+        self.fclayers = nn.Sequential(
+            nn.Linear(self.latent_dim, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 256),
+            nn.ReLU()
+        )
+
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=1),
+            bn(16, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            Interpolate(size=(16, 16)),
+            # In = 4 * 4 * 32
+            # Out = 16 * 16 * 16
+        )
+
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
+            bn(8, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            Interpolate(size=(64, 64)),
+            # In = 16 * 16 * 16
+            # Out = 64 * 64 * 8
+        )
+
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1),
+            bn(4, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            Interpolate(size=(128, 128)),
+            # In = 64 * 64 * 8
+            # Out = 128 * 128 * 4
+        )
+
+        self.layer4 = nn.Sequential(
+            nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1),
+            bn(1, batchnorm),
+            activefunc(self.active_func),
+            # In = 128 * 128 * 4
+            # Out = 128 * 128 * 1
+        )
+
+    def __str__(self):
+        return 'Model_v03b2_ImgDe_' + self.fc
+
+    def forward(self, x):
+        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = reparameterize(mu, logvar)
+
+        z = self.fclayers(z)
+
+        z = self.layer1(z.view(-1, 32, 4, 4))
+        z = self.layer2(z)
+        z = self.layer3(z)
+        z = self.layer4(z)
+
+        return z.view(-1, 1, 128, 128)
+
+class CsiEncoder(nn.Module):
+    def __init__(self, bottleneck='last', batchnorm=False):
+        super(CsiEncoder, self).__init__()
+
+        self.bottleneck = bottleneck
+
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
+            bn(16, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # No Padding
+            # No Pooling
+            # In = 90 * 100 * 1
+            # Out = 30 * 98 * 16
+                )
+
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(16, 32, kernel_size=3, stride=(2, 2), padding=0),
+            bn(32, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # No Padding
+            # No Pooling
+            # In = 30 * 98 * 16
+            # Out = 14 * 48 * 32
+        )
+
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=3, stride=(1, 1), padding=0),
+            bn(64, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # No Padding
+            # No Pooling
+            # In = 14 * 48 * 32
+            # Out = 12 * 46 * 64
+        )
+
+        self.layer4 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, stride=(1, 1), padding=0),
+            bn(128, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # No Padding
+            # No Pooling
+            # In = 12 * 46 * 64
+            # Out = 10 * 44 * 128
+        )
+
+        self.layer5 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=3, stride=(1, 1), padding=0),
+            bn(256, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # No Padding
+            # No Pooling
+            # In = 10 * 44 * 128
+            # Out = 8 * 42 * 256
+        )
+
+        self.gap = nn.Sequential(
+            nn.AvgPool1d(kernel_size=8*42, stride=1, padding=0)
+        )
+
+        self.fclayers = nn.Sequential(
+            nn.Linear(256 * 8 * 42, 4096),
+            nn.ReLU(),
+            nn.Linear(4096, 256),
+            nn.ReLU()
+        )
+
+        self.lstm = nn.Sequential(
+            nn.LSTM(512, 256, 2, batch_first=True, dropout=0.1)
+        )
+
+    def __str__(self):
+        return 'Model_v02a1_CsiEn_' + self.bottleneck.capitalize()
+
+    def forward(self, x):
+        x = torch.chunk(x.view(-1, 2, 90, 100), 2, dim=1)
+        x1 = self.layer1(x[0])
+        x1 = self.layer2(x1)
+        x1 = self.layer3(x1)
+        x1 = self.layer4(x1)
+        x1 = self.layer5(x1)
+
+        x2 = self.layer1(x[1])
+        x2 = self.layer2(x2)
+        x2 = self.layer3(x2)
+        x2 = self.layer4(x2)
+        x2 = self.layer5(x2)
+
+        out = torch.cat([x1, x2], dim=1)
+        out, (final_hidden_state, final_cell_state) = self.lstm.forward(out.view(-1, 512, 8 * 42).transpose(1, 2))
+
+        if self.bottleneck == 'full_fc':
+            out = self.fclayers(out.view(-1, 256 * 8 * 42))
+
+        elif self.bottleneck == 'full_gap':
+            out = self.gap(out.transpose(1, 2))
+
+        elif self.bottleneck == 'last':
+            out = out[:, -1, :]
+
+        return out
 
 
-class MyArgs:
-    def __init__(self, cuda=1, epochs=30, learning_rate=0.001, criterion=nn.CrossEntropyLoss()):
-        self.epochs = epochs
-        self.learning_rate = learning_rate
-        self.device = torch.device("cuda:" + str(cuda) if torch.cuda.is_available() else "cpu")
-        self.criterion = criterion
+class TrainerTS(TrainerTeacherStudent):
 
-
-class TrainerTeacherStudent:
-
-    def __init__(self, img_encoder, img_decoder, csi_encoder,
-                 teacher_args, student_args,
-                 train_loader, valid_loader, test_loader,
-                 optimizer=torch.optim.Adam,
-                 div_loss=nn.KLDivLoss(reduction='batchmean'),
-                 img_loss=nn.SmoothL1Loss(),
-                 temperature=20,
-                 alpha=0.3):
-        self.img_encoder = img_encoder
-        self.img_decoder = img_decoder
-        self.csi_encoder = csi_encoder
-
-        self.teacher_args = teacher_args
-        self.student_args = student_args
-
-        self.train_loader = train_loader
-        self.valid_loader = valid_loader
-        self.test_loader = test_loader
-
-        self.teacher_optimizer = optimizer([{'params': self.img_encoder.parameters()},
-                                           {'params': self.img_decoder.parameters()}],
-                                           lr=self.teacher_args.learning_rate)
-        self.student_optimizer = optimizer(self.csi_encoder.parameters(), lr=self.student_args.learning_rate)
-
-        self.train_loss = self.__gen_train_loss__()
-        self.t_test_loss = self.__gen_teacher_test__()
-        self.s_test_loss = self.__gen_student_test__()
-
-        self.teacher_epochs = 0
-        self.student_epochs = 0
-
-        self.div_loss = div_loss
-        self.temperature = temperature
-        self.alpha = alpha
-        self.img_loss = img_loss
-
-    @staticmethod
-    def __plot_settings__():
-
-        # Plot settings
-        plt.rcParams['figure.figsize'] = (20, 10)
-        plt.rcParams["figure.titlesize"] = 35
-        plt.rcParams['lines.markersize'] = 10
-        plt.rcParams['axes.titlesize'] = 30
-        plt.rcParams['axes.labelsize'] = 30
-        plt.rcParams['xtick.labelsize'] = 20
-        plt.rcParams['ytick.labelsize'] = 20
-
-    @staticmethod
-    def __gen_train_loss__():
-        train_loss = {'t_train': [],
-                      't_valid': [],
-                      't_train_epochs': [],
-                      't_valid_epochs': [],
-                      's_train': [],
-                      's_valid': [],
-                      's_train_epochs': [],
-                      's_valid_epochs': [],
-                      's_train_straight_epochs': [],
-                      's_valid_straight_epochs': [],
-                      's_train_distil_epochs': [],
-                      's_valid_distil_epochs': [],
-                      's_train_image_epochs': [],
-                      's_valid_image_epochs': []}
-        return train_loss
-
-    @staticmethod
-    def __gen_teacher_test__():
-        test_loss = {'loss': [],
-                     'predicts': [],
-                     'groundtruth': []}
-        return test_loss
-
-    @staticmethod
-    def __gen_student_test__():
-        test_loss = {'loss': [],
-                     'latent_straight_loss': [],
-                     'latent_distil_loss': [],
-                     'student_image_loss': [],
-                     'teacher_latent_predicts': [],
-                     'student_latent_predicts': [],
-                     'student_image_predicts': [],
-                     'groundtruth': []}
-        return test_loss
+    def __init__(self):
+        super(TrainerTS, self).__init__()
 
     def train_teacher(self, autosave=False, notion=''):
         start = time.time()
@@ -173,7 +356,7 @@ class TrainerTeacherStudent:
             self.img_encoder.train()
             self.img_decoder.train()
             train_epoch_loss = []
-            for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
+            for idx, (data_y, data_x) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.teacher_args.device)
                 self.teacher_optimizer.zero_grad()
                 latent = self.img_encoder(data_y).data
@@ -203,7 +386,7 @@ class TrainerTeacherStudent:
         self.img_decoder.eval()
         valid_epoch_loss = []
 
-        for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
+        for idx, (data_y, data_x) in enumerate(self.valid_loader, 0):
             data_y = data_y.to(torch.float32).to(self.teacher_args.device)
             latent = self.img_encoder(data_y).data
             output = self.img_decoder(latent)
@@ -317,7 +500,7 @@ class TrainerTeacherStudent:
         elif mode == 'train':
             loader = self.train_loader
 
-        for idx, (data_x, data_y) in enumerate(loader, 0):
+        for idx, (data_y, data_x) in enumerate(loader, 0):
             data_y = data_y.to(torch.float32).to(self.teacher_args.device)
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
@@ -331,7 +514,7 @@ class TrainerTeacherStudent:
             self.t_test_loss['groundtruth'].append(data_y.cpu().detach().numpy().squeeze().tolist())
 
             if idx % (len(self.test_loader)//5) == 0:
-                print("\rTeacher: {}/{}of test, loss={}".format(idx, len(self.test_loader), loss.item()), end='')
+                print("\rTeacher: {}/{}of test, loss={}".format(idx, len(loader), loss.item()), end='')
 
     def test_student(self, mode='test'):
         self.s_test_loss = self.__gen_student_test__()
@@ -372,94 +555,18 @@ class TrainerTeacherStudent:
                 print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
                     idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 
-    def plot_teacher_loss(self, autosave=False, notion=''):
-        self.__plot_settings__()
-
-        # Training Loss
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Train Loss')
-        axes = fig.subplots(2, 1)
-        axes[0].plot(self.train_loss['t_train_epochs'], 'b')
-        axes[0].set_title('Train')
-        axes[0].set_xlabel('#epoch')
-        axes[0].set_ylabel('loss')
-        axes[0].grid()
-
-        axes[1].plot(self.train_loss['t_valid_epochs'], 'orange')
-        axes[1].set_title('Validation')
-        axes[1].set_xlabel('#epoch')
-        axes[1].set_ylabel('loss')
-        axes[1].grid()
-
-        if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
-                        "_t_train" + notion + '_' + '.jpg')
-        plt.show()
-
-    def plot_student_loss(self, autosave=False, notion=''):
-        self.__plot_settings__()
-
-        # Training Loss
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Train Loss')
-        axes = fig.subplots(nrows=2, ncols=2)
-        axes = axes.flatten()
-        axes[0].set_title('Student Loss')
-        axes[1].set_title('Straight Loss')
-        axes[2].set_title('Distillation Loss')
-        axes[3].set_title('Image Loss')
-
-        loss_items = ('s_train_epochs', 's_train_straight_epochs', 's_train_distil_epochs', 's_train_image_epochs')
-
-        for i, lo in enumerate(loss_items):
-            axes[i].plot(self.train_loss[lo], 'b')
-            axes[i].set_ylabel('loss')
-            axes[i].set_xlabel('#epoch')
-            axes[i].grid(True)
-
-        if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
-                        "_s_train" + notion + '_' + '.jpg')
-        plt.show()
-
-        # Validation Loss
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Validation Status')
-        axes = fig.subplots(nrows=2, ncols=2)
-        axes = axes.flatten()
-        axes[0].set_title('Student Loss')
-        axes[1].set_title('Straight Loss')
-        axes[2].set_title('Distillation Loss')
-        axes[3].set_title('Image Loss')
-
-        loss_items = ('s_valid_epochs', 's_valid_straight_epochs', 's_valid_distil_epochs', 's_valid_image_epochs')
-
-        for i, lo in enumerate(loss_items):
-            axes[i].plot(self.train_loss[lo], 'orange')
-            axes[i].set_ylabel('loss')
-            axes[i].set_xlabel('#epoch')
-            axes[i].grid(True)
-
-        if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
-                        "_s_valid" + notion + '_' + '.jpg')
-        plt.show()
-
-    def plot_teacher_test(self, select_num=8, autosave=False, notion=''):
+    def plot_teacher_test(self, autosave=False, notion=''):
         self.__plot_settings__()
 
         # Depth Images
-        imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), select_num, replace=False)
+        imgs = np.random.choice(list(range(len(self.t_test_loss['groundtruth']))), 8)
         imgs = np.sort(imgs)
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Teacher Test Results')
         subfigs = fig.subfigures(nrows=2, ncols=1)
 
         subfigs[0].suptitle('Ground Truth')
-        ax = subfigs[0].subplots(nrows=1, ncols=select_num)
+        ax = subfigs[0].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
             ima = ax[a].imshow(self.t_test_loss['groundtruth'][imgs[a]])
             ax[a].axis('off')
@@ -468,7 +575,7 @@ class TrainerTeacherStudent:
         subfigs[0].colorbar(ima, ax=ax, shrink=0.8)
 
         subfigs[1].suptitle('Estimated')
-        ax = subfigs[1].subplots(nrows=1, ncols=select_num)
+        ax = subfigs[1].subplots(nrows=1, ncols=8)
         for a in range(len(ax)):
             imb = ax[a].imshow(self.t_test_loss['predicts'][imgs[a]])
             ax[a].axis('off')
@@ -498,87 +605,6 @@ class TrainerTeacherStudent:
                         "_t_test" + notion + '_' + '.jpg')
         plt.show()
 
-    def plot_student_test(self, autosave=False, notion=''):
-        self.__plot_settings__()
-
-        # Depth Images
-        imgs = np.random.choice(list(range(len(self.s_test_loss['groundtruth']))), 8)
-        imgs = np.sort(imgs)
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Test Results - images')
-        subfigs = fig.subfigures(nrows=2, ncols=1)
-
-        subfigs[0].suptitle('Ground Truth')
-        ax = subfigs[0].subplots(nrows=1, ncols=8)
-        for a in range(len(ax)):
-            ima = ax[a].imshow(self.s_test_loss['groundtruth'][imgs[a]])
-            ax[a].axis('off')
-            ax[a].set_title('#' + str(imgs[a]))
-            ax[a].set_xlabel(str(imgs[a]))
-        subfigs[0].colorbar(ima, ax=ax, shrink=0.8)
-
-        subfigs[1].suptitle('Estimated')
-        ax = subfigs[1].subplots(nrows=1, ncols=8)
-        for a in range(len(ax)):
-            imb = ax[a].imshow(self.s_test_loss['student_image_predicts'][imgs[a]])
-            ax[a].axis('off')
-            ax[a].set_title('#' + str(imgs[a]))
-            ax[a].set_xlabel(str(imgs[a]))
-        subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
-
-        if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
-                        "_s_predict" + notion + '_' + '.jpg')
-        plt.show()
-
-        # Latent Vectors
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Test Results - latent')
-        axes = fig.subplots(nrows=2, ncols=4)
-        axes = axes.flatten()
-        for a in range(len(axes)):
-            axes[a].bar(range(256), self.s_test_loss['teacher_latent_predicts'][imgs[a]], width=1, fc='blue',
-                        alpha=0.8, label='Teacher')
-            axes[a].bar(range(256), self.s_test_loss['student_latent_predicts'][imgs[a]], width=1, fc='orange',
-                        alpha=0.8, label='student')
-            axes[a].set_title('#' + str(imgs[a]))
-            axes[a].grid()
-
-        axes[0].legend()
-
-        if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
-                        "_s_latent" + notion + '_' + '.jpg')
-        plt.show()
-
-        # Test Loss
-        fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Student Test Loss')
-        axes = fig.subplots(nrows=2, ncols=2)
-        axes = axes.flatten()
-        axes[0].set_title('Student Loss')
-        axes[1].set_title('Straight Loss')
-        axes[2].set_title('Distillation Loss')
-        axes[3].set_title('Image Loss')
-
-        loss_items = ('loss', 'latent_straight_loss', 'latent_distil_loss', 'student_image_loss')
-
-        for i, lo in enumerate(loss_items):
-            axes[i].scatter(list(range(len(self.s_test_loss['groundtruth']))), self.s_test_loss[lo], alpha=0.6)
-            for m in imgs:
-                axes[i].scatter(m, self.s_test_loss[lo][m], c='magenta', marker=(5, 1), linewidths=4)
-            axes[i].set_ylabel('loss')
-            axes[i].set_xlabel('#epoch')
-            axes[i].grid(True)
-
-        if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
-                        "_s_latent" + notion + '_' + '.jpg')
-        plt.show()
-
     def save_all_params(self, notion=''):
         save_path = '../Models/'
 
@@ -593,3 +619,8 @@ class TrainerTeacherStudent:
         torch.save(self.csi_encoder.state_dict(),
                    '../Models/CSIEn_' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_epochs) +
                    '_sep' + str(self.student_epochs) + '.pth')
+
+
+if __name__ == "__main__":
+    m1 = CsiEncoder(batchnorm=False)
+    summary(m1, input_size=(2, 90, 100))
