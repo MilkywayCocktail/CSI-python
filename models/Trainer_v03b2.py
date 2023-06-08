@@ -149,26 +149,50 @@ class ImageDecoder(nn.Module):
         )
 
         self.layer1 = nn.Sequential(
-            nn.ConvTranspose2d(1, 64, kernel_size=4, stride=2, padding=1),
-            bn(64, batchnorm),
+            nn.ConvTranspose2d(256, 128, kernel_size=4),
+            bn(128, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 16 * 16 * 1
-            # Out = 32 * 32 * 64
+            # In = 1 * 1 * 256
+            # Out = 4 * 4 * 128
         )
 
         self.layer2 = nn.Sequential(
-            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
-            bn(32, batchnorm),
+            nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+            bn(64, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 32 * 32 * 64
-            # Out = 64 * 64 * 32
+            # In = 4 * 4 * 128
+            # Out = 8 * 8 * 64
         )
 
         self.layer3 = nn.Sequential(
-            nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+            bn(32, batchnorm),
+            nn.LeakyReLU(inplace=True),
+            # In = 8 * 8 * 64
+            # Out = 16 * 16 * 32
+        )
+
+        self.layer4 = nn.Sequential(
+            nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
+            bn(16, batchnorm),
+            activefunc(self.active_func),
+            # In = 16 * 16 * 32
+            # Out = 32 * 32 * 16
+        )
+
+        self.layer5 = nn.Sequential(
+            nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2, padding=1),
+            bn(8, batchnorm),
+            activefunc(self.active_func),
+            # In = 32 * 32 * 16
+            # Out = 64 * 64 * 8
+        )
+
+        self.layer6 = nn.Sequential(
+            nn.ConvTranspose2d(8, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
             activefunc(self.active_func),
-            # In = 64 * 64 * 32
+            # In = 64 * 64 * 8
             # Out = 128 * 128 * 1
         )
 
@@ -182,9 +206,12 @@ class ImageDecoder(nn.Module):
 
         z = self.fclayers(z)
 
-        z = self.layer1(z.view(-1, 1, 16, 16))
+        z = self.layer1(z.view(-1, 256, 1, 1))
         z = self.layer2(z)
         z = self.layer3(z)
+        z = self.layer4(z)
+        z = self.layer5(z)
+        z = self.layer6(z)
 
         return z.view(-1, 1, 128, 128)
 
@@ -204,31 +231,57 @@ class ImageDecoderInterp(ImageDecoder):
         )
 
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1),
-            Interpolate(size=(32, 32)),
-            bn(64, batchnorm),
+            nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=1),
+            bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 16 * 16 * 1
-            # Out = 32 * 32 * 64
+            Interpolate(size=(16, 16)),
+            # In = 4 * 4 * 32
+            # Out = 16 * 16 * 16
         )
 
         self.layer2 = nn.Sequential(
-            nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1),
-            Interpolate(size=(64, 64)),
-            bn(32, batchnorm),
+            nn.Conv2d(16, 8, kernel_size=3, stride=1, padding=1),
+            bn(8, batchnorm),
             nn.LeakyReLU(inplace=True),
-            # In = 32 * 32 * 64
-            # Out = 64 * 64 * 32
+            Interpolate(size=(64, 64)),
+            # In = 16 * 16 * 16
+            # Out = 64 * 64 * 8
         )
 
         self.layer3 = nn.Sequential(
-            nn.Conv2d(32, 1, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(8, 4, kernel_size=3, stride=1, padding=1),
+            bn(4, batchnorm),
+            nn.LeakyReLU(inplace=True),
             Interpolate(size=(128, 128)),
+            # In = 64 * 64 * 8
+            # Out = 128 * 128 * 4
+        )
+
+        self.layer4 = nn.Sequential(
+            nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1),
             bn(1, batchnorm),
             activefunc(self.active_func),
-            # In = 64 * 64 * 32
+            # In = 128 * 128 * 4
             # Out = 128 * 128 * 1
         )
+
+    def __str__(self):
+        return 'Model_v03b2_ImgDe_' + self.fc
+
+    def forward(self, x):
+        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = reparameterize(mu, logvar)
+
+        z = self.fclayers(z)
+
+        z = self.layer1(z.view(-1, 32, 4, 4))
+        z = self.layer2(z)
+        z = self.layer3(z)
+        z = self.layer4(z)
+        z = self.layer5(z)
+        z = self.layer6(z)
+
+        return z.view(-1, 1, 128, 128)
 
 
 class CsiEncoder(nn.Module):
