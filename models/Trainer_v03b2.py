@@ -61,7 +61,7 @@ class ImageEncoder(nn.Module):
             nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1),
             bn(16, batchnorm),
             nn.LeakyReLU(inplace=True),
-            nn.MaxPool2d(2, stride=2)
+            # nn.MaxPool2d(2, stride=2)
             # In = 128 * 128 * 1
             # Out = 64 * 64 * 16
         )
@@ -278,8 +278,6 @@ class ImageDecoderInterp(ImageDecoder):
         z = self.layer2(z)
         z = self.layer3(z)
         z = self.layer4(z)
-        z = self.layer5(z)
-        z = self.layer6(z)
 
         return z.view(-1, 1, 128, 128)
 
@@ -771,11 +769,11 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
 
 if __name__ == "__main__":
-    m1 = ImageEncoder(batchnorm=False)
-    summary(m1, input_size=(1, 128, 128))
+    #m1 = ImageEncoder(batchnorm=False)
+    #summary(m1, input_size=(1, 128, 128))
     #m2 = ImageDecoder(batchnorm=False)
     #summary(m1, input_size=(1, 16))
     #m3 = CsiEncoder(batchnorm=False)
     #summary(m1, input_size=(2, 90, 100))
     m4 = ImageDecoderInterp()
-    summary(m4, input_size=(1, 16))
+    summary(m4, input_size=(1, 256))
