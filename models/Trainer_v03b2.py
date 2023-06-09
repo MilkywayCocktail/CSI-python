@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from scipy.stats import norm
-from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, activefunc, Interpolate
+from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
 
 
 # ------------------------------------- #
@@ -149,7 +149,7 @@ class ImageDecoder(nn.Module):
         self.layer4 = nn.Sequential(
             nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
             bn(16, batchnorm),
-            activefunc(self.active_func),
+            nn.LeakyReLU(inplace=True),
             # In = 16 * 16 * 32
             # Out = 32 * 32 * 16
         )
@@ -157,7 +157,7 @@ class ImageDecoder(nn.Module):
         self.layer5 = nn.Sequential(
             nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2, padding=1),
             bn(8, batchnorm),
-            activefunc(self.active_func),
+            nn.LeakyReLU(inplace=True),
             # In = 32 * 32 * 16
             # Out = 64 * 64 * 8
         )
@@ -165,7 +165,7 @@ class ImageDecoder(nn.Module):
         self.layer6 = nn.Sequential(
             nn.ConvTranspose2d(8, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
-            activefunc(self.active_func),
+            self.active_func,
             # In = 64 * 64 * 8
             # Out = 128 * 128 * 1
         )
@@ -234,7 +234,7 @@ class ImageDecoderInterp(ImageDecoder):
         self.layer4 = nn.Sequential(
             nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1),
             bn(1, batchnorm),
-            activefunc(self.active_func),
+            self.active_func,
             # In = 128 * 128 * 4
             # Out = 128 * 128 * 1
         )

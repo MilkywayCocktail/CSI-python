@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
-from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, activefunc, Interpolate
+from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
 
 
 # ------------------------------------- #
@@ -19,10 +19,11 @@ from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn
 
 
 class ImageEncoder(nn.Module):
-    def __init__(self, bottleneck='fc', batchnorm=False):
+    def __init__(self, bottleneck='fc', batchnorm=False, latent_dim=8):
         super(ImageEncoder, self).__init__()
 
         self.bottleneck = bottleneck
+        self.latent_dim = latent_dim
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=2, padding=1),
@@ -76,7 +77,7 @@ class ImageEncoder(nn.Module):
         self.fclayers = nn.Sequential(
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
-            nn.Linear(4096, 256),
+            nn.Linear(4096, self.latent_dim),
             nn.Sigmoid()
         )
 
@@ -100,14 +101,14 @@ class ImageEncoder(nn.Module):
 
 
 class ImageDecoder(nn.Module):
-    def __init__(self, with_fc=True, batchnorm=False):
+    def __init__(self, batchnorm=False, latent_dim=8, active_func=nn.Sigmoid()):
         super(ImageDecoder, self).__init__()
 
-        self.with_fc = with_fc
-        self.fc = 'FC' if self.with_fc else 'noFC'
+        self.latent_dim = latent_dim
+        self.active_func = active_func
 
         self.fclayers = nn.Sequential(
-            nn.Linear(256, 4096),
+            nn.Linear(self.latent_dim, 4096),
             nn.ReLU(),
             nn.Linear(4096, 256),
             nn.ReLU()
@@ -140,7 +141,7 @@ class ImageDecoder(nn.Module):
         self.layer4 = nn.Sequential(
             nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
             bn(16, batchnorm),
-            activefunc(self.active_func),
+            nn.LeakyReLU(inplace=True),
             # In = 16 * 16 * 32
             # Out = 32 * 32 * 16
         )
@@ -148,7 +149,7 @@ class ImageDecoder(nn.Module):
         self.layer5 = nn.Sequential(
             nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2, padding=1),
             bn(8, batchnorm),
-            activefunc(self.active_func),
+            nn.LeakyReLU(inplace=True),
             # In = 32 * 32 * 16
             # Out = 64 * 64 * 8
         )
@@ -156,7 +157,7 @@ class ImageDecoder(nn.Module):
         self.layer6 = nn.Sequential(
             nn.ConvTranspose2d(8, 1, kernel_size=4, stride=2, padding=1),
             bn(1, batchnorm),
-            activefunc(self.active_func),
+            self.active_func,
             # In = 64 * 64 * 8
             # Out = 128 * 128 * 1
         )
@@ -166,12 +167,13 @@ class ImageDecoder(nn.Module):
 
     def forward(self, x):
 
-        if self.with_fc is True:
-            x = self.fclayers(x.view(-1, 256))
-
-        x = self.layer1(x.view(-1, 1, 16, 16))
+        x = self.fclayers(x.view(-1, self.latent_dim))
+        x = self.layer1(x.view(-1, 256, 1, 1))
         x = self.layer2(x)
         x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.layer5(x)
+        x = self.layer6(x)
 
         return x.view(-1, 1, 128, 128)
 
@@ -220,7 +222,7 @@ class ImageDecoderInterp(ImageDecoder):
         self.layer4 = nn.Sequential(
             nn.Conv2d(4, 1, kernel_size=3, stride=1, padding=1),
             bn(1, batchnorm),
-            activefunc(self.active_func),
+            self.active_func,
             # In = 128 * 128 * 4
             # Out = 128 * 128 * 1
         )
@@ -229,11 +231,8 @@ class ImageDecoderInterp(ImageDecoder):
         return 'Model_v03b2_ImgDe_' + self.fc
 
     def forward(self, x):
-        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
-        z = reparameterize(mu, logvar)
 
-        z = self.fclayers(z)
-
+        z = self.fclayers(x.view(-1, self.latent_dim))
         z = self.layer1(z.view(-1, 32, 4, 4))
         z = self.layer2(z)
         z = self.layer3(z)
@@ -241,11 +240,13 @@ class ImageDecoderInterp(ImageDecoder):
 
         return z.view(-1, 1, 128, 128)
 
+
 class CsiEncoder(nn.Module):
-    def __init__(self, bottleneck='last', batchnorm=False):
+    def __init__(self, bottleneck='last', batchnorm=False, latent_dim=8):
         super(CsiEncoder, self).__init__()
 
         self.bottleneck = bottleneck
+        self.latent_dim = latent_dim
 
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, stride=(3, 1), padding=0),
@@ -255,7 +256,7 @@ class CsiEncoder(nn.Module):
             # No Pooling
             # In = 90 * 100 * 1
             # Out = 30 * 98 * 16
-                )
+        )
 
         self.layer2 = nn.Sequential(
             nn.Conv2d(16, 32, kernel_size=3, stride=(2, 2), padding=0),
@@ -298,7 +299,7 @@ class CsiEncoder(nn.Module):
         )
 
         self.gap = nn.Sequential(
-            nn.AvgPool1d(kernel_size=8*42, stride=1, padding=0)
+            nn.AvgPool1d(kernel_size=8 * 42, stride=1, padding=0)
         )
 
         self.fclayers = nn.Sequential(
@@ -309,7 +310,7 @@ class CsiEncoder(nn.Module):
         )
 
         self.lstm = nn.Sequential(
-            nn.LSTM(512, 256, 2, batch_first=True, dropout=0.1)
+            nn.LSTM(512, 2 * self.latent_dim, 2, batch_first=True, dropout=0.1)
         )
 
     def __str__(self):
@@ -346,8 +347,25 @@ class CsiEncoder(nn.Module):
 
 class TrainerTS(TrainerTeacherStudent):
 
-    def __init__(self):
-        super(TrainerTS, self).__init__()
+    def __init__(self, img_encoder, img_decoder, csi_encoder,
+                 teacher_args, student_args,
+                 train_loader, valid_loader, test_loader,
+                 optimizer=torch.optim.Adam,
+                 div_loss=nn.KLDivLoss(reduction='batchmean'),
+                 img_loss=nn.SmoothL1Loss(),
+                 temperature=20,
+                 alpha=0.3,
+                 latent_dim=8,
+                 ):
+        super(TrainerTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
+                                        teacher_args=teacher_args, student_args=student_args,
+                                        train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
+                                        optimizer=optimizer,
+                                        div_loss=div_loss,
+                                        img_loss=img_loss,
+                                        temperature=temperature,
+                                        alpha=alpha)
+        self.latent_dim = latent_dim
 
     def train_teacher(self, autosave=False, notion=''):
         start = time.time()
@@ -622,5 +640,5 @@ class TrainerTS(TrainerTeacherStudent):
 
 
 if __name__ == "__main__":
-    m1 = CsiEncoder(batchnorm=False)
-    summary(m1, input_size=(2, 90, 100))
+    m1 = ImageDecoder(batchnorm=False, active_func=nn.ReLU(), latent_dim=256)
+    summary(m1, input_size=(1, 256))

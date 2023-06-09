@@ -14,13 +14,6 @@ def bn(channels, batchnorm):
         return nn.Identity(channels)
 
 
-def activefunc(normalized=False):
-    if normalized:
-        return nn.Sigmoid()
-    else:
-        return nn.LeakyReLU(inplace=True)
-
-
 class Interpolate(nn.Module):
     def __init__(self, size, mode='bilinear'):
         super(Interpolate, self).__init__()
