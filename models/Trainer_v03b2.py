@@ -84,7 +84,7 @@ class ImageEncoder(nn.Module):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, 2 * self.latent_dim),
-            nn.Tanh()
+            # nn.Tanh()
         )
 
     def __str__(self):
@@ -104,8 +104,9 @@ class ImageEncoder(nn.Module):
             x = nn.Sigmoid(x)
 
         mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
+        z = reparameterize(mu, logvar)
 
-        return x, mu, logvar
+        return x, z, mu, logvar
 
 
 class ImageDecoder(nn.Module):
@@ -173,10 +174,7 @@ class ImageDecoder(nn.Module):
     def __str__(self):
         return 'Model_v03b2_ImgDe_' + self.fc
 
-    def forward(self, x):
-
-        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
-        z = reparameterize(mu, logvar)
+    def forward(self, z):
 
         z = self.fclayers(z)
 
@@ -242,9 +240,7 @@ class ImageDecoderInterp(ImageDecoder):
     def __str__(self):
         return 'Model_v03b2_ImgDe_' + self.fc
 
-    def forward(self, x):
-        mu, logvar = x.view(-1, 2 * self.latent_dim).chunk(2, dim=-1)
-        z = reparameterize(mu, logvar)
+    def forward(self, z):
 
         z = self.fclayers(z)
 
@@ -435,8 +431,8 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             for idx, (data_y, data_x) in enumerate(self.train_loader, 0):
                 data_y = data_y.to(torch.float32).to(self.teacher_args.device)
                 self.teacher_optimizer.zero_grad()
-                latent, mu, logvar = self.img_encoder(data_y)
-                output = self.img_decoder(latent)
+                latent, z, mu, logvar = self.img_encoder(data_y)
+                output = self.img_decoder(z)
 
                 loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
@@ -472,8 +468,8 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
         for idx, (data_y, data_x) in enumerate(self.valid_loader, 0):
             data_y = data_y.to(torch.float32).to(self.teacher_args.device)
-            latent, mu, logvar = self.img_encoder(data_y)
-            output = self.img_decoder(latent)
+            latent, z, mu, logvar = self.img_encoder(data_y)
+            output = self.img_decoder(z)
 
             loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
@@ -499,8 +495,8 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
 
-            latent, mu, logvar = self.img_encoder(data_y)
-            output = self.img_decoder(latent)
+            latent, z, mu, logvar = self.img_encoder(data_y)
+            output = self.img_decoder(z)
 
             loss, kl_loss, recon_loss = self.loss(output, data_y, mu, logvar)
 
@@ -699,44 +695,37 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         self.train_loss['s_valid_distil_epochs'].append(np.average(distil_epoch_loss))
         self.train_loss['s_valid_image_epochs'].append(np.average(image_epoch_loss))
 
-    def traverse_latent(self, img_ind, img_from='train', dim1=0, dim2=1, granularity=11, autosave=False):
+    def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False):
+        self.__plot_settings__()
+
         self.img_encoder.eval()
         self.img_decoder.eval()
-        trvs = []
 
-        if img_from == 'test':
-            loader = self.test_loader
-        elif img_from == 'train':
-            loader = self.train_loader
+        if img_ind >= len(dataset):
+            img_ind = np.random.randint(len(dataset))
 
-        if img_ind >= len(loader):
-            img_ind = np.random.randint(len(loader))
+        data_y, data_x = dataset[img_ind]
+        data_y = data_y[np.newaxis, ...].to(torch.float32).to(self.teacher_args.device)
 
-        data_y, data_x = loader[img_ind]
+        latent, z, mu, logvar = self.img_encoder(data_y)
 
-        if loader.batch_size != 1:
-            data_y = data_y[0][np.newaxis, ...]
-
-        data_y = data_y.to(torch.float32).to(self.teacher_args.device)
-
-        latent, mu, logvar = self.img_encoder(data_y).data
-        z = self.img_decoder.reparameterize(mu, logvar)
         z = z.squeeze()
         grid_x = norm.ppf(np.linspace(0.05, 0.95, granularity))
         grid_y = norm.ppf(np.linspace(0.05, 0.95, granularity))
+        figure = np.zeros((granularity * 128, granularity * 128))
 
         for i, yi in enumerate(grid_y):
             for j, xi in enumerate(grid_x):
                 z[dim1], z[dim2] = xi, yi
                 output = self.img_decoder(z)
-                trvs.append(output.cpu().detach().numpy().squeeze().tolist())
+                figure[i * 128: (i + 1) * 128,
+                j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Teacher Traverse with dims ' + str(dim1) + str(dim2))
-        subfigs, ax = fig.subfigures(nrows=granularity, ncols=granularity)
-        for i in range(len(trvs)):
-            ax[i].imshow(trvs[i])
-            ax[i].axis('off')
+        plt.imshow(figure)
+        plt.axis('off')
+        plt.show()
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +

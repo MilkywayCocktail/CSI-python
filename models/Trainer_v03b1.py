@@ -78,11 +78,11 @@ class ImageEncoder(nn.Module):
             nn.Linear(4 * 4 * 256, 4096),
             nn.ReLU(),
             nn.Linear(4096, self.latent_dim),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
 
     def __str__(self):
-        return 'Model_v02a1_ImgEn_' + self.bottleneck.capitalize()
+        return 'Model_v03b1_ImgEn_' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = self.layer1(x)
@@ -306,7 +306,7 @@ class CsiEncoder(nn.Module):
             nn.Linear(256 * 8 * 42, 4096),
             nn.ReLU(),
             nn.Linear(4096, 256),
-            nn.ReLU()
+            #nn.ReLU()
         )
 
         self.lstm = nn.Sequential(
@@ -314,7 +314,7 @@ class CsiEncoder(nn.Module):
         )
 
     def __str__(self):
-        return 'Model_v02a1_CsiEn_' + self.bottleneck.capitalize()
+        return 'Model_v03b1_CsiEn_' + self.bottleneck.capitalize()
 
     def forward(self, x):
         x = torch.chunk(x.view(-1, 2, 90, 100), 2, dim=1)
