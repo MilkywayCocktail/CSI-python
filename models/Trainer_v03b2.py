@@ -21,7 +21,7 @@ from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn
 
 def reparameterize(mu, logvar):
     eps = torch.randn_like(mu)
-    return mu + eps * torch.exp(logvar/2)
+    return mu + eps * torch.exp(logvar / 2)
 
 
 class ImageEncoder(nn.Module):
@@ -175,7 +175,6 @@ class ImageDecoder(nn.Module):
         return 'Model_v03b2_ImgDe_' + self.fc
 
     def forward(self, z):
-
         z = self.fclayers(z)
 
         z = self.layer1(z.view(-1, 256, 1, 1))
@@ -241,7 +240,6 @@ class ImageDecoderInterp(ImageDecoder):
         return 'Model_v03b2_ImgDe_' + self.fc
 
     def forward(self, z):
-
         z = self.fclayers(z)
 
         z = self.layer1(z.view(-1, 32, 4, 4))
@@ -267,7 +265,7 @@ class CsiEncoder(nn.Module):
             # No Pooling
             # In = 90 * 100 * 1
             # Out = 30 * 98 * 16
-                )
+        )
 
         self.layer2 = nn.Sequential(
             nn.Conv2d(16, 32, kernel_size=3, stride=(2, 2), padding=0),
@@ -310,7 +308,7 @@ class CsiEncoder(nn.Module):
         )
 
         self.gap = nn.Sequential(
-            nn.AvgPool1d(kernel_size=8*42, stride=1, padding=0)
+            nn.AvgPool1d(kernel_size=8 * 42, stride=1, padding=0)
         )
 
         self.fclayers = nn.Sequential(
@@ -370,14 +368,16 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                  latent_dim=8,
                  kl_weight=0.0025
                  ):
-        super(TrainerVariationalTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder, csi_encoder=csi_encoder,
-                                                    teacher_args=teacher_args, student_args=student_args,
-                                                    train_loader=train_loader, valid_loader=valid_loader, test_loader=test_loader,
-                                                    optimizer=optimizer,
-                                                    div_loss=div_loss,
-                                                    img_loss=img_loss,
-                                                    temperature=temperature,
-                                                    alpha=alpha)
+        super(TrainerVariationalTS, self).__init__(img_encoder=img_encoder, img_decoder=img_decoder,
+                                                   csi_encoder=csi_encoder,
+                                                   teacher_args=teacher_args, student_args=student_args,
+                                                   train_loader=train_loader, valid_loader=valid_loader,
+                                                   test_loader=test_loader,
+                                                   optimizer=optimizer,
+                                                   div_loss=div_loss,
+                                                   img_loss=img_loss,
+                                                   temperature=temperature,
+                                                   alpha=alpha)
         self.latent_dim = latent_dim
         self.kl_weight = kl_weight
 
@@ -506,7 +506,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             self.t_test_loss['predicts'].append(output.cpu().detach().numpy().squeeze().tolist())
             self.t_test_loss['groundtruth'].append(data_y.cpu().detach().numpy().squeeze().tolist())
 
-            if idx % (len(self.test_loader)//5) == 0:
+            if idx % (len(self.test_loader) // 5) == 0:
                 print("\rTeacher: {}/{}of test, loss={}".format(idx, len(loader), loss.item()), end='')
 
     def plot_teacher_loss(self, autosave=False, notion=''):
@@ -708,10 +708,16 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         data_y = data_y[np.newaxis, ...].to(torch.float32).to(self.teacher_args.device)
 
         latent, z, mu, logvar = self.img_encoder(data_y)
-
         z = z.squeeze()
+        e = z.cpu().detach().numpy().squeeze().tolist()
+
         grid_x = norm.ppf(np.linspace(0.05, 0.95, granularity))
         grid_y = norm.ppf(np.linspace(0.05, 0.95, granularity))
+        anchor1 = np.searchsorted(grid_x, e[dim1])
+        anchor2 = np.searchsorted(grid_y, e[dim2])
+        anchor1 = anchor1 * 128 if anchor1 < granularity else (anchor1 - 1) * 128
+        anchor2 = anchor2 * 128 if anchor2 < granularity else (anchor2 - 1) * 128
+
         figure = np.zeros((granularity * 128, granularity * 128))
 
         for i, yi in enumerate(grid_y):
@@ -722,10 +728,14 @@ class TrainerVariationalTS(TrainerTeacherStudent):
                 j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
 
         fig = plt.figure(constrained_layout=True)
-        fig.suptitle('Teacher Traverse with dims ' + str(dim1) + str(dim2))
+        fig.suptitle('Teacher Traverse with dims ' + str(dim1) + '_' + str(dim2))
         plt.imshow(figure)
+        rect = plt.Rectangle((anchor1, anchor2), 128, 128, fill=False, edgecolor='orange')
+        ax = plt.gca()
+        ax.add_patch(rect)
         plt.axis('off')
-        plt.show()
+        plt.xlabel(str(dim1))
+        plt.ylabel(str(dim2))
 
         if autosave is True:
             plt.savefig('t_ep' + str(self.teacher_epochs) +
@@ -736,9 +746,9 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 if __name__ == "__main__":
     m1 = ImageEncoder(batchnorm=False, latent_dim=256)
     summary(m1, input_size=(1, 128, 128))
-    #m2 = ImageDecoder(batchnorm=False)
-    #summary(m1, input_size=(1, 16))
-    #m3 = CsiEncoder(batchnorm=False)
-    #summary(m1, input_size=(2, 90, 100))
-    #m4 = ImageDecoder(latent_dim=256)
-    #summary(m4, input_size=(1, 512))
+    # m2 = ImageDecoder(batchnorm=False)
+    # summary(m1, input_size=(1, 16))
+    # m3 = CsiEncoder(batchnorm=False)
+    # summary(m1, input_size=(2, 90, 100))
+    # m4 = ImageDecoder(latent_dim=256)
+    # summary(m4, input_size=(1, 512))

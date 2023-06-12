@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
+from scipy.stats import norm
 from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
 
 
@@ -637,6 +638,43 @@ class TrainerTS(TrainerTeacherStudent):
         torch.save(self.csi_encoder.state_dict(),
                    '../Models/CSIEn_' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_epochs) +
                    '_sep' + str(self.student_epochs) + '.pth')
+
+    def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False):
+        self.__plot_settings__()
+
+        self.img_encoder.eval()
+        self.img_decoder.eval()
+
+        if img_ind >= len(dataset):
+            img_ind = np.random.randint(len(dataset))
+
+        data_y, data_x = dataset[img_ind]
+        data_y = data_y[np.newaxis, ...].to(torch.float32).to(self.teacher_args.device)
+
+        latent = self.img_encoder(data_y).data
+
+        grid_x = norm.ppf(np.linspace(0.05, 0.95, granularity))
+        grid_y = norm.ppf(np.linspace(0.05, 0.95, granularity))
+        print(grid_x, grid_y)
+        figure = np.zeros((granularity * 128, granularity * 128))
+
+        for i, yi in enumerate(grid_y):
+            for j, xi in enumerate(grid_x):
+                latent[dim1], latent[dim2] = xi, yi
+                output = self.img_decoder(latent)
+                figure[i * 128: (i + 1) * 128,
+                j * 128: (j + 1) * 128] = output.cpu().detach().numpy().squeeze().tolist()
+
+        fig = plt.figure(constrained_layout=True)
+        fig.suptitle('Teacher Traverse with dims ' + str(dim1) + str(dim2))
+        plt.imshow(figure)
+        plt.axis('off')
+        plt.show()
+
+        if autosave is True:
+            plt.savefig('t_ep' + str(self.teacher_epochs) +
+                        "_t_traverse_" + str(dim1) + str(dim2) + '_gran' + str(granularity) + '.jpg')
+        plt.show()
 
 
 if __name__ == "__main__":
