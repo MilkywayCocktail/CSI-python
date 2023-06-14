@@ -105,14 +105,15 @@ class TrainerTeacherStudent:
         self.t_test_loss = self.__gen_teacher_test__()
         self.s_test_loss = self.__gen_student_test__()
 
-        self.teacher_logger = {'lr': [],
-                               'epochs': [],
-                               'current': 1
-                               }
-        self.student_logger = {'lr': [],
-                               'epochs': [],
-                               'current': 1
-                               }
+        self.log = {'t': {'lr': [],
+                          'epochs': [],
+                          'current': 1
+                          },
+                    's': {'lr': [],
+                          'epochs': [],
+                          'current': 1
+                          }
+                    }
 
         self.div_loss = div_loss
         self.temperature = temperature
@@ -168,8 +169,7 @@ class TrainerTeacherStudent:
                      'groundtruth': []}
         return test_loss
 
-    @classmethod
-    def logger(cls, mode='t'):
+    def logger(self, mode='t'):
         def wrapper(func):
             def wrapper_core(*args, **kwargs):
                 start = time.time()
@@ -177,14 +177,14 @@ class TrainerTeacherStudent:
                 end = time.time()
                 print("\nTotal training time:", end - start, "sec")
 
-                if self.args[mode].learning_rate != self.teacher_logger['lr'][-1] or not self.teacher_logger['lr']:
-                    self.teacher_logger['epochs'][-1].extend(
-                        list(range(self.teacher_logger['current'], self.args[mode].epochs)))
+                if self.args[mode].learning_rate != self.log[mode]['lr'][-1] or not self.log[mode]['lr']:
+                    self.log[mode]['epochs'][-1].extend(
+                        list(range(self.log[mode]['current'], self.args[mode].epochs)))
                 else:
-                    self.teacher_logger['lr'].append(self.args[mode].learning_rate)
-                    self.teacher_logger['epochs'].append(
-                        list(range(self.teacher_logger['current'], self.args[mode].epochs)))
-                self.teacher_logger['current'] += self.args[mode].epochs
+                    self.log['t']['lr'].append(self.args[mode].learning_rate)
+                    self.log[mode]['epochs'].append(
+                        list(range(self.log[mode]['current'], self.args[mode].epochs)))
+                self.log[mode]['current'] += self.args[mode].epochs
                 return func1
             return wrapper_core
         return wrapper

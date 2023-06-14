@@ -371,7 +371,7 @@ class TrainerTS(TrainerTeacherStudent):
     def mylogger(self, *args, **kwargs):
         return self.logger(*args, **kwargs)
 
-    @logger(mode='t')
+    @mylogger(mode='t')
     def train_teacher(self, autosave=False, notion=''):
 
         for epoch in range(self.args['t'].epochs):
@@ -412,6 +412,7 @@ class TrainerTS(TrainerTeacherStudent):
             self.train_loss['t_valid'].append(loss.item())
         self.train_loss['t_valid_epochs'].append(np.average(valid_epoch_loss))
 
+    @mylogger(mode='s')
     def train_student(self, autosave=False, notion=''):
         start = time.time()
 
