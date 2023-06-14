@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import time
 import os
 
+# ------------------------------------- #
+# Trainer of Teacher-student network
+
 
 def bn(channels, batchnorm):
     if batchnorm:
@@ -86,8 +89,8 @@ class TrainerTeacherStudent:
         self.img_decoder = img_decoder
         self.csi_encoder = csi_encoder
 
-        self.teacher_args = teacher_args
-        self.student_args = student_args
+        self.args = {'t': teacher_args,
+                     's': student_args}
 
         self.train_loader = train_loader
         self.valid_loader = valid_loader
@@ -95,15 +98,21 @@ class TrainerTeacherStudent:
 
         self.teacher_optimizer = optimizer([{'params': self.img_encoder.parameters()},
                                            {'params': self.img_decoder.parameters()}],
-                                           lr=self.teacher_args.learning_rate)
-        self.student_optimizer = optimizer(self.csi_encoder.parameters(), lr=self.student_args.learning_rate)
+                                           lr=self.args['t'].learning_rate)
+        self.student_optimizer = optimizer(self.csi_encoder.parameters(), lr=self.args['s'].learning_rate)
 
         self.train_loss = self.__gen_train_loss__()
         self.t_test_loss = self.__gen_teacher_test__()
         self.s_test_loss = self.__gen_student_test__()
 
-        self.teacher_epochs = 0
-        self.student_epochs = 0
+        self.teacher_logger = {'lr': [],
+                               'epochs': [],
+                               'current': 1
+                               }
+        self.student_logger = {'lr': [],
+                               'epochs': [],
+                               'current': 1
+                               }
 
         self.div_loss = div_loss
         self.temperature = temperature
@@ -159,37 +168,54 @@ class TrainerTeacherStudent:
                      'groundtruth': []}
         return test_loss
 
-    def train_teacher(self, autosave=False, notion=''):
-        start = time.time()
+    @classmethod
+    def logger(cls, mode='t'):
+        def wrapper(func):
+            def wrapper_core(*args, **kwargs):
+                start = time.time()
+                func1 = func(*args, **kwargs)
+                end = time.time()
+                print("\nTotal training time:", end - start, "sec")
 
-        for epoch in range(self.teacher_args.epochs):
+                if self.args[mode].learning_rate != self.teacher_logger['lr'][-1] or not self.teacher_logger['lr']:
+                    self.teacher_logger['epochs'][-1].extend(
+                        list(range(self.teacher_logger['current'], self.args[mode].epochs)))
+                else:
+                    self.teacher_logger['lr'].append(self.args[mode].learning_rate)
+                    self.teacher_logger['epochs'].append(
+                        list(range(self.teacher_logger['current'], self.args[mode].epochs)))
+                self.teacher_logger['current'] += self.args[mode].epochs
+                return func1
+            return wrapper_core
+        return wrapper
+
+    @logger(mode='t')
+    def train_teacher(self, autosave=False, notion=''):
+
+        for epoch in range(self.args['t'].epochs):
             self.img_encoder.train()
             self.img_decoder.train()
             train_epoch_loss = []
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
-                data_y = data_y.to(torch.float32).to(self.teacher_args.device)
+                data_y = data_y.to(torch.float32).to(self.args['t'].device)
                 self.teacher_optimizer.zero_grad()
                 latent = self.img_encoder(data_y).data
                 output = self.img_decoder(latent)
-                loss = self.teacher_args.criterion(output, data_y)
+                loss = self.args['t'].criterion(output, data_y)
                 loss.backward()
                 self.teacher_optimizer.step()
                 train_epoch_loss.append(loss.item())
                 self.train_loss['t_train'].append(loss.item())
                 if idx % (len(self.train_loader) // 2) == 0:
                     print("\rTeacher: epoch={}/{},{}/{}of train, loss={}".format(
-                        epoch, self.teacher_args.epochs, idx, len(self.train_loader), loss.item()), end='')
+                        epoch, self.args['t'].epochs, idx, len(self.train_loader), loss.item()), end='')
             self.train_loss['t_train_epochs'].append(np.average(train_epoch_loss))
-            self.teacher_epochs += 1
-
-        end = time.time()
-        print("\nTotal training time:", end - start, "sec")
 
         if autosave is True:
             torch.save(self.img_encoder.state_dict(),
-                       '../Models/ImgEn_' + str(self.img_encoder) + notion + '_tep' + str(self.teacher_epochs) + '.pth')
+                       '../Models/' + str(self.img_encoder) + notion + '_tep' + str(self.teacher_logger['current']) + '.pth')
             torch.save(self.img_decoder.state_dict(),
-                       '../Models/ImgDe_' + str(self.img_decoder) + notion + '_tep' + str(self.teacher_epochs) + '.pth')
+                       '../Models/' + str(self.img_decoder) + notion + '_tep' + str(self.teacher_logger['current']) + '.pth')
 
         # =====================valid============================
         self.img_encoder.eval()
@@ -197,18 +223,18 @@ class TrainerTeacherStudent:
         valid_epoch_loss = []
 
         for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
-            data_y = data_y.to(torch.float32).to(self.teacher_args.device)
+            data_y = data_y.to(torch.float32).to(self.args['t'].device)
             latent = self.img_encoder(data_y).data
             output = self.img_decoder(latent)
-            loss = self.teacher_args.criterion(output, data_y)
+            loss = self.args['t'].criterion(output, data_y)
             valid_epoch_loss.append(loss.item())
             self.train_loss['t_valid'].append(loss.item())
         self.train_loss['t_valid_epochs'].append(np.average(valid_epoch_loss))
 
+    @logger(mode='s')
     def train_student(self, autosave=False, notion=''):
-        start = time.time()
 
-        for epoch in range(self.student_args.epochs):
+        for epoch in range(self.args['s'].epochs):
             self.img_encoder.eval()
             self.img_decoder.eval()
             self.csi_encoder.train()
@@ -218,8 +244,8 @@ class TrainerTeacherStudent:
             image_epoch_loss = []
 
             for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
-                data_x = data_x.to(torch.float32).to(self.teacher_args.device)
-                data_y = data_y.to(torch.float32).to(self.teacher_args.device)
+                data_x = data_x.to(torch.float32).to(self.args['s'].device)
+                data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
                 student_preds = self.csi_encoder(data_x)
                 with torch.no_grad():
@@ -227,7 +253,7 @@ class TrainerTeacherStudent:
                     image_preds = self.img_decoder(student_preds)
 
                 image_loss = self.img_loss(image_preds, data_y)
-                student_loss = self.student_args.criterion(student_preds, teacher_preds)
+                student_loss = self.args['s'].criterion(student_preds, teacher_preds)
 
                 distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
                                             nn.functional.softmax(teacher_preds / self.temperature, -1))
@@ -247,22 +273,18 @@ class TrainerTeacherStudent:
 
                 if idx % (len(self.train_loader) // 2) == 0:
                     print("\rStudent: epoch={}/{},{}/{}of train, student loss={}, distill loss={}".format(
-                        epoch, self.student_args.epochs, idx, len(self.train_loader),
+                        epoch, self.args['s'].epochs, idx, len(self.train_loader),
                         loss.item(), distil_loss.item()), end='')
 
             self.train_loss['s_train_epochs'].append(np.average(train_epoch_loss))
             self.train_loss['s_train_straight_epochs'].append(np.average(straight_epoch_loss))
             self.train_loss['s_train_distil_epochs'].append(np.average(distil_epoch_loss))
             self.train_loss['s_train_image_epochs'].append(np.average(image_epoch_loss))
-            self.student_epochs += 1
-
-        end = time.time()
-        print("\nTotal training time:", end - start, "sec")
 
         if autosave is True:
             torch.save(self.csi_encoder.state_dict(),
-                       '../Models/CsiEn_' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_epochs) +
-                       '_sep' + str(self.student_epochs) + '.pth')
+                       '../Models/' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_logger['current']) +
+                       '_sep' + str(self.student_logger['current']) + '.pth')
 
         # =====================valid============================
         self.csi_encoder.eval()
@@ -274,15 +296,15 @@ class TrainerTeacherStudent:
         image_epoch_loss = []
 
         for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
-            data_x = data_x.to(torch.float32).to(self.student_args.device)
-            data_y = data_y.to(torch.float32).to(self.student_args.device)
+            data_x = data_x.to(torch.float32).to(self.args['s'].device)
+            data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
             teacher_preds = self.img_encoder(data_y)
             student_preds = self.csi_encoder(data_x)
             image_preds = self.img_decoder(student_preds)
             image_loss = self.img_loss(image_preds, data_y)
 
-            student_loss = self.student_args.criterion(student_preds, teacher_preds)
+            student_loss = self.args['s'].criterion(student_preds, teacher_preds)
 
             distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
                                         nn.functional.softmax(teacher_preds / self.temperature, -1))
@@ -311,13 +333,13 @@ class TrainerTeacherStudent:
             loader = self.train_loader
 
         for idx, (data_x, data_y) in enumerate(loader, 0):
-            data_y = data_y.to(torch.float32).to(self.teacher_args.device)
+            data_y = data_y.to(torch.float32).to(self.args['s'].device)
             if loader.batch_size != 1:
                 data_y = data_y[0][np.newaxis, ...]
 
             latent = self.img_encoder(data_y)
             output = self.img_decoder(latent)
-            loss = self.teacher_args.criterion(output, data_y)
+            loss = self.args['s'].criterion(output, data_y)
 
             self.t_test_loss['loss'].append(loss.item())
             self.t_test_loss['predicts'].append(output.cpu().detach().numpy().squeeze().tolist())
@@ -338,13 +360,13 @@ class TrainerTeacherStudent:
             loader = self.train_loader
 
         for idx, (data_x, data_y) in enumerate(loader, 0):
-            data_x = data_x.to(torch.float32).to(self.student_args.device)
-            data_y = data_y.to(torch.float32).to(self.teacher_args.device)
+            data_x = data_x.to(torch.float32).to(self.args['s'].device)
+            data_y = data_y.to(torch.float32).to(self.args['s'].device)
 
             teacher_latent_preds = self.img_encoder(data_y)
             student_latent_preds = self.csi_encoder(data_x)
             student_image_preds = self.img_decoder(student_latent_preds)
-            student_loss = self.student_args.criterion(student_latent_preds, teacher_latent_preds)
+            student_loss = self.args['s'].criterion(student_latent_preds, teacher_latent_preds)
             image_loss = self.img_loss(student_image_preds, data_y)
 
             distil_loss = self.div_loss(nn.functional.softmax(student_latent_preds / self.temperature, -1),
@@ -372,6 +394,9 @@ class TrainerTeacherStudent:
         fig = plt.figure(constrained_layout=True)
         fig.suptitle('Teacher Train Loss')
         axes = fig.subplots(2, 1)
+
+        #
+
         axes[0].plot(self.train_loss['t_train_epochs'], 'b')
         axes[0].set_title('Train')
         axes[0].set_xlabel('#epoch')
@@ -385,8 +410,8 @@ class TrainerTeacherStudent:
         axes[1].grid()
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_t_train" + notion + '_' + '.jpg')
         plt.show()
 
@@ -412,8 +437,8 @@ class TrainerTeacherStudent:
             axes[i].grid(True)
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_s_train" + notion + '_' + '.jpg')
         plt.show()
 
@@ -436,8 +461,8 @@ class TrainerTeacherStudent:
             axes[i].grid(True)
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_s_valid" + notion + '_' + '.jpg')
         plt.show()
 
@@ -470,8 +495,8 @@ class TrainerTeacherStudent:
         subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_t_predict" + notion + '_' + '.jpg')
         plt.show()
 
@@ -486,8 +511,8 @@ class TrainerTeacherStudent:
         plt.grid()
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_t_test" + notion + '_' + '.jpg')
         plt.show()
 
@@ -520,8 +545,8 @@ class TrainerTeacherStudent:
         subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_s_predict" + notion + '_' + '.jpg')
         plt.show()
 
@@ -541,8 +566,8 @@ class TrainerTeacherStudent:
         axes[0].legend()
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_s_latent" + notion + '_' + '.jpg')
         plt.show()
 
@@ -567,8 +592,8 @@ class TrainerTeacherStudent:
             axes[i].grid(True)
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_s_latent" + notion + '_' + '.jpg')
         plt.show()
 
@@ -579,10 +604,10 @@ class TrainerTeacherStudent:
             os.makedirs(save_path)
 
         torch.save(self.img_encoder.state_dict(),
-                   '../Models/ImgEn_' + str(self.img_encoder) + notion + '_tep' + str(self.teacher_epochs) + '.pth')
+                   '../Models/' + str(self.img_encoder) + notion + '_tep' + str(self.teacher_logger['current']) + '.pth')
         torch.save(self.img_decoder.state_dict(),
-                   '../Models/ImgDe_' + str(self.img_decoder) + notion + '_tep' + str(self.teacher_epochs) + '.pth')
+                   '../Models/' + str(self.img_decoder) + notion + '_tep' + str(self.teacher_logger['current']) + '.pth')
 
         torch.save(self.csi_encoder.state_dict(),
-                   '../Models/CSIEn_' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_epochs) +
-                   '_sep' + str(self.student_epochs) + '.pth')
+                   '../Models/' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_logger['current']) +
+                   '_sep' + str(self.student_logger['current']) + '.pth')

@@ -172,7 +172,7 @@ class ImageDecoder(nn.Module):
         )
 
     def __str__(self):
-        return 'Model_v03b2_ImgDe_' + self.fc
+        return 'Model_v03b2_ImgDe_'
 
     def forward(self, z):
         z = self.fclayers(z)
@@ -237,7 +237,7 @@ class ImageDecoderInterp(ImageDecoder):
         )
 
     def __str__(self):
-        return 'Model_v03b2_ImgDe_' + self.fc
+        return 'Model_v03b2_ImgDe_'
 
     def forward(self, z):
         z = self.fclayers(z)
@@ -455,9 +455,9 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
         if autosave is True:
             torch.save(self.img_encoder.state_dict(),
-                       '../Models/ImgEn_' + str(self.img_encoder) + notion + '_tep' + str(self.teacher_epochs) + '.pth')
+                       '../Models/' + str(self.img_encoder) + notion + '_tep' + str(self.teacher_logger['current']) + '.pth')
             torch.save(self.img_decoder.state_dict(),
-                       '../Models/ImgDe_' + str(self.img_decoder) + notion + '_tep' + str(self.teacher_epochs) + '.pth')
+                       '../Models/' + str(self.img_decoder) + notion + '_tep' + str(self.teacher_logger['current']) + '.pth')
 
         # =====================valid============================
         self.img_encoder.eval()
@@ -539,8 +539,8 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             ax.grid()
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_t_train" + notion + '_' + '.jpg')
         plt.show()
 
@@ -573,8 +573,8 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         subfigs[1].colorbar(imb, ax=ax, shrink=0.8)
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_t_predict" + notion + '_' + '.jpg')
         plt.show()
 
@@ -598,8 +598,8 @@ class TrainerVariationalTS(TrainerTeacherStudent):
             ax.grid()
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
-                        '_s_ep' + str(self.student_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
+                        '_s_ep' + str(self.student_logger['current']) +
                         "_t_test" + notion + '_' + '.jpg')
         plt.show()
 
@@ -657,8 +657,8 @@ class TrainerVariationalTS(TrainerTeacherStudent):
 
         if autosave is True:
             torch.save(self.csi_encoder.state_dict(),
-                       '../Models/CsiEn_' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_epochs) +
-                       '_sep' + str(self.student_epochs) + '.pth')
+                       '../Models/' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_logger['current']) +
+                       '_sep' + str(self.student_logger['current']) + '.pth')
 
         # =====================valid============================
         self.csi_encoder.eval()
@@ -738,7 +738,7 @@ class TrainerVariationalTS(TrainerTeacherStudent):
         plt.ylabel(str(dim2))
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_epochs) +
+            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
                         "_t_traverse_" + str(dim1) + str(dim2) + '_gran' + str(granularity) + '.jpg')
         plt.show()
 

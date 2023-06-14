@@ -8,6 +8,9 @@ import os
 from scipy.stats import norm
 from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent
 
+# ------------------------------------- #
+# Trainer of VAE Teacher-student network
+
 
 class TrainerVariationalTS(TrainerTeacherStudent):
     def __init__(self, img_encoder, img_decoder, csi_encoder,
