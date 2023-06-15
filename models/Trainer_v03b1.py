@@ -3,8 +3,6 @@ import torch.nn as nn
 from torchinfo import summary
 import numpy as np
 import matplotlib.pyplot as plt
-import time
-import os
 from scipy.stats import norm
 from TrainerTS import MyDataset, split_loader, MyArgs, TrainerTeacherStudent, bn, Interpolate
 
@@ -394,9 +392,9 @@ class TrainerTS(TrainerTeacherStudent):
 
         if autosave is True:
             torch.save(self.img_encoder.state_dict(),
-                       '../Models/' + str(self.img_encoder) + notion + '_tep' + str(self.teacher_logger['current']) + '.pth')
+                       '../Models/' + str(self.img_encoder) + self.current_title() + notion + '.pth')
             torch.save(self.img_decoder.state_dict(),
-                       '../Models/' + str(self.img_decoder) + notion + '_tep' + str(self.teacher_logger['current']) + '.pth')
+                       '../Models/' + str(self.img_decoder) + self.current_title() + notion + '.pth')
 
         # =====================valid============================
         self.img_encoder.eval()
@@ -411,102 +409,6 @@ class TrainerTS(TrainerTeacherStudent):
             valid_epoch_loss.append(loss.item())
             self.train_loss['t_valid'].append(loss.item())
         self.train_loss['t_valid_epochs'].append(np.average(valid_epoch_loss))
-
-    @mylogger(mode='s')
-    def train_student(self, autosave=False, notion=''):
-        start = time.time()
-
-        for epoch in range(self.args['s'].epochs):
-            self.img_encoder.eval()
-            self.img_decoder.eval()
-            self.csi_encoder.train()
-            train_epoch_loss = []
-            straight_epoch_loss = []
-            distil_epoch_loss = []
-            image_epoch_loss = []
-
-            for idx, (data_x, data_y) in enumerate(self.train_loader, 0):
-                data_x = data_x.to(torch.float32).to(self.args['s'].device)
-                data_y = data_y.to(torch.float32).to(self.args['s'].device)
-
-                student_preds = self.csi_encoder(data_x)
-                with torch.no_grad():
-                    teacher_preds = self.img_encoder(data_y)
-                    image_preds = self.img_decoder(student_preds)
-
-                image_loss = self.img_loss(image_preds, data_y)
-                student_loss = self.args['s'].criterion(student_preds, teacher_preds)
-
-                distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
-                                            nn.functional.softmax(teacher_preds / self.temperature, -1))
-
-                loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-
-                self.train_loss['s_train'].append(loss.item())
-
-                self.student_optimizer.zero_grad()
-                loss.backward()
-                self.student_optimizer.step()
-
-                train_epoch_loss.append(loss.item())
-                straight_epoch_loss.append(student_loss.item())
-                distil_epoch_loss.append(distil_loss.item())
-                image_epoch_loss.append(image_loss.item())
-
-                if idx % (len(self.train_loader) // 2) == 0:
-                    print("\rStudent: epoch={}/{},{}/{}of train, student loss={}, distill loss={}".format(
-                        epoch, self.args['s'].epochs, idx, len(self.train_loader),
-                        loss.item(), distil_loss.item()), end='')
-
-            self.train_loss['s_train_epochs'].append(np.average(train_epoch_loss))
-            self.train_loss['s_train_straight_epochs'].append(np.average(straight_epoch_loss))
-            self.train_loss['s_train_distil_epochs'].append(np.average(distil_epoch_loss))
-            self.train_loss['s_train_image_epochs'].append(np.average(image_epoch_loss))
-            self.student_epochs += 1
-
-        end = time.time()
-        print("\nTotal training time:", end - start, "sec")
-
-        if autosave is True:
-            torch.save(self.csi_encoder.state_dict(),
-                       '../Models/CsiEn_' + str(self.csi_encoder) + notion + '_tep' + str(self.teacher_logger['current']) +
-                       '_sep' + str(self.student_logger['current']) + '.pth')
-
-        # =====================valid============================
-        self.csi_encoder.eval()
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        valid_epoch_loss = []
-        straight_epoch_loss = []
-        distil_epoch_loss = []
-        image_epoch_loss = []
-
-        for idx, (data_x, data_y) in enumerate(self.valid_loader, 0):
-            data_x = data_x.to(torch.float32).to(self.args['s'].device)
-            data_y = data_y.to(torch.float32).to(self.args['s'].device)
-
-            teacher_preds = self.img_encoder(data_y)
-            student_preds = self.csi_encoder(data_x)
-            image_preds = self.img_decoder(student_preds)
-            image_loss = self.img_loss(image_preds, data_y)
-
-            student_loss = self.args['s'].criterion(student_preds, teacher_preds)
-
-            distil_loss = self.div_loss(nn.functional.softmax(student_preds / self.temperature, -1),
-                                        nn.functional.softmax(teacher_preds / self.temperature, -1))
-
-            loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-            self.train_loss['s_valid'].append(loss.item())
-
-            valid_epoch_loss.append(loss.item())
-            straight_epoch_loss.append(student_loss.item())
-            distil_epoch_loss.append(distil_loss.item())
-            image_epoch_loss.append(image_loss.item())
-
-        self.train_loss['s_valid_epochs'].append(np.average(valid_epoch_loss))
-        self.train_loss['s_valid_straight_epochs'].append(np.average(straight_epoch_loss))
-        self.train_loss['s_valid_distil_epochs'].append(np.average(distil_epoch_loss))
-        self.train_loss['s_valid_image_epochs'].append(np.average(image_epoch_loss))
 
     def test_teacher(self, mode='test'):
         self.t_test_loss = self.__gen_teacher_test__()
@@ -533,45 +435,6 @@ class TrainerTS(TrainerTeacherStudent):
 
             if idx % (len(self.test_loader)//5) == 0:
                 print("\rTeacher: {}/{}of test, loss={}".format(idx, len(loader), loss.item()), end='')
-
-    def test_student(self, mode='test'):
-        self.s_test_loss = self.__gen_student_test__()
-        self.img_encoder.eval()
-        self.img_decoder.eval()
-        self.csi_encoder.eval()
-
-        if mode == 'test':
-            loader = self.test_loader
-        elif mode == 'train':
-            loader = self.train_loader
-
-        for idx, (data_x, data_y) in enumerate(loader, 0):
-            data_x = data_x.to(torch.float32).to(self.args['s'].device)
-            data_y = data_y.to(torch.float32).to(self.args['s'].device)
-
-            teacher_latent_preds = self.img_encoder(data_y)
-            student_latent_preds = self.csi_encoder(data_x)
-            student_image_preds = self.img_decoder(student_latent_preds)
-            student_loss = self.args['s'].criterion(student_latent_preds, teacher_latent_preds)
-            image_loss = self.img_loss(student_image_preds, data_y)
-
-            distil_loss = self.div_loss(nn.functional.softmax(student_latent_preds / self.temperature, -1),
-                                        nn.functional.softmax(teacher_latent_preds / self.temperature, -1))
-
-            loss = self.alpha * student_loss + (1 - self.alpha) * distil_loss
-
-            self.s_test_loss['loss'].append(image_loss.item())
-            self.s_test_loss['latent_straight_loss'].append(student_loss.item())
-            self.s_test_loss['latent_distil_loss'].append(loss.item())
-            self.s_test_loss['student_image_loss'].append(image_loss.item())
-            self.s_test_loss['student_latent_predicts'].append(student_latent_preds.cpu().detach().numpy().squeeze().tolist())
-            self.s_test_loss['teacher_latent_predicts'].append(teacher_latent_preds.cpu().detach().numpy().squeeze().tolist())
-            self.s_test_loss['student_image_predicts'].append(student_image_preds.cpu().detach().numpy().squeeze().tolist())
-            self.s_test_loss['groundtruth'].append(data_y.cpu().detach().numpy().squeeze().tolist())
-
-            if idx % (len(self.test_loader) // 5) == 0:
-                print("\rStudent: {}/{}of test, student loss={}, distill loss={}, image loss={}".format(
-                    idx, len(self.test_loader), student_loss.item(), distil_loss.item(), image_loss.item()), end='')
 
     def traverse_latent(self, img_ind, dataset, dim1=0, dim2=1, granularity=11, autosave=False):
         self.__plot_settings__()
@@ -615,8 +478,8 @@ class TrainerTS(TrainerTeacherStudent):
         plt.ylabel(str(dim2))
 
         if autosave is True:
-            plt.savefig('t_ep' + str(self.teacher_logger['current']) +
-                        "_t_traverse_" + str(dim1) + str(dim2) + '_gran' + str(granularity) + '.jpg')
+            plt.savefig(self.current_title() +
+                        "_T_traverse_" + str(dim1) + str(dim2) + '_gran' + str(granularity) + '.jpg')
         plt.show()
 
 
