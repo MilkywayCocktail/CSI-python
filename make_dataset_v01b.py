@@ -74,4 +74,4 @@ if __name__ == '__main__':
     mkdata.export_csi(dynamic_csi=False, pick_tx=0)
     mkdata.slice_by_label()
     #mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0307/make03', sub + '_div', 'csi', 'sid')
+    mkdata.save_dataset('../dataset/0307/make07', sub + '_div', 'csi', 'sid')

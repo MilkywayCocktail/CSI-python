@@ -72,7 +72,7 @@ class MyDataMaker_v01c(MyDataMaker):
 
 if __name__ == '__main__':
 
-    sub = '05'
+    sub = '04'
     length = 3000
 
     path = [os.path.join('../sense/0307', sub + '.bag'),
@@ -84,10 +84,11 @@ if __name__ == '__main__':
 
     mkdata = MyDataMaker_v01c(configs=configs, paths=path, total_frames=length)
     mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
+    mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
-    mkdata.export_sidelabel(label='y')
+    # mkdata.export_sidelabel(label='y')
     mkdata.export_csi()
     mkdata.slice_by_label()
     print(mkdata.result['sid'])
     #mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0208/make01', sub + '_dyn', 'csi', 'sid')
+    mkdata.save_dataset('../dataset/0307/make07', sub + '_dyn', 'csi', 'img')

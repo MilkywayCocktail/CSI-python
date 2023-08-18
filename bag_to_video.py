@@ -204,9 +204,9 @@ class Bag2Velocity(BagConverter):
 
 if __name__ == '__main__':
 
-    path = '../sense/1213/'
-    source_name = '121304.bag'
-    export_name = '121304.avi'
+    path = '../sense/0725/'
+    source_name = '08.bag'
+    export_name = '08.avi'
 
     con = Bag2Depth(path, source_name, export_name, f=True)
     con.setup()

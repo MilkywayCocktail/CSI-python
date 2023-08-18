@@ -4,46 +4,50 @@ import os
 import random
 
 
-def regroup(in_path, out_path, scope: tuple):
+def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
     # Initial cell shapes
     result = {'csi': np.zeros((1, 2, 90, 100)),
-            'img': np.zeros((1, 1, 128, 128)),
-            'tim': np.zeros(1),
-            'cod': np.zeros((1, 3)),
-            'ind': np.zeros(1),
-            'sid': np.zeros(1)
-            }
+              'img': np.zeros((1, 1, 128, 128), dtype=out_type),
+              'tim': np.zeros(1),
+              'cod': np.zeros((1, 3)),
+              'ind': np.zeros(1),
+              'sid': np.zeros(1)
+              }
 
     filenames = os.listdir(in_path)
     for file in filenames:
 
         if file[:2] in scope:
-            tmp = np.load(in_path + file)
-
             print(file)
+            tmp = np.load(in_path + file)
+            print(tmp.shape)
+
             kind = file[-7:-4]
 
-            if kind in result.keys():
+            if kind in list(result.keys()):
                 if kind == 'img':
-                    tmp = tmp[:, None, ...]
+                    tmp = tmp[:, np.newaxis, ...]
                     tmp[tmp > 3000] = 3000
-                    tmp = tmp / 3000
+                    tmp = tmp / 3000.
 
-                result[kind] = np.concatenate((result[kind], tmp), axis=0)
+                    result[kind] = np.concatenate((result[kind], tmp.astype(out_type)), axis=0)
+
+                else:
+                    result[kind] = np.concatenate((result[kind], tmp), axis=0)
+
+                print(kind, len(result[kind]))
 
     if not os.path.exists(out_path):
         os.makedirs(out_path)
 
-    for key in result.keys():
+    for key in list(result.keys()):
         result[key] = np.delete(result[key], 0, axis=0)
         if len(result[key]) != 0:
+            print(key, len(result[key]))
             if key == 'sid':
                 result[key] = result[key] - min(result[key])
 
-            print(key, len(result[key]))
             np.save(out_path + key + '.npy', result[key])
-
-
     print("All saved!")
 
 
@@ -61,10 +65,14 @@ def asy(path):
     print(imgs.shape)
 
     for i in range(len(imgs)):
-        img = cv2.convertScaleAbs(imgs[i], alpha=0.03)
+        print(np.max(imgs[i]), np.min(imgs[i]))
+        #img = cv2.convertScaleAbs(imgs[i], alpha=0.03)
+        img = imgs[i]
+
         cv2.namedWindow('Velocity Image', cv2.WINDOW_AUTOSIZE)
         img = cv2.resize(img,(512, 512), interpolation=cv2.INTER_AREA)
         cv2.imshow('Image', img)
+
         #cv2.imwrite('../dataset/view/' + str(i).zfill(4) + '.jpg', img)
         key = cv2.waitKey(33) & 0xFF
         if key == ord('q'):
@@ -224,11 +232,11 @@ def simu_dataset(paths, out_path):
 
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
-    #asy('../dataset/0307/make06-finished/img.npy')
+    #asy('../dataset/0307/make07-finished/img.npy')
     #asx('../dataset/0307/make04-finished/img.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    regroup('../dataset/0509/make00/', '../dataset/0509/make01-finished/', ('01', '02', '03', '04'))
+    regroup('../dataset/0725/make00/', '../dataset/0725/make00-finished/', ('01', '02'))

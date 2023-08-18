@@ -58,7 +58,6 @@ class MyConfigsDM(pycsi.MyConfigs):
 
 
 class MyDataMaker:
-
     # Generates images, CSI
 
     def __init__(self, configs: MyConfigsDM, paths: list, total_frames: int):
@@ -320,7 +319,7 @@ class MyDataMaker:
             else:
                 image = cv2.convertScaleAbs(self.result['img'][i], alpha=0.02)
 
-            image = cv2.resize(image, (512, 512), interpolation=cv2.INTER_AREA)
+            image = cv2.resize(image, (640, 480), interpolation=cv2.INTER_AREA)
             cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('Image', image)
             key = cv2.waitKey(33) & 0xFF
@@ -370,31 +369,29 @@ class MyDataMaker:
 
 if __name__ == '__main__':
 
-    date = '0509'
-    sub = '01'
-    length = 5400
+    date = '0725'
+    sub = '02'
+    length = 3600
 
     path = ['../sense/' + date + '/' + sub + '.bag',
             '../sense/' + date + '/' + sub + '_timestamps.txt',
             '../npsave/' + date + '/' + date + 'A' + sub + '-csio.npy',
             '../data/' + date + '/csi' + date + 'A' + sub + '_time_mod.txt',
-            '../sense/' + date + '/' + sub + '_labels_abs.csv']
+            '../sense/' + date + '/' + sub + '_labels.csv']
 
     configs = MyConfigsDM()
     configs.tx_rate = 0x1c113
+    configs.ntx = 3
 
     mkdata = MyDataMaker(configs=configs, paths=path, total_frames=length)
     mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
     mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
-    mkdata.depth_mask(0.7)
-    #print(mkdata.csi_stream.abs_timestamps)
-    #print(mkdata.local_timestamps)
-    #print(mkdata.result['tim'])
-    mkdata.export_csi(dynamic_csi=False, pick_tx=0)
+    mkdata.depth_mask(0.75)
+    # mkdata.export_csi(dynamic_csi=False, pick_tx=0)
     #mkdata.lookup_image()
     mkdata.slice_by_label()
 
-    #mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0509/make00', sub + '_div', 'csi', 'img')
+    mkdata.playback_image()
+    mkdata.save_dataset('../dataset/0725/make00', sub + '_div', 'csi', 'img')
 

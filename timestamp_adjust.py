@@ -75,17 +75,21 @@ def calibrate_lag(in_path1, in_path2, out_path):
     f2.close()
 
 
-file = '../sense/0124/03_timestamps.txt'
-result = '../sense/0124/03_timediff.txt'
+# file = '../sense/0725/01_timestamps.txt'
+# result = '../sense/0124/03_timediff.txt'
 
-file2 = '../data/0509/csi0509A05_time.txt'
-result2 = file2[:-4] + '_mod.txt'
+# file2 = '../data/0725/csi0725A01_time.txt'
+# result2 = file2[:-4] + '_mod.txt'
 
 file3 = '../sense/0124/00_cameratime.txt'
 file4 = '../sense/0124/00_timestamps.txt'
 result3 = '../sense/0124/00_camtime_mod.txt'
 
-compensate(file2, result2, '56.699')
+target = ('00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13')
+for tar in target:
+    file = f"../data/0726/csi0726A{tar}_time.txt"
+    result = file[:-4] + '_mod.txt'
+    compensate(file, result, '106.1387')
 
 #calculate_timediff(file, result)
 
