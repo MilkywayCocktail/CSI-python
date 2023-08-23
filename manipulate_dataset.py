@@ -230,13 +230,29 @@ def simu_dataset(paths, out_path):
     np.save(out_path + 'sid.npy', sid)
 
 
+def wi2vi_channels(inpath, outpath):
+    csi = np.load(inpath)
+    print(csi.shape)
+    result = np.zeros((len(csi), 6, 30, 100), dtype=complex)
+    # [n, 2, 90, 100]
+    #for i in range(len(csi)):#
+#
+#        amp = np.swapaxes(csi[i][0].reshape(30, 3, 100), 0, 1)
+##        phs = np.swapaxes(csi[i][1].reshape(30, 3, 100), 0, 1)
+ #       pkt = np.concatenate((amp, phs), axis=0)
+ #       result[i] = pkt
+
+    print(result.shape)
+
+
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
     #asy('../dataset/0307/make07-finished/img.npy')
-    #asx('../dataset/0307/make04-finished/img.npy')
+    asx('../dataset/0307/make06-finished/csi.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    regroup('../dataset/0725/make00/', '../dataset/0725/make00-finished/', ('01', '02'))
+    #regroup('../dataset/0725/make00/', '../dataset/0725/make00-finished/', ('01', '02'))
+    #wi2vi_channels('../dataset/0307/make07-finished/csi.npy', '../dataset/0307/make07-finished/csi-wi2vi.npy')
