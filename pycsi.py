@@ -1395,7 +1395,7 @@ if __name__ == '__main__':
     mycon = MyConfigs(5.32, 20)
     mycon.ntx = 3
     mycon.tx_rate = 0x1c113
-    mycsi = MyCsi(mycon, '0509A04', '../npsave/0509/0509A04-csio.npy')
+    mycsi = MyCsi(mycon, '0725Aenv', '../npsave/0725/0725Aenv-csio.npy')
     mycsi.load_data(remove_sm=True)
     # mycsi.load_lists()
     # mycsi.load_label('../sense/0509/01_labels.csv')

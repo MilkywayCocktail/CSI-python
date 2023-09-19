@@ -61,7 +61,7 @@ def asx(path):
 
 def asy(path):
     imgs = np.load(path)
-    imgs = np.squeeze(imgs)
+    imgs = (np.squeeze(imgs) * 255).astype(np.uint8)
     print(imgs.shape)
 
     for i in range(len(imgs)):
@@ -69,8 +69,7 @@ def asy(path):
         #img = cv2.convertScaleAbs(imgs[i], alpha=0.03)
         img = imgs[i]
 
-        cv2.namedWindow('Velocity Image', cv2.WINDOW_AUTOSIZE)
-        img = cv2.resize(img,(512, 512), interpolation=cv2.INTER_AREA)
+        img = cv2.resize(img,(640, 480), interpolation=cv2.INTER_AREA)
         cv2.imshow('Image', img)
 
         #cv2.imwrite('../dataset/view/' + str(i).zfill(4) + '.jpg', img)
@@ -233,8 +232,7 @@ def simu_dataset(paths, out_path):
 def wi2vi_channels(inpath, outpath):
     csi = np.load(inpath)
     print(csi.shape)
-    result = np.zeros((len(csi), 6, 30, 100), dtype=complex)
-    # [n, 2, 90, 100]
+    result = np.zeros((len(csi), 6, 30, 100))
     #for i in range(len(csi)):#
 #
 #        amp = np.swapaxes(csi[i][0].reshape(30, 3, 100), 0, 1)
@@ -247,12 +245,12 @@ def wi2vi_channels(inpath, outpath):
 
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
-    #asy('../dataset/0307/make07-finished/img.npy')
-    asx('../dataset/0307/make06-finished/csi.npy')
+    asy('../dataset/0726/make00-finished/img.npy')
+    #asx('../dataset/0307/make06-finished/csi.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    #regroup('../dataset/0725/make00/', '../dataset/0725/make00-finished/', ('01', '02'))
-    #wi2vi_channels('../dataset/0307/make07-finished/csi.npy', '../dataset/0307/make07-finished/csi-wi2vi.npy')
+    #regroup('../dataset/0726/make00/', '../dataset/0726/make00-finished/', ('00', '01', '02', '03'))
+    # wi2vi_channels('../dataset/0307/make07-finished/csi.npy', '../dataset/0307/make07-finished/csi-wi2vi2.npy')
