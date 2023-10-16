@@ -245,7 +245,7 @@ def wi2vi_channels(inpath, outpath):
 
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
-    asy('../dataset/0726/make00-finished/img.npy')
+    asy('../dataset/0725/make00-finished/img.npy')
     #asx('../dataset/0307/make06-finished/csi.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')

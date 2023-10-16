@@ -1,6 +1,7 @@
 import pyrealsense2 as rs
 import numpy as np
 import cv2
+from tqdm import tqdm
 import os
 
 
@@ -110,7 +111,7 @@ class Bag2Color(BagConverter):
         self.videowriter = cv2.VideoWriter(self.out_path, self.fourcc, self.fps, (1280, 720))
 
     def get_frame(self, frames):
-        color_frame = eval("frames.get_color_frame()")
+        color_frame = frames.get_color_frame()
         return color_frame
 
     def colorize(self, image):
@@ -127,11 +128,11 @@ class Bag2Depth(BagConverter):
         self.videowriter = cv2.VideoWriter(self.out_path, self.fourcc, self.fps, (848, 480))
 
     def get_frame(self,  frames):
-        depth_frame = eval("frames.get_depth_frame()")
+        depth_frame = frames.get_depth_frame()
         return depth_frame
 
     def apply_filter(self, frame):
-        frame = eval("my_filter(frame) if self.filter is True else frame")
+        frame = my_filter(frame) if self.filter else frame
         return frame
 
     def colorize(self, image):
@@ -202,12 +203,83 @@ class Bag2Velocity(BagConverter):
             print("Video saved!")
 
 
+class Bag2Masked:
+
+    def __init__(self, path, in_name, out_name, length, fps=30, f=True, threshold=0.5):
+        self.path = path
+        self.in_path = path + in_name
+        self.out_path = path + out_name
+        self.length = length
+        self.fps = fps
+        self.filter = f
+        self.threshold = threshold
+        self.pipeline = None
+        self.config = None
+        self.result = np.zeros((self.length, 128, 128))
+
+    def setstream(self):
+        self.config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, self.fps)
+
+    def setup(self):
+        self.pipeline = rs.pipeline()
+        self.config = rs.config()
+        rs.config.enable_device_from_file(self.config, self.in_path, False)
+        self.setstream()
+
+        self.pipeline.start(self.config)
+
+    @staticmethod
+    def get_frame(frames):
+        depth_frame = frames.get_depth_frame()
+        return depth_frame
+
+    def apply_filter(self, frame):
+        frame = my_filter(frame) if self.filter else frame
+        return frame
+
+    def run(self):
+        try:
+            i = 0
+            while True:
+                frames = self.pipeline.wait_for_frames()
+                print("Frame claimed")
+                frame = self.get_frame(frames)
+                if not frame:
+                    continue
+                frame = self.apply_filter(frame)
+                image = np.asanyarray(frame.get_data())
+                image = cv2.resize(image, (128, 128), interpolation=cv2.INTER_AREA)
+                self.result[i] = image
+                i += 1
+
+        except RuntimeError:
+            print("Read finished!")
+            self.pipeline.stop()
+
+        finally:
+            cv2.destroyAllWindows()
+
+            median = np.median(self.result, axis=0)
+            threshold = median * self.threshold
+            for i in tqdm(range(len(self.result))):
+                mask = self.result[i] < threshold
+                masked = self.result[i] * mask
+                masked[masked > 3000] = 3000
+                masked = masked / 3000.
+
+                cv2.namedWindow('Bag Image', cv2.WINDOW_AUTOSIZE)
+                cv2.imshow('Bag Image', masked)
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
+                    break
+
+
 if __name__ == '__main__':
 
-    path = '../sense/0725/'
-    source_name = '08.bag'
-    export_name = '08.avi'
+    path = '../sense/0726/'
+    source_name = '00.bag'
+    export_name = '01.avi'
 
-    con = Bag2Depth(path, source_name, export_name, f=True)
+    con = Bag2Masked(path, source_name, export_name, f=True, length=6000, threshold=0.75)
     con.setup()
     con.run()
