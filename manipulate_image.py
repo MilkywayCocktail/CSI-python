@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import os
+import matplotlib.pyplot as plt
 
 
 def bounding_box(in_path, min_area=100):
@@ -23,9 +24,9 @@ def bounding_box(in_path, min_area=100):
             else:
                 x, y, w, h = cv2.boundingRect(contour)
                 patch = np.average(img[y:y+h, x:x+w])
-                non_zero = (patch != 0 )
+                non_zero = (patch != 0)
                 average_depth = patch.sum() / non_zero.sum()
-                print(average_depth)
+                print(average_depth * 3000)
                 out[i] = np.array([average_depth, x, y, w, h])
 
                 img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
@@ -40,8 +41,15 @@ def bounding_box(in_path, min_area=100):
                 if key == ord('q'):
                     break
 
-    np.save(f"{in_path[:-3]}ibv.npy", out)
+    # np.save(f"{in_path[:-3]}ibv.npy", out)
     print(f"Saved!")
+
+    depths = out[:, 0] * 3
+    plt.plot(depths)
+    plt.title("Average Depth Trace")
+    plt.xlabel("#Frame")
+    plt.ylabel("Depth/m")
+    plt.show()
 
 
 if __name__ == '__main__':
