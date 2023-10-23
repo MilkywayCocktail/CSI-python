@@ -14,7 +14,7 @@ class MyConfigsW2(pycsi.MyConfigs):
 
         super(MyConfigsW2, self).__init__(center_freq=center_freq, bandwidth=bandwidth, sampling_rate=sampling_rate)
         self.antenna_list = np.arange(0, self.nrx, 1.).reshape(-1, 1)
-        self.toflist = np.arange(-0.5e-7, 2.e-7, 1.e-9).reshape(-1, 1)
+        self.toflist = np.arange(-0.5e-7, 4.5e-7, 2.e-9).reshape(-1, 1)
         self.aoalist = np.deg2rad(np.arange(-90, 91, 1.)).reshape(-1, 1)
         self.dopplerlist = np.arange(-5, 5, 0.01).reshape(-1, 1)
         self.window_length = window_length
@@ -78,7 +78,7 @@ class MyCsiW2(pycsi.MyCsi):
 
                 csi_filter[:, i, j] = signal.filtfilt(B2, A2, signal.filtfilt(B, A, tmp)).reshape(-1, 1)
 
-        #if self.labels is not None:
+        # if self.labels is not None:
         #    csi_static = csi_filter[self.labels['static']]
         #    csi_filter = csi_filter - np.mean(csi_static, axis=0)
 
@@ -103,7 +103,10 @@ class MyWidar2:
                        'end': []}
 
     def __gen_steering_vector__(self):
-
+        """
+        Generates steering vectors.
+        :return: tof, aoa, doppler vectors
+        """
         sampling_rate = self.configs.sampling_rate
         dist_antenna = self.configs.dist_antenna
         center_freq = self.configs.center_freq
@@ -125,6 +128,10 @@ class MyWidar2:
         return tof_vector, aoa_vector, doppler_vector
 
     def __gen_estimates__(self):
+        """
+        Generates the placeholder of final results.
+        :return: estimates dictionary
+        """
         est = {'tof': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
                'aoa': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
                'doppler': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
@@ -133,6 +140,10 @@ class MyWidar2:
         return est
 
     def __gen_arg_indices__(self):
+        """
+        Generates initial states of estimates.
+        :return: initiation dictionary
+        """
         toflist = self.configs.toflist
         aoalist = self.configs.aoalist
         dopplerlist = self.configs.dopplerlist
@@ -148,6 +159,10 @@ class MyWidar2:
         return ini
 
     def __gen_temp_parameters__(self):
+        """
+        Generates temporal estimates.
+        :return: estimates and index dictionaries
+        """
         _estimates = {'tof': np.zeros(self.configs.num_paths, dtype=complex),
                       'aoa': np.zeros(self.configs.num_paths, dtype=complex),
                       'doppler': np.zeros(self.configs.num_paths, dtype=complex),
@@ -161,6 +176,12 @@ class MyWidar2:
         return _estimates, _arg_index
 
     def sage(self, window_dyn=False, dynamic_durations=False):
+        """
+        Core algorithm of Widar2.
+        :param window_dyn: whether to use window-dynamic extraction. Default is False
+        :param dynamic_durations: whether to exclude non-labeled data points (labels required). Default is False
+        :return: updated estimates and indices
+        """
         r = self.configs.update_ratio
         stride = self.configs.stride
         window_length = self.configs.window_length
@@ -256,12 +277,18 @@ class MyWidar2:
             residue_error_ratio = np.mean(np.abs(residue_error)) / np.mean(np.abs(actual_csi))
 
     def run(self, pick_tx=0, **kwargs):
+        """
+        Entrance of Widar2 algorithm.
+        :param pick_tx: select one tx's data
+        :param kwargs: parameters to be fed into sage
+        :return: Widar2 results
+        """
         start = time.time()
 
         if self.configs.ntx > 1:
             self.csi.csi = self.csi.csi[..., pick_tx][..., np.newaxis]
 
-        #_, alpha, beta = self.csi.self_calibrate()
+        # _, alpha, beta = self.csi.self_calibrate()
         # self.csi.filter_widar2()
         self.sage(**kwargs)
 
@@ -269,6 +296,10 @@ class MyWidar2:
         print("\nTotal time:", end-start)
 
     def plot_results(self):
+        """
+        Plot final results.
+        :return: plot of final results (ToF, AoA, Doppler, Amplitude)
+        """
 
         plt.rcParams["figure.titlesize"] = 35
         plt.rcParams['axes.titlesize'] = 30
@@ -338,7 +369,7 @@ if __name__ == "__main__":
     conf = MyConfigsW2(5.32, 20, num_paths=1)
     conf.ntx = 3
     conf.tx_rate = 0x1c113
-    csi = MyCsiW2(conf, '0509A00', '../npsave/0509/0509A00-csio.npy')
+    csi = MyCsiW2(conf, '1017A07', '../npsave/1017/1017A07-csio.npy')
     csi.load_data(remove_sm=True)
     #csi.load_lists()
     #csi.load_label('../sense/0307/04_labels.csv')
