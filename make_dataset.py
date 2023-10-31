@@ -125,7 +125,8 @@ class MyDataMaker:
         images = np.zeros((self.total_frames, self.configs.img_size[1], self.configs.img_size[0]))
         timestamps = np.zeros(self.total_frames)
         indices = np.zeros(self.total_frames, dtype=int)
-        return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices}
+        locations = np.zeros((self.total_frames, 4), dtype=float)
+        return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices, 'loc': locations}
 
     def __get_image__(self, mode):
         frames = self.video_stream.wait_for_frames()
@@ -239,23 +240,28 @@ class MyDataMaker:
             for i, line in enumerate(f):
                 if i > 0:
                     #if eval(line.split(',')[2][2:]) not in (-2, 2):
-                    labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
+                    labels.append([eval(line.split(',')[0]) * 1e-3, eval(line.split(',')[1]) * 1e-3,
+                                   eval(line.split(',')[2]), eval(line.split(',')[3]), eval(line.split(',')[4]),
+                                   eval(line.split(',')[5])])
 
-        labels = np.array(labels) / 1e3
+        labels = np.array(labels)
 
         # Absolute timestamps or relative timestamps?
         # rel_timestamps = self.result['tim'] - self.result['tim'][0]
         full = list(range(self.total_frames))
         ids = []
-        for (start, end) in labels:
+        locations = []
+        for (start, end, x0, y0, x1, y1) in labels:
             start_id = np.searchsorted(self.result['tim'], start - self.camtime_delta)
             end_id = np.searchsorted(self.result['tim'], end - self.camtime_delta)
             ids.extend(full[start_id:end_id])
+            locations.extend([x0, y0, x1, y1] * len(full[start_id:end_id]))
 
         self.total_frames = len(ids)
 
         for key in self.result.keys():
             self.result[key] = self.result[key][ids]
+        self.result['loc'] = np.array(locations).reshape(-1, 4)
         print('Done')
 
     @staticmethod
