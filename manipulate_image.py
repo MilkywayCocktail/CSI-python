@@ -130,7 +130,7 @@ class ImageGen:
                             break
         print("Complete!")
 
-    def generate_imgs(self, Bx=None, By=None, HW=None, select_ind=None):
+    def generate_imgs(self, Bx=None, By=None, HW=None, overlap_ratio=1., select_ind=None):
         if select_ind:
             ind = [select_ind]
         else:
@@ -152,7 +152,7 @@ class ImageGen:
                     subject = cv2.resize(subject, (w*HW, h*HW), interpolation=cv2.INTER_AREA)
                     (h, w) = subject.shape
                 if Bx:
-                    Bxs = np.floor(np.arange(0, 128 - w, Bx)).astype(int)
+                    Bxs = np.floor(np.arange(0, 128 - w, int(Bx * overlap_ratio))).astype(int)
                     print(f"{len(Bxs)} images to generate")
                     for Bxi in Bxs:
                         image = np.zeros((128, 128))
@@ -162,7 +162,7 @@ class ImageGen:
                         generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 5)), axis=0)
 
                 if By:
-                    Bys = np.floor(np.arange(0, 128 - h, By)).astype(int)
+                    Bys = np.floor(np.arange(0, 128 - h, int(By * overlap_ratio))).astype(int)
                     print(f"{len(Bys)} images to generate")
                     for Byi in Bys:
                         image = np.zeros((128, 128))
@@ -208,7 +208,7 @@ class ImageGen:
                 cv2.namedWindow('Generated Image', cv2.WINDOW_AUTOSIZE)
                 cv2.imshow('Generated Image', img)
 
-                key = cv2.waitKey(33) & 0xFF
+                key = cv2.waitKey(100) & 0xFF
                 if key == ord('q'):
                     break
 
@@ -233,6 +233,6 @@ if __name__ == '__main__':
     gen.load_images("../dataset/0509/make01-finished/img.npy")
     gen.bounding_box(show=False)
     gen.show_images(select_ind=250, select_num=1)
-    gen.generate_imgs(Bx=10, select_ind=250)
+    gen.generate_imgs(Bx=10, overlap_ratio=0.5, select_ind=250)
     gen.view_generation()
     #bounding_box('../dataset/0725/make00-finished/img.npy')
