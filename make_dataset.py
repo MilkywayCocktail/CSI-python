@@ -232,6 +232,7 @@ class MyDataMaker:
         """
         Trim non-labeled segments out of dataset.\n
         Executed after exporting x and y.\n
+        Labels' timestamps are millisecond-level.\n
         :return: sliced results
         """
         print('Slicing...', end='')
@@ -375,15 +376,15 @@ class MyDataMaker:
 
 if __name__ == '__main__':
 
-    date = '0726'
-    sub = '04'
-    length = 2000
+    date = '0509'
+    sub = '01'
+    length = 5400
 
-    path = ['../sense/' + date + '/' + sub + '.bag',
-            '../sense/' + date + '/' + sub + '_timestamps.txt',
-            '../npsave/' + date + '/' + date + 'A' + sub + '-csio.npy',
-            '../data/' + date + '/csi' + date + 'A' + sub + '_time_mod.txt',
-            '../sense/' + date + '/' + sub + '_labels.csv']
+    path = [f"F:/Research/pycsi/sense/0509/{sub}.bag",
+            f"F:/Research/pycsi/sense/0509/{sub}_timestamps.txt",
+            f"../npsave/{date}/{date}A{sub}-csio.npy,"
+            f"../data/{date}/csi{date}A{sub}_time_mod.txt",
+            f"../sense/{date}/{sub}_labels.csv"]
 
     configs = MyConfigsDM()
     configs.tx_rate = 0x1c113
@@ -393,11 +394,11 @@ if __name__ == '__main__':
     mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
     mkdata.csi_stream.extract_dynamic(mode='highpass')
     mkdata.export_image(show_img=False)
-    mkdata.depth_mask(0.75)
+    mkdata.depth_mask(0.7)
     # mkdata.export_csi(dynamic_csi=False, pick_tx=0)
     #mkdata.lookup_image()
     mkdata.slice_by_label()
 
     mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0726/make01', sub + '_div', 'csi', 'img')
+    mkdata.save_dataset('../dataset/0509/make01', sub + '_div', 'csi', 'img', 'loc')
 

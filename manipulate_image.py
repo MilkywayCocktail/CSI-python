@@ -218,11 +218,11 @@ class ImageGen:
     def save(self, save_path):
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-        if self.raw_bbx:
+        if self.raw_bbx is not None:
             np.save(self.raw_bbx, f"{save_path}{self.name}_raw_bbx.npy")
-        if self.gen_imgs:
+        if self.gen_imgs is not None:
             np.save(self.gen_imgs, f"{save_path}{self.name}_gen_imgs.npy")
-        if self.gen_bbx:
+        if self.gen_bbx is not None:
             np.save(self.gen_bbx, f"{save_path}{self.name}_gen_bbx.npy")
         print("All saved!")
 
