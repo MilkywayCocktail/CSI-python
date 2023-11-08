@@ -36,9 +36,9 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
                     result[kind] = np.concatenate((result[kind], tmp.astype(out_type)), axis=0)
 
                 elif kind == 'loc':
-                    for i in range(len(result[kind])):
+                    for i in range(len(tmp)):
                         # Filter out x=0
-                        if result[kind][i] != 0:
+                        if tmp[i][0] == 0:
                             inner.append(i)
                     inner = np.array(inner)
                     result[kind] = np.concatenate((result[kind], tmp), axis=0)
@@ -53,8 +53,9 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
 
     for key in list(result.keys()):
         result[key] = np.delete(result[key], 0, axis=0)
-        result[key] = result[key][inner]
+
         if len(result[key]) != 0:
+            result[key] = result[key][inner]
             print(key, len(result[key]))
             if key == 'sid':
                 result[key] = result[key] - min(result[key])
@@ -269,5 +270,5 @@ if __name__ == '__main__':
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    regroup('../dataset/0509/make01/', '../dataset/0509/make03-finished/', ('00', '01'))
+    regroup('../dataset/0509/make01/', '../dataset/0509/make04-finished/', ('00', '01'))
     # wi2vi_channels('../dataset/0307/make07-finished/csi.npy', '../dataset/0307/make07-finished/csi-wi2vi2.npy')
