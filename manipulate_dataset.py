@@ -11,7 +11,8 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
               'tim': np.zeros(1),
               'cod': np.zeros((1, 3)),
               'ind': np.zeros(1),
-              'sid': np.zeros(1)
+              'sid': np.zeros(1),
+              'loc': np.zeros((1, 4))
               }
 
     filenames = os.listdir(in_path)
@@ -56,7 +57,6 @@ def asx(path):
     x = np.load(path)
     print(x.shape)
     print(x.dtype)
-    print(x[100])
 
 
 def asy(path):
@@ -77,6 +77,11 @@ def asy(path):
         if key == ord('q'):
             break
     return
+
+
+def asz(path):
+    locs = np.load(path)
+    print(locs.shape)
 
 
 def label_convert(in_path, out_path=None, autosave=False):
@@ -245,12 +250,13 @@ def wi2vi_channels(inpath, outpath):
 
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
-    asy('../dataset/0725/make00-finished/img.npy')
-    #asx('../dataset/0307/make06-finished/csi.npy')
+    #asy('../dataset/0725/make00-finished/img.npy')
+    #asx('../dataset/0509/make01/01_div_csi.npy')
+    #asz('../dataset/0509/make01/01_div_loc.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    #regroup('../dataset/0726/make00/', '../dataset/0726/make00-finished/', ('00', '01', '02', '03'))
+    regroup('../dataset/0509/make01/', '../dataset/0509/make02-finished/', ('00', '01', '02', '03'))
     # wi2vi_channels('../dataset/0307/make07-finished/csi.npy', '../dataset/0307/make07-finished/csi-wi2vi2.npy')

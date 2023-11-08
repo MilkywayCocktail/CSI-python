@@ -309,7 +309,7 @@ class MyDataMaker:
         print("Done")
 
     def playback_image(self, save_path=None, save_name='new.avi'):
-        print("Reading...", end='')
+        print("Reading playback...", end='')
         save_flag = False
         if save_path is not None and save_name is not None:
             save_flag = True
@@ -377,15 +377,14 @@ class MyDataMaker:
 if __name__ == '__main__':
 
     date = '0509'
-    sub = '01'
-    length = 5400
+    sub = '04'
+    length = 5100
 
-    path = [f"F:/Research/pycsi/sense/0509/{sub}.bag",
-            f"F:/Research/pycsi/sense/0509/{sub}_timestamps.txt",
-            f"../npsave/{date}/{date}A{sub}-csio.npy,"
+    path = [f"F:/Research/pycsi/sense/{date}/{sub}.bag",
+            f"F:/Research/pycsi/sense/{date}/{sub}_timestamps.txt",
+            f"../npsave/{date}/{date}A{sub}-csio.npy",
             f"../data/{date}/csi{date}A{sub}_time_mod.txt",
             f"../sense/{date}/{sub}_labels.csv"]
-
     configs = MyConfigsDM()
     configs.tx_rate = 0x1c113
     configs.ntx = 3
@@ -399,6 +398,6 @@ if __name__ == '__main__':
     #mkdata.lookup_image()
     mkdata.slice_by_label()
 
-    mkdata.playback_image()
+    # mkdata.playback_image()
     mkdata.save_dataset('../dataset/0509/make01', sub + '_div', 'csi', 'img', 'loc')
 
