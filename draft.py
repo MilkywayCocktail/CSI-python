@@ -53,6 +53,15 @@ class DatasetHandle:
                 self.groups[condition].append(np.squeeze(np.argwhere(eval(condition))))
             print("Filtering complete!")
 
+    def inspect_conditions(self):
+        for typ in self.types:
+            for name in self.scope:
+                print(f"{typ}: {name} length {len(self.results[typ][name])}")
+                if self.groups.items() is not None:
+                    for condition in self.groups.keys():
+                        print(f"{typ}: {name} length {len(self.results[typ][name][self.groups[condition]])} "
+                              f"under condition {condition}")
+
     def save(self, save_scope=None, condition=None):
 
         for typ in self.types:
@@ -67,12 +76,3 @@ class DatasetHandle:
             np.save(f"{self.out_path}{condition}{typ}.npy", np.concatenate((self.results[typ].values())))
 
         print("All saved!")
-
-    def inspect_conditions(self):
-        for typ in self.types:
-            for name in self.scope:
-                print(f"{typ}: {name} length {len(self.results[typ][name])}")
-                if self.groups.items() is not None:
-                    for condition in self.groups.keys():
-                        print(f"{typ}: {name} length {len(self.results[typ][name][self.groups[condition]])} "
-                              f"under condition {condition}")
