@@ -130,7 +130,7 @@ class ImageGen:
                             break
         print("Complete!")
 
-    def generate_imgs(self, Bx=None, By=None, HW=None, overlap_ratio=1., select_ind=None):
+    def generate_imgs(self, Bx=None, By=None, HW=None, select_ind=None):
         if select_ind:
             ind = [select_ind]
         else:
@@ -152,7 +152,7 @@ class ImageGen:
                     subject = cv2.resize(subject, (w*HW, h*HW), interpolation=cv2.INTER_AREA)
                     (h, w) = subject.shape
                 if Bx:
-                    Bxs = np.floor(np.arange(0, 128 - w, int(Bx * overlap_ratio))).astype(int)
+                    Bxs = np.floor(np.arange(0, 128 - w, int(Bx))).astype(int)
                     print(f"{len(Bxs)} images to generate")
                     for Bxi in Bxs:
                         image = np.zeros((128, 128))
@@ -162,7 +162,7 @@ class ImageGen:
                         generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 5)), axis=0)
 
                 if By:
-                    Bys = np.floor(np.arange(0, 128 - h, int(By * overlap_ratio))).astype(int)
+                    Bys = np.floor(np.arange(0, 128 - h, int(By))).astype(int)
                     print(f"{len(Bys)} images to generate")
                     for Byi in Bys:
                         image = np.zeros((128, 128))
@@ -187,31 +187,53 @@ class ImageGen:
         else:
             print("Please specify an index!")
 
-    def view_gen(self):
-        for i in range(len(self.gen_imgs)):
-            img = np.squeeze(self.gen_imgs[i])
-            plt.imshow(img)
-            plt.show()
+    def align_to_center(self):
+        print("Aligning...")
+        generated_images = np.zeros((1, 128, 128))
+        generated_bbx = np.zeros((1, 5))
+        for i in range(len(self.raw_imgs)):
+            x, y, w, h, d = self.raw_bbx[i]
+            x, y, w, h = int(x), int(y), int(w), int(h)
+            subject = np.squeeze(self.raw_imgs[i])[y:y + h, x:x + w]
 
-    def view_generation(self):
+            image = np.zeros((128, 128))
+            image[y:y + h, int(64-w/2):int(64+w/2)] = subject
+            bbx = np.array([int(64-w/2), y, w, h, d])
+            generated_images = np.concatenate((generated_images, image.reshape((1, 128, 128))), axis=0)
+            generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 5)), axis=0)
+
+        if not self.gen_imgs:
+            self.gen_imgs = generated_images
+        else:
+            self.gen_imgs = np.concatenate((self.gen_imgs, generated_images), axis=0)
+        if not self.gen_bbx:
+            self.gen_bbx = generated_bbx
+        else:
+            self.gen_bbx = np.concatenate((self.gen_bbx, generated_bbx), axis=0)
+
+        print("Generation complete!")
+
+    def view_generation(self, save_path=None):
         if self.gen_imgs is not None:
             print(f"Viewing generated {self.gen_imgs.shape[0]} images...")
 
             for i in range(len(self.gen_imgs)):
                 x, y, w, h, d = self.gen_bbx[i]
                 x, y, w, h = int(x), int(y), int(w), int(h)
-                img = np.squeeze(self.gen_imgs[i]).astype('float32')
-                img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
+                img = np.squeeze(self.gen_imgs[i]) * 255
+
+                img = cv2.rectangle(cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_GRAY2BGR),
                                     (x, y),
                                     (x + w, y + h),
                                     (0, 255, 0), 1)
                 cv2.namedWindow('Generated Image', cv2.WINDOW_AUTOSIZE)
                 cv2.imshow('Generated Image', img)
+                if save_path is not None:
+                    cv2.imwrite(f"{save_path}{str(i).zfill(4)}.jpg", img)
 
                 key = cv2.waitKey(100) & 0xFF
                 if key == ord('q'):
                     break
-
         else:
             print("No generated images!")
 
@@ -219,20 +241,24 @@ class ImageGen:
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         if self.raw_bbx is not None:
-            np.save(self.raw_bbx, f"{save_path}{self.name}_raw_bbx.npy")
+            np.save(f"{save_path}{self.name}_raw_bbx.npy", self.raw_bbx)
         if self.gen_imgs is not None:
-            np.save(self.gen_imgs, f"{save_path}{self.name}_gen_imgs.npy")
+            np.save(f"{save_path}{self.name}_gen_img.npy", self.gen_imgs)
         if self.gen_bbx is not None:
-            np.save(self.gen_bbx, f"{save_path}{self.name}_gen_bbx.npy")
+            np.save(f"{save_path}{self.name}_gen_bbx.npy", self.gen_bbx)
         print("All saved!")
 
 
 if __name__ == '__main__':
 
-    gen = ImageGen("01")
-    gen.load_images("../dataset/0509/make01-finished/img.npy")
+    gen = ImageGen("02")
+    gen.load_images("../dataset/0509/make02-train/02_xn0_img.npy")
     gen.bounding_box(show=False)
-    gen.show_images(select_ind=250, select_num=1)
-    gen.generate_imgs(Bx=10, overlap_ratio=0.5, select_ind=250)
-    gen.view_generation()
+    gen.align_to_center()
+    gen.save('../dataset/0509/make02-train/')
+    #gen.view_generation()
+    #gen.show_images(select_ind=[250, 300, 350, 200], select_num=4)
+
+    #gen.generate_imgs(Bx=20, select_ind=250)
+    #gen.view_generation("../dataset/0509/make01-finished/gen1")
     #bounding_box('../dataset/0725/make00-finished/img.npy')

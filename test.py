@@ -28,11 +28,6 @@ def timestamp2time(timestamp):
 #timestamp2time(1683623879384.4 / 1e3)
 #timestamp2time(1683623879351 / 1e3)
 
-def labels(path):
-    label = []
-    with open(path) as f:
-        for i, line in enumerate(f):
-            if i > 0:
-                print(eval(line.split(',')[2][2:]))
-                #label.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
-
+aa = np.array([11,41,51,41,11,45,14])
+b = np.argwhere(aa>40)
+print(aa[np.squeeze(b)])

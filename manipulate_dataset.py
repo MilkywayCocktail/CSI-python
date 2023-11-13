@@ -4,6 +4,45 @@ import os
 import random
 
 
+def separate(in_path, out_path, scope: tuple):
+    result = {'csi': np.zeros((1, 2, 90, 100)),
+             'img': np.zeros((1, 1, 128, 128)),
+              'loc': np.zeros((1, 4))}
+    inner = []
+
+    filenames = os.listdir(in_path)
+    for file in filenames:
+        if file[:2] in scope:
+            kind = file[-7:-4]
+            if kind in list(result.keys()):
+                print(file)
+                tmp = np.load(in_path + file)
+                print(tmp.shape)
+                if kind == 'img':
+                    tmp = tmp.reshape((-1, 1, 128, 128))
+
+                if kind == 'loc':
+                    for i in range(len(tmp)):
+                        if tmp[i][0] != 0:
+                            inner.append(i)
+
+                result[kind] = np.concatenate((result[kind], tmp), axis=0)
+
+    inner = np.array(inner)
+    if not os.path.exists(out_path):
+        os.makedirs(out_path)
+
+    for key in list(result.keys()):
+        result[key] = np.delete(result[key], 0, axis=0)
+
+        if len(result[key]) != 0:
+            result[key] = result[key][inner]
+            print(key, len(result[key]))
+
+            np.save(out_path + key + '.npy', result[key])
+    print("All saved!")
+
+
 def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
     # Initial cell shapes
     result = {'csi': np.zeros((1, 2, 90, 100)),
@@ -15,15 +54,12 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
               'loc': np.zeros((1, 4))
               }
 
-    inner = []
-
     filenames = os.listdir(in_path)
     for file in filenames:
 
         if file[:2] in scope:
-            print(file)
             tmp = np.load(in_path + file)
-            print(tmp.shape)
+            print(file, tmp.shape)
 
             kind = file[-7:-4]
 
@@ -32,21 +68,12 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
                     tmp = tmp[:, np.newaxis, ...]
                     tmp[tmp > 3000] = 3000
                     tmp = tmp / 3000.
-
+                    if len(tmp.shape) != 4:
+                        tmp = tmp.reshape((-1, 1, 128, 128))
                     result[kind] = np.concatenate((result[kind], tmp.astype(out_type)), axis=0)
-
-                elif kind == 'loc':
-                    for i in range(len(tmp)):
-                        # Filter out x=0
-                        if tmp[i][0] == 0:
-                            inner.append(i)
-                    inner = np.array(inner)
-                    result[kind] = np.concatenate((result[kind], tmp), axis=0)
 
                 else:
                     result[kind] = np.concatenate((result[kind], tmp), axis=0)
-
-                print(kind, len(result[kind]))
 
     if not os.path.exists(out_path):
         os.makedirs(out_path)
@@ -55,7 +82,6 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
         result[key] = np.delete(result[key], 0, axis=0)
 
         if len(result[key]) != 0:
-            result[key] = result[key][inner]
             print(key, len(result[key]))
             if key == 'sid':
                 result[key] = result[key] - min(result[key])
@@ -270,5 +296,6 @@ if __name__ == '__main__':
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    regroup('../dataset/0509/make01/', '../dataset/0509/make04-finished/', ('00', '01'))
+    regroup('../dataset/0509/make02-train/', '../dataset/0509/make02-train-finished/', ('01', '02'))
+    # separate('../dataset/0509/make01/', '../dataset/0509/make02-train/', ('01'))
     # wi2vi_channels('../dataset/0307/make07-finished/csi.npy', '../dataset/0307/make07-finished/csi-wi2vi2.npy')
