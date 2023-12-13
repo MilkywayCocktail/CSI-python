@@ -60,10 +60,11 @@ class MyConfigsDM(pycsi.MyConfigs):
 class MyDataMaker:
     # Generates images, CSI
 
-    def __init__(self, configs: MyConfigsDM, paths: list, total_frames: int):
+    def __init__(self, configs: MyConfigsDM, paths: list, total_frames: int, raw_csi=False):
         """
         :param configs: MyConfigsDM
         :param paths: [bag path, local timestamp path, CSI path, (label path)]
+        :param raw_csi: whether to export raw CSI. Default is False
         :param total_frames: Full length of bag file
         """
 
@@ -72,6 +73,7 @@ class MyDataMaker:
         self.configs = configs
         self.paths = paths
         self.total_frames = total_frames
+        self.raw_csi = raw_csi
         self.local_timestamps = self.__load_local_timestamps__()
         self.video_stream = self.__setup_video_stream__()
         self.csi_stream = self.__setup_csi_stream__()
@@ -121,7 +123,10 @@ class MyDataMaker:
 
     def __init_data__(self):
         # img_size = (width, height)
-        csi = np.zeros((self.total_frames, 2, 90, self.configs.sample_length))
+        if self.raw_csi:
+            csi = np.zeros((self.total_frames, self.configs.sample_length, 30, 3))
+        else:
+            csi = np.zeros((self.total_frames, 2, 90, self.configs.sample_length))
         images = np.zeros((self.total_frames, self.configs.img_size[1], self.configs.img_size[0]))
         timestamps = np.zeros(self.total_frames)
         indices = np.zeros(self.total_frames, dtype=int)
@@ -218,15 +223,18 @@ class MyDataMaker:
             csi_index = np.searchsorted(self.csi_stream.abs_timestamps, self.result['tim'][i])
             self.result['ind'][i] = csi_index
             csi_chunk = self.csi_stream.csi[csi_index: csi_index + self.configs.sample_length, :, :, pick_tx]
-
-            if dynamic_csi is True:
-                csi_chunk = self.windowed_dynamic(csi_chunk).reshape(self.configs.sample_length, 90).T
+            if self.raw_csi:
+                self.result['csi'][i, :, :, :] = csi_chunk
             else:
-                csi_chunk = csi_chunk.reshape(self.configs.sample_length, 90).T
+                csi_chunk = self.csi_stream.csi[csi_index: csi_index + self.configs.sample_length, :, :, pick_tx]
+                if dynamic_csi is True:
+                    csi_chunk = self.windowed_dynamic(csi_chunk).reshape(self.configs.sample_length, 90).T
+                else:
+                    csi_chunk = csi_chunk.reshape(self.configs.sample_length, 90).T
 
-            # Store in two channels
-            self.result['csi'][i, 0, :, :] = np.abs(csi_chunk)
-            self.result['csi'][i, 1, :, :] = np.angle(csi_chunk)
+                # Store in two channels
+                self.result['csi'][i, 0, :, :] = np.abs(csi_chunk)
+                self.result['csi'][i, 1, :, :] = np.angle(csi_chunk)
 
     def slice_by_label(self):
         """

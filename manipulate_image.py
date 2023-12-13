@@ -64,7 +64,7 @@ class ImageGen:
     def load_images(self, path):
         print("Loading images...", end='')
         self.raw_imgs = np.load(path)
-        self.raw_bbx = np.zeros((len(self.raw_imgs), 5))
+        self.raw_bbx = np.zeros((len(self.raw_imgs), 4))
         print("Complete!")
 
     def show_images(self, select_ind=None, select_num=8):
@@ -116,7 +116,8 @@ class ImageGen:
                     patch = np.average(img[y:y + h, x:x + w])
                     non_zero = (patch != 0)
                     average_depth = patch.sum() / non_zero.sum()
-                    self.raw_bbx[i] = np.array([x, y, w, h, average_depth])
+                    # self.raw_bbx[i] = np.array([x, y, w, h, average_depth])
+                    self.raw_bbx[i] = np.array([x, y, w, h])
 
                     img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
                                         (x, y),
@@ -139,7 +140,8 @@ class ImageGen:
         if ind:
             for i in ind:
                 print(f"Generating {i} of {ind}...")
-                x, y, w, h, d = self.raw_bbx[i]
+                # x, y, w, h, d = self.raw_bbx[i]
+                x, y, w, h = self.raw_bbx[i]
                 x, y, w, h = int(x), int(y), int(w), int(h)
                 subject = np.squeeze(self.raw_imgs[i])[y:y + h, x:x + w]
 
@@ -157,7 +159,8 @@ class ImageGen:
                     for Bxi in Bxs:
                         image = np.zeros((128, 128))
                         image[y:y + h, Bxi:Bxi + w] = subject
-                        bbx = np.array([Bxi, y, w, h, d])
+                        # bbx = np.array([Bxi, y, w, h, d])
+                        bbx = np.array([Bxi, y, w, h])
                         generated_images = np.concatenate((generated_images, image.reshape((1, 128, 128))), axis=0)
                         generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 5)), axis=0)
 
@@ -167,7 +170,8 @@ class ImageGen:
                     for Byi in Bys:
                         image = np.zeros((128, 128))
                         image[Byi:Byi + h, x:x + w] = subject
-                        bbx = np.array([x, Byi, w, h, d])
+                        # bbx = np.array([x, Byi, w, h, d])
+                        bbx = np.array([x, Byi, w, h])
                         generated_images = np.concatenate((generated_images, image.reshape((1, 128, 128))), axis=0)
                         generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 5)), axis=0)
 
@@ -187,20 +191,31 @@ class ImageGen:
         else:
             print("Please specify an index!")
 
-    def align_to_center(self):
+    def align_to_center(self, unified_size=False):
         print("Aligning...")
         generated_images = np.zeros((1, 128, 128))
-        generated_bbx = np.zeros((1, 5))
+        generated_bbx = np.zeros((1, 4))
         for i in range(len(self.raw_imgs)):
-            x, y, w, h, d = self.raw_bbx[i]
+            # x, y, w, h, d = self.raw_bbx[i]
+            x, y, w, h = self.raw_bbx[i]
             x, y, w, h = int(x), int(y), int(w), int(h)
             subject = np.squeeze(self.raw_imgs[i])[y:y + h, x:x + w]
 
             image = np.zeros((128, 128))
-            image[y:y + h, int(64-w/2):int(64+w/2)] = subject
-            bbx = np.array([int(64-w/2), y, w, h, d])
+            if unified_size:
+                f1 = 128 / w
+                f2 = 128 / h
+                f = min(f1, f2)  # resizing factor
+                dim = (int(w * f), int(h * f))
+                subject = cv2.resize(subject, dim)
+                image[int(64 - dim[1] / 2):int(64 + dim[1] / 2), int(64 - dim[0] / 2):int(64 + dim[0] / 2)] = subject
+                bbx = np.array([int(64 - dim[0] / 2), int(64 - dim[1] / 2), dim[0], dim[1]])
+            else:
+                image[y:y + h, int(64-w/2):int(64+w/2)] = subject
+                # bbx = np.array([int(64-w/2), y, w, h, d])
+                bbx = np.array([int(64 - w / 2), y, w, h])
             generated_images = np.concatenate((generated_images, image.reshape((1, 128, 128))), axis=0)
-            generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 5)), axis=0)
+            generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 4)), axis=0)
 
         if not self.gen_imgs:
             self.gen_imgs = generated_images
@@ -215,10 +230,12 @@ class ImageGen:
 
     def view_generation(self, save_path=None):
         if self.gen_imgs is not None:
-            print(f"Viewing generated {self.gen_imgs.shape[0]} images...")
+            print(f"Viewing generated {self.gen_imgs.shape[0]} images...\n")
 
             for i in range(len(self.gen_imgs)):
-                x, y, w, h, d = self.gen_bbx[i]
+                print(f"\r{i} of {self.gen_imgs.shape[0]}", end='')
+                # x, y, w, h, d = self.gen_bbx[i]
+                x, y, w, h = self.gen_bbx[i]
                 x, y, w, h = int(x), int(y), int(w), int(h)
                 img = np.squeeze(self.gen_imgs[i]) * 255
 
@@ -251,12 +268,12 @@ class ImageGen:
 
 if __name__ == '__main__':
 
-    gen = ImageGen("02")
-    gen.load_images("../dataset/0509/make02-train/02_xn0_img.npy")
+    gen = ImageGen("01")
+    gen.load_images("../dataset/0509/make01/01_div_img.npy")
     gen.bounding_box(show=False)
-    gen.align_to_center()
-    gen.save('../dataset/0509/make02-train/')
-    #gen.view_generation()
+    gen.align_to_center(unified_size=True)
+    #gen.save('../dataset/0509/make02-train/')
+    gen.view_generation()
     #gen.show_images(select_ind=[250, 300, 350, 200], select_num=4)
 
     #gen.generate_imgs(Bx=20, select_ind=250)
