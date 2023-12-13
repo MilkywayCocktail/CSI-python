@@ -51,7 +51,7 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
               'cod': np.zeros((1, 3)),
               'ind': np.zeros(1),
               'sid': np.zeros(1),
-              'loc': np.zeros((1, 4))
+              'bbx': np.zeros((1, 4))
               }
 
     filenames = os.listdir(in_path)
@@ -296,6 +296,6 @@ if __name__ == '__main__':
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
 
-    regroup('../dataset/0509/make02-train/', '../dataset/0509/make02-train-finished/', ('01', '02'))
+    regroup('../dataset/0509/make04/', '../dataset/0509/make04-finished/', ('01', '02', '03', '04'))
     # separate('../dataset/0509/make01/', '../dataset/0509/make02-train/', ('01'))
     # wi2vi_channels('../dataset/0307/make07-finished/csi.npy', '../dataset/0307/make07-finished/csi-wi2vi2.npy')

@@ -254,26 +254,28 @@ class ImageGen:
         else:
             print("No generated images!")
 
-    def save(self, save_path):
+    def save(self, save_path, save_terms=('raw_bbx', 'gen_img', 'gen_bbx')):
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-        if self.raw_bbx is not None:
+        if 'raw_bbx' in save_terms and self.raw_bbx is not None:
             np.save(f"{save_path}{self.name}_raw_bbx.npy", self.raw_bbx)
-        if self.gen_imgs is not None:
+            print("Saved raw_bbx")
+        if 'gen_img' in save_terms and self.gen_imgs is not None:
             np.save(f"{save_path}{self.name}_gen_img.npy", self.gen_imgs)
-        if self.gen_bbx is not None:
-            np.save(f"{save_path}{self.name}_gen_bbx.npy", self.gen_bbx)
-        print("All saved!")
+            print("Saved gen_img")
+        if 'gen_bbx' in save_terms and self.gen_bbx is not None:
+            np.save(f"{save_path}{self.name}_gen_bbx.npy",  self.gen_bbx)
+            print("Saved gen_bbx")
 
 
 if __name__ == '__main__':
 
-    gen = ImageGen("01")
-    gen.load_images("../dataset/0509/make01/01_div_img.npy")
+    gen = ImageGen("04")
+    gen.load_images("../dataset/0509/make01/04_div_img.npy")
     gen.bounding_box(show=False)
     gen.align_to_center(unified_size=True)
-    #gen.save('../dataset/0509/make02-train/')
-    gen.view_generation()
+    gen.save('../dataset/0509/make04/', save_terms=('raw_bbx', 'gen_img'))
+    #gen.view_generation()
     #gen.show_images(select_ind=[250, 300, 350, 200], select_num=4)
 
     #gen.generate_imgs(Bx=20, select_ind=250)
