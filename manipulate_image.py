@@ -67,6 +67,10 @@ class ImageGen:
         self.raw_bbx = np.zeros((len(self.raw_imgs), 4))
         print("Complete!")
 
+    def print_len(self):
+        print(f"raw images: {len(self.raw_imgs)}, raw bbx: {len(self.raw_bbx)}, gen images: {len(self.gen_imgs)}, "
+              f"gen_bbx: {len(self.gen_bbx)}")
+
     def show_images(self, select_ind=None, select_num=8):
         if self.raw_imgs is not None:
             if select_ind:
@@ -217,6 +221,9 @@ class ImageGen:
             generated_images = np.concatenate((generated_images, image.reshape((1, 128, 128))), axis=0)
             generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 4)), axis=0)
 
+        generated_images = np.delete(generated_images, 0, axis=0)
+        generated_bbx = np.delete(generated_bbx, 0, axis=0)
+
         if not self.gen_imgs:
             self.gen_imgs = generated_images
         else:
@@ -270,11 +277,15 @@ class ImageGen:
 
 if __name__ == '__main__':
 
-    gen = ImageGen("04")
-    gen.load_images("../dataset/0509/make01/04_div_img.npy")
-    gen.bounding_box(show=False)
-    gen.align_to_center(unified_size=True)
-    gen.save('../dataset/0509/make04/', save_terms=('raw_bbx', 'gen_img'))
+    names = ('01', '02', '03', '04')
+    for name in names:
+        print(name)
+        gen = ImageGen(name)
+        gen.load_images(f"../dataset/0509/make01/{name}_div_img.npy")
+        gen.bounding_box(min_area=0, show=False)
+        gen.align_to_center(unified_size=True)
+        #gen.print_len()
+        gen.save('../dataset/0509/make04/', save_terms=('raw_bbx', 'gen_img'))
     #gen.view_generation()
     #gen.show_images(select_ind=[250, 300, 350, 200], select_num=4)
 
