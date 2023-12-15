@@ -385,27 +385,30 @@ class MyDataMaker:
 if __name__ == '__main__':
 
     date = '0509'
-    sub = '04'
-    length = 5100
 
-    path = [f"F:/Research/pycsi/sense/{date}/{sub}.bag",
-            f"F:/Research/pycsi/sense/{date}/{sub}_timestamps.txt",
-            f"../npsave/{date}/{date}A{sub}-csio.npy",
-            f"../data/{date}/csi{date}A{sub}_time_mod.txt",
-            f"../sense/{date}/{sub}_labels.csv"]
-    configs = MyConfigsDM()
+    subs = [('01', 5400), ('02', 5000), ('03', 5100), ('04', 5100)]
+
+    configs = MyConfigsDM(img_size=(226, 128))
     configs.tx_rate = 0x1c113
     configs.ntx = 3
 
-    mkdata = MyDataMaker(configs=configs, paths=path, total_frames=length)
-    mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
-    mkdata.csi_stream.extract_dynamic(mode='highpass')
-    mkdata.export_image(show_img=False)
-    mkdata.depth_mask(0.7)
-    # mkdata.export_csi(dynamic_csi=False, pick_tx=0)
-    #mkdata.lookup_image()
-    mkdata.slice_by_label()
+    for (sub, length) in subs:
 
-    # mkdata.playback_image()
-    mkdata.save_dataset('../dataset/0509/make01', sub + '_div', 'csi', 'img', 'loc')
+        path = [f"F:/Research/pycsi/sense/{date}/{sub}.bag",
+                f"F:/Research/pycsi/sense/{date}/{sub}_timestamps.txt",
+                f"../npsave/{date}/{date}A{sub}-csio.npy",
+                f"../data/{date}/csi{date}A{sub}_time_mod.txt",
+                f"../sense/{date}/{sub}_labels.csv"]
+
+        mkdata = MyDataMaker(configs=configs, paths=path, total_frames=length)
+        mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
+        mkdata.csi_stream.extract_dynamic(mode='highpass')
+        mkdata.export_image(show_img=False)
+        mkdata.depth_mask(0.7)
+        # mkdata.export_csi(dynamic_csi=False, pick_tx=0)
+        #mkdata.lookup_image()
+        mkdata.slice_by_label()
+
+        #mkdata.playback_image()
+        mkdata.save_dataset('../dataset/0509/make05', sub + '_226', 'csi', 'img', 'loc')
 

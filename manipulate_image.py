@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import os
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 
 def bounding_box(in_path, min_area=100):
@@ -196,10 +197,10 @@ class ImageGen:
             print("Please specify an index!")
 
     def align_to_center(self, unified_size=False):
-        print("Aligning...")
         generated_images = np.zeros((1, 128, 128))
         generated_bbx = np.zeros((1, 4))
-        for i in range(len(self.raw_imgs)):
+        tqdm.write('Starting exporting image...')
+        for i in tqdm(range(len(self.raw_imgs))):
             # x, y, w, h, d = self.raw_bbx[i]
             x, y, w, h = self.raw_bbx[i]
             x, y, w, h = int(x), int(y), int(w), int(h)
@@ -281,12 +282,12 @@ if __name__ == '__main__':
     for name in names:
         print(name)
         gen = ImageGen(name)
-        gen.load_images(f"../dataset/0509/make01/{name}_div_img.npy")
+        gen.load_images(f"../dataset/0509/make05/{name}_226_img.npy")
         gen.bounding_box(min_area=0, show=False)
         gen.align_to_center(unified_size=True)
         #gen.print_len()
-        gen.save('../dataset/0509/make04/', save_terms=('raw_bbx', 'gen_img'))
-    #gen.view_generation()
+        gen.save('../dataset/0509/make05-resize/', save_terms=('raw_bbx', 'gen_img'))
+        #gen.view_generation()
     #gen.show_images(select_ind=[250, 300, 350, 200], select_num=4)
 
     #gen.generate_imgs(Bx=20, select_ind=250)

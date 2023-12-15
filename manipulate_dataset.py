@@ -46,7 +46,7 @@ def separate(in_path, out_path, scope: tuple):
 def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
     # Initial cell shapes
     result = {'csi': np.zeros((1, 2, 90, 100)),
-              'img': np.zeros((1, 1, 128, 128), dtype=out_type),
+              'img': np.zeros((1, 1, 128, 226), dtype=out_type),
               'tim': np.zeros(1),
               'cod': np.zeros((1, 3)),
               'ind': np.zeros(1),
@@ -272,6 +272,17 @@ def simu_dataset(paths, out_path):
     np.save(out_path + 'sid.npy', sid)
 
 
+def shorten_dataset(inpath, outpath, number):
+    filenames = os.listdir(inpath)
+    if not os.path.exists(outpath):
+        os.makedirs(outpath)
+    for file in filenames:
+        print(file, end='')
+        tmp = np.load(inpath + file)
+        np.save(outpath + file, tmp[:number])
+        print("...saved!")
+
+
 def wi2vi_channels(inpath, outpath):
     csi = np.load(inpath)
     print(csi.shape)
@@ -288,14 +299,15 @@ def wi2vi_channels(inpath, outpath):
 
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
-    asy('../dataset/0509/make04-finished/r_img.npy')
+    #asy('../dataset/0509/make04-finished/r_img.npy')
     #asx('../dataset/0509/make01/04_div_csi.npy')
     #asz('../dataset/0509/make01/01_div_loc.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
+    #shorten_dataset('../dataset/0509/make04-finished/', '../dataset/0509/make04-finished-shortened/', number=400)
 
-    #regroup('../dataset/0509/make01/', '../dataset/0509/make04-finished/', ('01', '02', '03', '04'))
+    regroup('../dataset/0509/make05/', '../dataset/0509/make05-finished/', ('01', '02', '03', '04'))
     # separate('../dataset/0509/make01/', '../dataset/0509/make02-train/', ('01'))
     # wi2vi_channels('../dataset/0307/make07-finished/csi.npy', '../dataset/0307/make07-finished/csi-wi2vi2.npy')
