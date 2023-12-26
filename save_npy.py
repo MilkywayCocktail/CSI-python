@@ -64,7 +64,7 @@ def save_npy(inpath, outpath):
 
 if __name__ == '__main__':
 
-    npypath = '../npsave/1017/'
-    datapath = "../data/1017/"
+    npypath = '../npsave/1219/'
+    datapath = "../data/1219/"
     save_npy(datapath, npypath)
     #remove_sm_loop('../npsave/0307/0307A04-csio.npy', 0x1c113, autosave=False)
