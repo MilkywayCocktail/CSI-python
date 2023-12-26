@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import os
 import random
+import matplotlib.pyplot as plt
 
 
 def separate(in_path, out_path, scope: tuple):
@@ -93,6 +94,8 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
 def asx(path):
     np.set_printoptions(threshold=np.inf)
     x = np.load(path)
+    plt.plot(x[:, 0, 0, 0])
+    plt.show()
     print(x.shape)
     print(x.dtype)
 
@@ -299,15 +302,15 @@ def wi2vi_channels(inpath, outpath):
 
 if __name__ == '__main__':
     #pseudo_dataset('../dataset/0221/make01_finished/')
-    #asy('../dataset/0509/make04-finished/r_img.npy')
-    #asx('../dataset/0509/make01/04_div_csi.npy')
+    #asy('../dataset/0509/make05-finished/c_img.npy')
+    asx('../dataset/0509/make05/01_226_csi.npy')
     #asz('../dataset/0509/make01/01_div_loc.npy')
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
     #asx('../dataset/0302/make00_finished/csi.npy')
-    #shorten_dataset('../dataset/0509/make04-finished/', '../dataset/0509/make04-finished-shortened/', number=400)
+    #shorten_dataset('../dataset/0509/make05-finished/', '../dataset/0509/make05-finished-shortened/', number=400)
 
-    regroup('../dataset/0509/make05/', '../dataset/0509/make05-finished/', ('01', '02', '03', '04'))
+    #regroup('../dataset/0509/make05/', '../dataset/0509/make05-finished/', ('01', '02', '03', '04'))
     # separate('../dataset/0509/make01/', '../dataset/0509/make02-train/', ('01'))
     # wi2vi_channels('../dataset/0307/make07-finished/csi.npy', '../dataset/0307/make07-finished/csi-wi2vi2.npy')

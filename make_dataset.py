@@ -405,10 +405,10 @@ if __name__ == '__main__':
         mkdata.csi_stream.extract_dynamic(mode='highpass')
         mkdata.export_image(show_img=False)
         mkdata.depth_mask(0.7)
-        # mkdata.export_csi(dynamic_csi=False, pick_tx=0)
+        mkdata.export_csi(dynamic_csi=False, pick_tx=0)
         #mkdata.lookup_image()
         mkdata.slice_by_label()
 
         #mkdata.playback_image()
-        mkdata.save_dataset('../dataset/0509/make05', sub + '_226', 'csi', 'img', 'loc')
+        mkdata.save_dataset('../dataset/0509/make06', sub + '_chk', 'csi', 'img')
 
