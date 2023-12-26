@@ -1,5 +1,3 @@
-from CSIKit.tools.batch_graph import BatchGraph
-
 import numpy as np
 import time
 import os

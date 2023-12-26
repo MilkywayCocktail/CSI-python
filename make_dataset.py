@@ -203,6 +203,7 @@ class MyDataMaker:
                     key = cv2.waitKey(33) & 0xFF
                     if key == ord('q'):
                         break
+                    cv2.destroyAllWindows()
 
         except RuntimeError:
             pass
@@ -338,6 +339,7 @@ class MyDataMaker:
             cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('Image', image)
             key = cv2.waitKey(33) & 0xFF
+            cv2.destroyAllWindows()
 
             if save_flag is True:
                 videowriter.write(image)
