@@ -7,8 +7,10 @@ import sys
 import os
 import pycsi
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 from datetime import datetime
+from IPython.display import display, clear_output
+from matplotlib.widgets import Slider
 
 
 def my_filter(frame):
@@ -60,11 +62,10 @@ class MyConfigsDM(pycsi.MyConfigs):
 class MyDataMaker:
     # Generates images, CSI
 
-    def __init__(self, configs: MyConfigsDM, paths: list, total_frames: int, raw_csi=False):
+    def __init__(self, configs: MyConfigsDM, paths: dict, total_frames: int):
         """
         :param configs: MyConfigsDM
-        :param paths: [bag path, local timestamp path, CSI path, (label path)]
-        :param raw_csi: whether to export raw CSI. Default is False
+        :param paths: {bag, local timestamp, CSI path, csi timestamp, (label)}
         :param total_frames: Full length of bag file
         """
 
@@ -73,13 +74,14 @@ class MyDataMaker:
         self.configs = configs
         self.paths = paths
         self.total_frames = total_frames
-        self.raw_csi = raw_csi
+        self.raw_csi = None
         self.local_timestamps = self.__load_local_timestamps__()
         self.video_stream = self.__setup_video_stream__()
         self.csi_stream = self.__setup_csi_stream__()
         self.result = self.__init_data__()
         self.cal_cam = False
         self.camtime_delta = 0.
+        self.jupyter = False
 
     def __len__(self):
         return self.total_frames
@@ -89,7 +91,7 @@ class MyDataMaker:
         print('Setting camera stream...', end='')
         pipeline = rs.pipeline()
         config = rs.config()
-        config.enable_device_from_file(self.paths[0], False)
+        config.enable_device_from_file(self.paths['bag'], False)
         config.enable_all_streams()
         profile = pipeline.start(config)
         profile.get_device().as_playback().set_real_time(False)
@@ -98,7 +100,7 @@ class MyDataMaker:
         return pipeline
 
     def __load_local_timestamps__(self):
-        local_tf = open(self.paths[1], mode='r', encoding='utf-8')
+        local_tf = open(self.paths['lt'], mode='r', encoding='utf-8')
         local_time = np.array(local_tf.readlines())
         for i in range(len(local_time)):
             local_time[i] = datetime.timestamp(datetime.strptime(local_time[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
@@ -107,10 +109,10 @@ class MyDataMaker:
 
     def __setup_csi_stream__(self):
         print('Setting CSI stream...')
-        _csi = pycsi.MyCsi(self.configs, 'CSI', self.paths[2])
+        _csi = pycsi.MyCsi(self.configs, 'CSI', self.paths['csi'])
         _csi.load_data(remove_sm=True)
 
-        csi_abs_tf = open(self.paths[3], mode='r', encoding='utf-8')
+        csi_abs_tf = open(self.paths['ct'], mode='r', encoding='utf-8')
         _csi_abs_timestamps = np.array(csi_abs_tf.readlines())
         for i in range(len(_csi_abs_timestamps)):
             _csi_abs_timestamps[i] = datetime.timestamp(
@@ -118,6 +120,8 @@ class MyDataMaker:
         csi_abs_tf.close()
 
         _csi.abs_timestamps = _csi_abs_timestamps.astype(np.float64)
+        
+        self.raw_csi = _csi
 
         return _csi  # Pre-calibrated absolute CSI timestamp
 
@@ -166,7 +170,9 @@ class MyDataMaker:
                 img_size = (1280, 720)
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
             videowriter = cv2.VideoWriter(save_path + save_name, fourcc, 10, img_size)
-
+            
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1) 
         while True:
             try:
                 image, _ = self.__get_image__(mode=mode)
@@ -174,10 +180,24 @@ class MyDataMaker:
                     image = cv2.convertScaleAbs(image, alpha=0.02)
                 if save_flag is True:
                     videowriter.write(image)
-                cv2.imshow('Image', image)
-                key = cv2.waitKey(33) & 0xFF
-                if key == ord('q'):
-                    break
+                # cv2.imshow('Image', image)
+                # key = cv2.waitKey(33) & 0xFF
+                # if key == ord('q'):
+                #     break
+                if self.jupyter:
+                    clear_output(wait = True)
+                    plt.clf()
+                    plt.imshow(image)
+                    plt.title(f"Image {i} of {len(imgs)}")
+                    #display(plt.gcf())'
+                    plt.axis('off')
+                    plt.show()
+                    plt.pause(0.1)
+                else:
+                    plt.imshow(image)
+                    plt.title("Raw Image")
+                    plt.pause(0.1)
+                    plt.clf()
 
             except RuntimeError:
                 print("Read finished!")
@@ -197,13 +217,27 @@ class MyDataMaker:
                 image = cv2.resize(image, self.configs.img_size, interpolation=cv2.INTER_AREA)
                 self.result['img'][i, ...] = image
 
-                if show_img is True:
-                    cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
-                    cv2.imshow('Image', image)
-                    key = cv2.waitKey(33) & 0xFF
-                    if key == ord('q'):
-                        break
-                    cv2.destroyAllWindows()
+                if show_img:
+                    # cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
+                    # cv2.imshow('Image', image)
+                    # key = cv2.waitKey(33) & 0xFF
+                    # if key == ord('q'):
+                    #     break
+                    # cv2.destroyAllWindows()
+                    if self.jupyter:
+                        clear_output(wait = True)
+                        plt.clf()
+                        plt.imshow(image)
+                        plt.title(f"Image {i} of {len(imgs)}")
+                        #display(plt.gcf())'
+                        plt.axis('off')
+                        plt.show()
+                        plt.pause(0.1)
+                    else:
+                        plt.imshow(image)
+                        plt.title("Raw Image")
+                        plt.pause(0.1)
+                        plt.clf()
 
         except RuntimeError:
             pass
@@ -224,18 +258,18 @@ class MyDataMaker:
             csi_index = np.searchsorted(self.csi_stream.abs_timestamps, self.result['tim'][i])
             self.result['ind'][i] = csi_index
             csi_chunk = self.csi_stream.csi[csi_index: csi_index + self.configs.sample_length, :, :, pick_tx]
-            if self.raw_csi:
-                self.result['csi'][i, :, :, :] = csi_chunk
+            if dynamic_csi:
+                csi_chunk = self.windowed_dynamic(csi_chunk).reshape(self.configs.sample_length, 90).T
             else:
-                csi_chunk = self.csi_stream.csi[csi_index: csi_index + self.configs.sample_length, :, :, pick_tx]
-                if dynamic_csi is True:
-                    csi_chunk = self.windowed_dynamic(csi_chunk).reshape(self.configs.sample_length, 90).T
-                else:
-                    csi_chunk = csi_chunk.reshape(self.configs.sample_length, 90).T
+                csi_chunk = csi_chunk.reshape(self.configs.sample_length, 90).T
 
-                # Store in two channels
-                self.result['csi'][i, 0, :, :] = np.abs(csi_chunk)
-                self.result['csi'][i, 1, :, :] = np.angle(csi_chunk)
+            # Store in two channels
+            self.result['csi'][i, 0, :, :] = np.abs(csi_chunk)
+            self.result['csi'][i, 1, :, :] = np.angle(csi_chunk)
+                
+    def reset_csi(self):
+        print("Restoring raw csi!")
+        self.csi_stream = self.raw_csi
 
     def slice_by_label(self):
         """
@@ -246,7 +280,7 @@ class MyDataMaker:
         """
         print('Slicing...', end='')
         labels = []
-        with open(self.paths[4]) as f:
+        with open(self.paths['label']) as f:
             for i, line in enumerate(f):
                 if i > 0:
                     #if eval(line.split(',')[2][2:]) not in (-2, 2):
@@ -328,7 +362,8 @@ class MyDataMaker:
             img_size = (self.result['img'].shape[1], self.result['img'].shape[0])
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
             videowriter = cv2.VideoWriter(save_path + save_name, fourcc, 10, img_size)
-
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1) 
         for i in range(self.total_frames):
             if self.result['img'].dtype == 'uint16':
                 image = (self.result['img'][i]/256).astype('uint8')
@@ -336,12 +371,26 @@ class MyDataMaker:
                 image = cv2.convertScaleAbs(self.result['img'][i], alpha=0.02)
 
             image = cv2.resize(image, (640, 480), interpolation=cv2.INTER_AREA)
-            cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
-            cv2.imshow('Image', image)
-            key = cv2.waitKey(33) & 0xFF
-            cv2.destroyAllWindows()
+            # cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
+            # cv2.imshow('Image', image)
+            # key = cv2.waitKey(33) & 0xFF
+            # cv2.destroyAllWindows()
+            if self.jupyter:
+                clear_output(wait = True)
+                plt.clf()
+                plt.imshow(image)
+                plt.title(f"Image {i} of {len(imgs)}")
+                #display(plt.gcf())'
+                plt.axis('off')
+                plt.show()
+                plt.pause(0.1)
+            else:
+                plt.imshow(image)
+                plt.title("Raw Image")
+                plt.pause(0.1)
+                plt.clf()
 
-            if save_flag is True:
+            if save_flag:
                 videowriter.write(image)
         print("Done")
 
@@ -396,14 +445,15 @@ if __name__ == '__main__':
 
     for (sub, length) in subs:
 
-        path = [f"F:/Research/pycsi/sense/{date}/{sub}.bag",
-                f"F:/Research/pycsi/sense/{date}/{sub}_timestamps.txt",
-                f"../npsave/{date}/{date}A{sub}-csio.npy",
-                f"../data/{date}/csi{date}A{sub}_time_mod.txt",
-                f"../sense/{date}/{sub}_labels.csv"]
+        path = {'bag': f"F:/Research/pycsi/sense/{date}/{sub}.bag",
+                'lt': f"F:/Research/pycsi/sense/{date}/{sub}_timestamps.txt",
+                'csi': f"../npsave/{date}/{date}A{sub}-csio.npy",
+                'ct': f"../data/{date}/csi{date}A{sub}_time_mod.txt",
+                'label': f"../sense/{date}/{sub}_labels.csv"
+               }
 
         mkdata = MyDataMaker(configs=configs, paths=path, total_frames=length)
-        mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', reference_antenna=1)
+        mkdata.csi_stream.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1)
         mkdata.csi_stream.extract_dynamic(mode='highpass')
         mkdata.export_image(show_img=False)
         mkdata.depth_mask(0.7)
