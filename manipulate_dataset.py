@@ -89,6 +89,49 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
 
             np.save(out_path + key + '.npy', result[key])
     print("All saved!")
+    
+    
+class Regrouper:
+    def __init__(self, in_path, out_path, scope:tuple, types:dict):
+        self.scope = scope
+        self.in_path = in_path
+        self.out_path = out_path
+        self.result = {}
+        for name, shape in types.items():
+            self.result[name] = np.zeros(shape)
+            
+    def load(self):
+        filenames = os.listdir(self.in_path)
+        for file in filenames:
+            if file[:2] in self.scope:
+                tmp = np.load(self.in_path + file)
+                print(f"Loaded {file} of {tmp.shape}")
+                kind = file[-7:-4]
+                
+                if kind in list(self.result.keys()):
+                    if kind in ('img', 'cmg', 'rmg'):
+                        tmp = tmp[:, np.newaxis, ...]
+                        tmp[tmp > 3000] = 3000
+                        tmp = tmp / 3000.
+                        
+                        self.result[kind] = np.concatenate((self.result[kind], tmp), axis=0)
+                    else:
+                        self.result[kind] = np.concatenate((self.result[kind], tmp), axis=0)
+        print("All loaded!")
+
+    def regroup(self):
+        if not os.path.exists(self.out_path):
+            os.makedirs(self.out_path)
+            
+        for key in list(self.result.keys()):
+            self.result[key] = np.delete(self.result[key], 0, axis=0)
+            
+            if len(self.result[key]) != 0:
+                print(f"Saved {key} of len {len(self.result[key])}")
+                if key == 'sid':
+                    self.result[key] = self.result[key] - min(self.result[key])
+                np.save(f"{self.out_path}{key}.npy", self.result[key])
+            print("All saved!")
 
 
 def asx(path):
