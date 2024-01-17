@@ -369,11 +369,7 @@ if __name__ == "__main__":
     conf = MyConfigsW2(5.32, 20, num_paths=1)
     conf.ntx = 3
     conf.tx_rate = 0x1c113
-<<<<<<< Updated upstream
-    csi = MyCsiW2(conf, '0509A01', '../npsave/0509/0509A01-csio.npy')
-=======
     csi = MyCsiW2(conf, '1219A11', '../npsave/1219/1219A11-csio.npy')
->>>>>>> Stashed changes
     csi.load_data(remove_sm=True)
     #csi.load_lists()
     #csi.load_label('../sense/0307/04_labels.csv')

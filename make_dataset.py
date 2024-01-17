@@ -172,9 +172,9 @@ class MyDataMaker:
             videowriter = cv2.VideoWriter(save_path + save_name, fourcc, 10, img_size)
             
         fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1) 
-        while True:
-            try:
+        ax = fig.add_subplot(1, 1, 1)
+        try:
+            for i in tqdm(range(self.total_frames)):
                 image, _ = self.__get_image__(mode=mode)
                 if mode == 'depth':
                     image = cv2.convertScaleAbs(image, alpha=0.02)
@@ -185,10 +185,10 @@ class MyDataMaker:
                 # if key == ord('q'):
                 #     break
                 if self.jupyter:
-                    clear_output(wait = True)
+                    clear_output(wait=True)
                     plt.clf()
                     plt.imshow(image)
-                    plt.title(f"Image {i} of {len(imgs)}")
+                    plt.title(f"Image {i} of {self.total_frames}")
                     #display(plt.gcf())'
                     plt.axis('off')
                     plt.show()
@@ -199,13 +199,13 @@ class MyDataMaker:
                     plt.pause(0.1)
                     plt.clf()
 
-            except RuntimeError:
-                print("Read finished!")
+        except RuntimeError:
+            print("Read finished!")
 
-            finally:
-                self.video_stream.stop()
-                if save_flag is True:
-                    videowriter.release()
+        finally:
+            self.video_stream.stop()
+            if save_flag is True:
+                videowriter.release()
 
     def export_image(self, mode='depth', show_img=False):
         try:
@@ -225,10 +225,10 @@ class MyDataMaker:
                     #     break
                     # cv2.destroyAllWindows()
                     if self.jupyter:
-                        clear_output(wait = True)
+                        clear_output(wait=True)
                         plt.clf()
                         plt.imshow(image)
-                        plt.title(f"Image {i} of {len(imgs)}")
+                        plt.title(f"Image {i} of {self.total_frames}")
                         #display(plt.gcf())'
                         plt.axis('off')
                         plt.show()
@@ -379,7 +379,7 @@ class MyDataMaker:
                 clear_output(wait = True)
                 plt.clf()
                 plt.imshow(image)
-                plt.title(f"Image {i} of {len(imgs)}")
+                plt.title(f"Image {i} of {self.total_frames}")
                 #display(plt.gcf())'
                 plt.axis('off')
                 plt.show()
