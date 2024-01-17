@@ -44,15 +44,23 @@ class LabelParser:
 
     def parse(self):
         print('Loading labels...', end='')
-        labels = []
+        labels = {}
         with open(self.__label_path) as f:
             for i, line in enumerate(f):
-                if i > 0:
+                if i == 0:
+                    key_list = line.strip().split(',')
+                    for key in key_list:
+                        labels[key] = []
+                else:
                     line_list = line.split(',')
-                    self.labels.append([eval(item) for item in line_list])
+                    for ii, key in enumerate(key_list):
+                        labels[key].append(eval(line_list[ii]))
 
-        self.labels = np.array(labels)
-        self.labels[:, 0:2] *= 1.e3
+        for key in labels.keys():
+            labels[key] = np.array(labels[key])
+
+        self.labels['start'] *= 1.e3
+        self.labels['end'] *= 1.e3
 
 
 class BagLoader:
