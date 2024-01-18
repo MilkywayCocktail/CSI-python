@@ -94,7 +94,7 @@ class MyWidar2:
     def __init__(self, configs: MyConfigsW2, csi: MyCsiW2):
         self.configs = configs
         self.csi = csi
-        self.total_steps = np.floor(self.csi.length / self.configs.stride)
+        self.total_steps = np.floor(self.csi.length / self.configs.stride).astype(int)
         self.steer_tof, self.steer_aoa, self.steer_doppler = self.__gen_steering_vector__()
         self.estimates = self.__gen_estimates__()
         self.arg_i = self.__gen_arg_indices__()
@@ -132,10 +132,10 @@ class MyWidar2:
         Generates the placeholder of final results.
         :return: estimates dictionary
         """
-        est = {'tof': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
-               'aoa': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
-               'doppler': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex),
-               'amplitude': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex)
+        est = {'tof': np.zeros((self.total_steps, self.configs.num_paths), dtype=float),
+               'aoa': np.zeros((self.total_steps, self.configs.num_paths), dtype=float),
+               'doppler': np.zeros((self.total_steps, self.configs.num_paths), dtype=float),
+               'amplitude': np.zeros((self.total_steps, self.configs.num_paths), dtype=float)
                }
         return est
 
