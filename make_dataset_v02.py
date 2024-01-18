@@ -411,12 +411,13 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.result['img'] = self.result['img'].astype(np.uint16)
         print("Done")
 
-    def save_dataset(self, save_path, save_name, *args):
+    def save_dataset(self, save_name, *args):
         print("Saving...", end='')
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
+        if not os.path.exists(self.paths['save']):
+            os.makedirs(self.paths['save'])
 
         for key in args:
             if key in self.result.keys():
-                np.save(os.path.join(save_path, save_name + '_' + key + '.npy'), self.result[key])
+                np.save(os.path.join(self.paths['save'], save_name + '_' + key + '.npy'), self.result[key])
         print("Done")
+        
