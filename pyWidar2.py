@@ -135,7 +135,7 @@ class MyWidar2:
         est = {'tof': np.zeros((self.total_steps, self.configs.num_paths), dtype=float),
                'aoa': np.zeros((self.total_steps, self.configs.num_paths), dtype=float),
                'doppler': np.zeros((self.total_steps, self.configs.num_paths), dtype=float),
-               'amplitude': np.zeros((self.total_steps, self.configs.num_paths), dtype=float)
+               'amplitude': np.zeros((self.total_steps, self.configs.num_paths), dtype=complex)
                }
         return est
 
@@ -166,7 +166,7 @@ class MyWidar2:
         _estimates = {'tof': np.zeros(self.configs.num_paths, dtype=float),
                       'aoa': np.zeros(self.configs.num_paths, dtype=float),
                       'doppler': np.zeros(self.configs.num_paths, dtype=float),
-                      'amplitude': np.zeros(self.configs.num_paths, dtype=float),
+                      'amplitude': np.zeros(self.configs.num_paths, dtype=complex),
                       }
         _arg_index = {'tof': np.zeros(self.configs.num_paths, dtype=int),
                       'aoa': np.zeros(self.configs.num_paths, dtype=int),
@@ -350,8 +350,12 @@ class MyWidar2:
 
         axs[0].set_title("ToF")
         #axs[0].set_ylim(-1.e-7, 4.e-7)
-        axs[0].set_ylim(np.min(self.estimates['tof'][np.logical_not(np.isnan(self.estimates['tof']))]),
-                        np.max(self.estimates['tof'][np.logical_not(np.isnan(self.estimates['tof']))]))
+        ymin = np.min(self.estimates['tof'][np.logical_not(np.isnan(self.estimates['tof']))])
+        ymax = np.max(self.estimates['tof'][np.logical_not(np.isnan(self.estimates['tof']))])
+        if ymin == ymax:
+            axs[0].set_ylim(np.min(ymin, 2 * ymin), np.max(ymin, 2 * ymin))
+        else:
+            axs[0].set_ylim(ymin, ymax)
         axs[1].set_title("AoA")
         axs[1].set_ylim(-90, 90)
         axs[2].set_title("Doppler")
