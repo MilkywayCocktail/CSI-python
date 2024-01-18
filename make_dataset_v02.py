@@ -318,6 +318,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
             csi_index = np.searchsorted(self.raw_csi.timestamps, self.result['tim'][i])
             self.result['ind'][i] = csi_index
+            print(self.raw_csi.timestamps[csi_index], self.result['tim'][i])
             csi_sample = self.raw_csi.csi[csi_index: csi_index + self.sample_length, :, :, pick_tx]
             if window_dynamic:
                 csi_sample = self.windowed_dynamic(csi_sample).reshape(self.sample_length, 90).T
