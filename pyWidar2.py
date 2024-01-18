@@ -94,7 +94,7 @@ class MyWidar2:
     def __init__(self, configs: MyConfigsW2, csi: MyCsiW2):
         self.configs = configs
         self.csi = csi
-        self.total_steps = (self.csi.length - self.configs.window_length) // self.configs.stride
+        self.total_steps = np.floor(self.csi.length / self.configs.stride)
         self.steer_tof, self.steer_aoa, self.steer_doppler = self.__gen_steering_vector__()
         self.estimates = self.__gen_estimates__()
         self.arg_i = self.__gen_arg_indices__()
