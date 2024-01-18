@@ -420,4 +420,3 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             if key in self.result.keys():
                 np.save(os.path.join(self.paths['save'], save_name + '_' + key + '.npy'), self.result[key])
         print("Done")
-        
