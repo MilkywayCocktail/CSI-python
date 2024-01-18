@@ -163,10 +163,10 @@ class MyWidar2:
         Generates temporal estimates.
         :return: estimates and index dictionaries
         """
-        _estimates = {'tof': np.zeros(self.configs.num_paths, dtype=complex),
-                      'aoa': np.zeros(self.configs.num_paths, dtype=complex),
-                      'doppler': np.zeros(self.configs.num_paths, dtype=complex),
-                      'amplitude': np.zeros(self.configs.num_paths, dtype=complex),
+        _estimates = {'tof': np.zeros(self.configs.num_paths, dtype=float),
+                      'aoa': np.zeros(self.configs.num_paths, dtype=float),
+                      'doppler': np.zeros(self.configs.num_paths, dtype=float),
+                      'amplitude': np.zeros(self.configs.num_paths, dtype=float),
                       }
         _arg_index = {'tof': np.zeros(self.configs.num_paths, dtype=int),
                       'aoa': np.zeros(self.configs.num_paths, dtype=int),
@@ -350,8 +350,8 @@ class MyWidar2:
 
         axs[0].set_title("ToF")
         #axs[0].set_ylim(-1.e-7, 4.e-7)
-        axs[0].set_ylim(np.min(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]),
-                       np.max(self.estimates['tof'].real[np.logical_not(np.isnan(self.estimates['tof'].real))]))
+        axs[0].set_ylim(np.min(self.estimates['tof'][np.logical_not(np.isnan(self.estimates['tof']))]),
+                        np.max(self.estimates['tof'][np.logical_not(np.isnan(self.estimates['tof']))]))
         axs[1].set_title("AoA")
         axs[1].set_ylim(-90, 90)
         axs[2].set_title("Doppler")
