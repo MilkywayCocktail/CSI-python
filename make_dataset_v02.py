@@ -41,6 +41,8 @@ class LabelParser:
     def __init__(self, label_path):
         self.__label_path = label_path
         self.labels = None
+        if self.__label_path:
+            self.parse()
 
     def parse(self):
         print('Loading labels...', end='')
@@ -59,8 +61,17 @@ class LabelParser:
         for key in labels.keys():
             labels[key] = np.array(labels[key])
 
-        self.labels['start'] *= 1e3
-        self.labels['end'] *= 1e3
+        labels['start'] *= 1e3
+        labels['end'] *= 1e3
+        self.labels = labels
+
+    def add_condition(self):
+        self.labels['direction'] = []
+        for i in range(len(self.labels['start'])):
+            if self.labels['x0'][i] == self.labels['x1'][i]:
+                self.labels['direction'].append('y')
+            elif self.labels['y0'][i] == self.labels['y1'][i]:
+                self.labels['direction'].append('x')
 
 
 class BagLoader:
@@ -158,11 +169,11 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                  jupyter_mode=False
                  ):
         if paths is None:
-            paths = {'bag': '/',
-                     'localtime': '/',
-                     'csi': '/',
-                     'csitime': '/',
-                     'label': '/',
+            paths = {'bag': None,
+                     'localtime': None,
+                     'csi': None,
+                     'csitime': None,
+                     'label': None,
                      'save': '/saved/'
                      }
         self.paths = paths
@@ -189,7 +200,9 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         timestamps = np.zeros(self.total_frames)
         indices = np.zeros(self.total_frames, dtype=int)
 
-        return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices}
+        labels = [] if not self.labels else self.labels
+
+        return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices, 'labels': labels}
 
     def playback(self, source='raw', mode='depth', display_size=(640, 480), save_name=None):
         print(f"Playback {source} {mode}...", end='')

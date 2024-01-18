@@ -738,7 +738,7 @@ class MyCsi:
         else:
             for rx in range(csi_matrix.shape[2]):
                 csi_matrix_squeezed = np.squeeze(csi_matrix[:, :, rx, 0])
-                BatchGraph.plot_heatmap(csi_matrix_squeezed, self.timestamps)
+                plt.plot(csi_matrix_squeezed, self.timestamps)
 
             print(self.name, metric, "plot complete", time.asctime(time.localtime(time.time())))
 
