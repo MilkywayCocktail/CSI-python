@@ -59,8 +59,8 @@ class LabelParser:
         for key in labels.keys():
             labels[key] = np.array(labels[key])
 
-        self.labels['start'] *= 1.e3
-        self.labels['end'] *= 1.e3
+        self.labels['start'] *= 1e3
+        self.labels['end'] *= 1e3
 
 
 class BagLoader:
@@ -149,7 +149,7 @@ class CSILoader:
         return dynamic
 
 
-class MyDataMakerDFT(BagLoader, CSILoader, LabelParser):
+class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def __init__(self, total_frames: int,
                  csi_configs: pycsi.MyConfigs,
                  img_size: tuple = (128, 128),
@@ -174,12 +174,11 @@ class MyDataMakerDFT(BagLoader, CSILoader, LabelParser):
 
         BagLoader.__init__(self, self.paths['bag'], self.paths['localtime'], img_size)
         CSILoader.__init__(self, self.paths['csi'], self.paths['csitime'], csi_configs)
-        LabelParser.__init__()
+        LabelParser.__init__(self, self.paths['label'])
 
         self.result = self.init_data()
 
     def init_data(self):
-
         # img_size = (width, height)
 
         if self.raw_csi:
