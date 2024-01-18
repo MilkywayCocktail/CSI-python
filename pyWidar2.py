@@ -185,8 +185,8 @@ class MyWidar2:
         r = self.configs.update_ratio
         stride = self.configs.stride
         window_length = self.configs.window_length
-        nsub = self.csi.configs.nsub
-        nrx = self.csi.configs.nrx
+        nsub = self.configs.nsub
+        nrx = self.configs.nrx
 
         csi_signal = self.csi.csi[..., 0]
 
