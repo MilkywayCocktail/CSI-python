@@ -517,7 +517,8 @@ class MyCsi:
             self.csi = csilist
             self.timestamps = timelist
         self.length = len(self.csi)
-        self.actual_sr = self.length / self.timestamps[-1]
+        if self.timestamps:
+            self.actual_sr = self.length / self.timestamps[-1]
 
     def load_spectrum(self, input_path=None):
         """
