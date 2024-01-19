@@ -42,53 +42,6 @@ def separate(in_path, out_path, scope: tuple):
 
             np.save(out_path + key + '.npy', result[key])
     print("All saved!")
-
-
-def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
-    # Initial cell shapes
-    result = {'csi': np.zeros((1, 2, 90, 100)),
-              'img': np.zeros((1, 1, 128, 226), dtype=out_type),
-              'tim': np.zeros(1),
-              'cod': np.zeros((1, 3)),
-              'ind': np.zeros(1),
-              'sid': np.zeros(1),
-              'bbx': np.zeros((1, 4))
-              }
-
-    filenames = os.listdir(in_path)
-    for file in filenames:
-
-        if file[:2] in scope:
-            tmp = np.load(in_path + file)
-            print(file, tmp.shape)
-
-            kind = file[-7:-4]
-
-            if kind in list(result.keys()):
-                if kind == 'img':
-                    tmp = tmp[:, np.newaxis, ...]
-                    tmp[tmp > 3000] = 3000
-                    tmp = tmp / 3000.
-                    if len(tmp.shape) != 4:
-                        tmp = tmp.reshape((-1, 1, 128, 128))
-                    result[kind] = np.concatenate((result[kind], tmp.astype(out_type)), axis=0)
-
-                else:
-                    result[kind] = np.concatenate((result[kind], tmp), axis=0)
-
-    if not os.path.exists(out_path):
-        os.makedirs(out_path)
-
-    for key in list(result.keys()):
-        result[key] = np.delete(result[key], 0, axis=0)
-
-        if len(result[key]) != 0:
-            print(key, len(result[key]))
-            if key == 'sid':
-                result[key] = result[key] - min(result[key])
-
-            np.save(out_path + key + '.npy', result[key])
-    print("All saved!")
     
     
 class Regrouper:
@@ -104,19 +57,19 @@ class Regrouper:
         filenames = os.listdir(self.in_path)
         for file in filenames:
             if file[:2] in self.scope:
-                data = np.load(self.in_path + file)
-                print(f"Loaded {file} of {data.shape}")
                 datatype = file[-7:-4]
-                
                 if datatype in list(self.result.keys()):
                     if datatype in ('img', 'c_img', 'r_img'):
+                        data = np.load(self.in_path + file)
                         data = data[:, np.newaxis, ...]
                         data[data > 3000] = 3000
                         data = data / 3000.
                         
                         self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
                     else:
+                        data = np.load(self.in_path + file, mmap_mode='r')
                         self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
+                    print(f"Loaded {file} of {data.shape}")
         print("All loaded!")
         for key in list(self.result.keys()):
             self.result[key] = np.delete(self.result[key], 0, axis=0)
@@ -171,6 +124,44 @@ class Dataviewer:
             key = cv2.waitKey(33) & 0xFF
             if key == ord('q'):
                 break
+
+
+class PhaseDiff:
+    def __init__(self, in_path, out_path):
+        self.in_path = in_path
+        self.out_path = out_path
+        data = np.load(self.in_path, mmde_mode='r')
+        print(f"Loaded file of {data.shape} as {data.dtype}")
+        self.csi = np.squeeze(data[:, 0, :, :]) * np.squeeze(np.exp(data[:, 1, :, :])).reshape(-1, 30, 3, 100)
+        self.result = {'AoA': np.zeros(self.csi.shape[0]),
+                       'ToF': np.zeros(self.csi.shape[0])}
+
+    def svd(self, mode='aoa'):
+        if mode == 'aoa':
+            u, s, v = np.linalg.svd(self.csi.transpose(0, 2, 1, 3).reshape(-1, 3, 30 * 100), full_matrices=False)
+            self.result['Rx'] = np.angle(u[:, 0, 0].conj() * u[:, 1, 0])
+        elif mode == 'tof':
+            u, s, v = np.linalg.svd(self.csi.transpose(0, 1, 2, 3).reshape(-1, 30, 3 * 100), full_matrices=False)
+            self.result['Sub'] = np.average(np.angle(u[:, :-1, 0]).conj() * u[:, 1:, 0])
+        else:
+            raise Exception('Please specify mode = \'aoa\' or \'tof\'.')
+
+    def view(self):
+        plt.subplot(1, 2, 1)
+        plt.plot(self.result['AoA'])
+        plt.title("Estimated AoA")
+        plt.subplot(1, 2, 2)
+        plt.plot(self.result['ToF'])
+        plt.title("Estimated ToF")
+        plt.show()
+
+    def save(self):
+        if not os.path.exists(self.out_path):
+            os.makedirs(self.out_path)
+        for key in list(self.result.keys()):
+            print(f"Saved {key} of len {len(self.result[key])}")
+            np.save(f"{self.out_path}{key}.npy", self.result[key])
+        print("All saved!")
 
 
 def to_onehot(path, path2):
