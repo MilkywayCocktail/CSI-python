@@ -92,99 +92,85 @@ def regroup(in_path, out_path, scope: tuple, out_type=np.float32):
     
     
 class Regrouper:
-    def __init__(self, in_path, out_path, scope:tuple, types:dict):
-        self.scope = scope
+    def __init__(self, in_path, out_path, scope: tuple, wanted_types: dict):
         self.in_path = in_path
         self.out_path = out_path
+        self.scope = scope
         self.result = {}
-        for name, shape in types.items():
+        for name, shape in wanted_types.items():
             self.result[name] = np.zeros(shape)
             
     def load(self):
         filenames = os.listdir(self.in_path)
         for file in filenames:
             if file[:2] in self.scope:
-                tmp = np.load(self.in_path + file)
-                print(f"Loaded {file} of {tmp.shape}")
-                kind = file[-7:-4]
+                data = np.load(self.in_path + file)
+                print(f"Loaded {file} of {data.shape}")
+                datatype = file[-7:-4]
                 
-                if kind in list(self.result.keys()):
-                    if kind in ('img', 'cmg', 'rmg'):
-                        tmp = tmp[:, np.newaxis, ...]
-                        tmp[tmp > 3000] = 3000
-                        tmp = tmp / 3000.
+                if datatype in list(self.result.keys()):
+                    if datatype in ('img', 'c_img', 'r_img'):
+                        data = data[:, np.newaxis, ...]
+                        data[data > 3000] = 3000
+                        data = data / 3000.
                         
-                        self.result[kind] = np.concatenate((self.result[kind], tmp), axis=0)
+                        self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
                     else:
-                        self.result[kind] = np.concatenate((self.result[kind], tmp), axis=0)
+                        self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
         print("All loaded!")
-
-    def regroup(self):
-        if not os.path.exists(self.out_path):
-            os.makedirs(self.out_path)
-            
         for key in list(self.result.keys()):
             self.result[key] = np.delete(self.result[key], 0, axis=0)
-            
+
+    def regroup(self, number=0):
+        if not os.path.exists(self.out_path):
+            os.makedirs(self.out_path)
+        for key in list(self.result.keys()):
             if len(self.result[key]) != 0:
-                print(f"Saved {key} of len {len(self.result[key])}")
                 if key == 'sid':
                     self.result[key] = self.result[key] - min(self.result[key])
-                np.save(f"{self.out_path}{key}.npy", self.result[key])
+                if number == 0:
+                    print(f"Saved {key} of len {len(self.result[key])}")
+                    np.save(f"{self.out_path}{key}.npy", self.result[key])
+                else:
+                    print(f"Saved {key} of len {number}")
+                    np.save(f"{self.out_path}{key}.npy", self.result[key][:number])
             print("All saved!")
 
 
-def asx(path):
-    np.set_printoptions(threshold=np.inf)
-    x = np.load(path)
-    plt.plot(x[:, 0, 0, 0])
-    plt.show()
-    print(x.shape)
-    print(x.dtype)
+class Dataviewer:
+    def __init__(self, path):
+        self.path = path
+        self.data = np.load(self.path, mmap_mode='r')
+        print(f"Loaded file of {self.data.shape} as {self.data.dtype}")
 
+    def view_csi(self):
+        np.set_printoptions(threshold=np.inf)
+        plt.subplot(1, 3, 1)
+        plt.plot(self.data[:, 0, 0, 0])
+        plt.title("Overall")
+        plt.subplot(1, 3, 2)
+        plt.imshow(self.data[0, 0])
+        plt.title("Packet - amp")
+        plt.subplot(1, 3, 3)
+        plt.imshow(self.data[0, 1])
+        plt.title("Packet - phase")
+        plt.show()
 
-def asy(path):
-    imgs = np.load(path)
-    imgs = (np.squeeze(imgs) * 255).astype(np.uint8)
-    print(imgs.shape)
+    def view_image(self, shape=(640, 480)):
+        self.data = (np.squeeze(self.data) * 255).astype(np.uint8)
 
-    for i in range(len(imgs)):
-        print(np.max(imgs[i]), np.min(imgs[i]))
-        #img = cv2.convertScaleAbs(imgs[i], alpha=0.03)
-        img = imgs[i]
+        for i in range(len(self.data)):
+            print(f"min = {np.min(self.data[i]) * 3000}, max = {np.max(self.data[i]) * 3000}")
+            #img = cv2.convertScaleAbs(imgs[i], alpha=0.03)
+            img = self.data[i]
 
-        img = cv2.resize(img,(640, 480), interpolation=cv2.INTER_AREA)
-        cv2.imshow('Image', img)
+            img = cv2.resize(img, shape, interpolation=cv2.INTER_AREA)
+            cv2.imshow('Image', img)
 
-        #cv2.imwrite('../dataset/view/' + str(i).zfill(4) + '.jpg', img)
-        key = cv2.waitKey(33) & 0xFF
-        if key == ord('q'):
-            break
-    return
-
-
-def asz(path):
-    locs = np.load(path)
-    print(locs.shape)
-
-
-def label_convert(in_path, out_path=None, autosave=False):
-    labels = []
-    with open(in_path) as f:
-        for i, line in enumerate(f):
-            if i > 0:
-                labels.append([eval(line.split(',')[0]), eval(line.split(',')[1])])
-
-    labels = np.array(labels)
-
-    if autosave is True and out_path is not None:
-        if not os.path.exists(out_path):
-            os.makedirs(out_path)
-
-        np.save(out_path, labels)
-
-    else:
-        return labels
+            #cv2.imwrite('../dataset/view/' + str(i).zfill(4) + '.jpg', img)
+            key = cv2.waitKey(33) & 0xFF
+            if key == ord('q'):
+                break
 
 
 def to_onehot(path, path2):
@@ -318,17 +304,6 @@ def simu_dataset(paths, out_path):
     np.save(out_path + 'sid.npy', sid)
 
 
-def shorten_dataset(inpath, outpath, number):
-    filenames = os.listdir(inpath)
-    if not os.path.exists(outpath):
-        os.makedirs(outpath)
-    for file in filenames:
-        print(file, end='')
-        tmp = np.load(inpath + file)
-        np.save(outpath + file, tmp[:number])
-        print("...saved!")
-
-
 def wi2vi_channels(inpath, outpath):
     csi = np.load(inpath)
     print(csi.shape)
@@ -344,15 +319,13 @@ def wi2vi_channels(inpath, outpath):
 
 
 if __name__ == '__main__':
+    viewer = Dataviewer('../dataset/0509/make01-finished/csi.npy')
+    viewer.view_csi()
     #pseudo_dataset('../dataset/0221/make01_finished/')
-    #asy('../dataset/0509/make05-finished/c_img.npy')
-    asx('../dataset/0509/make05/01_226_csi.npy')
-    #asz('../dataset/0509/make01/01_div_loc.npy')
+
     #to_onehot('../dataset/0208/make00_finished/sid.npy', '../dataset/0208/make00_finished/sid2.npy')
     #from_onehot('../dataset/0208/make00_finished/sid_oh.npy', '../dataset/0208/make00_finished/sid.npy')
     #pseudo_dataset_frq('../dataset/0302/make00_finished/')
-    #asx('../dataset/0302/make00_finished/csi.npy')
-    #shorten_dataset('../dataset/0509/make05-finished/', '../dataset/0509/make05-finished-shortened/', number=400)
 
     #regroup('../dataset/0509/make05/', '../dataset/0509/make05-finished/', ('01', '02', '03', '04'))
     # separate('../dataset/0509/make01/', '../dataset/0509/make02-train/', ('01'))
