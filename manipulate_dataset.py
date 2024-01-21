@@ -132,7 +132,7 @@ class PhaseDiff:
         self.out_path = out_path
         data = np.load(self.in_path, mmap_mode='r')
         print(f"Loaded file of {data.shape} as {data.dtype}")
-        self.csi = (np.squeeze(data[:, 0, :, :]) * np.squeeze(np.exp(data[:, 1, :, :]))).reshape(-1, 30, 3, 100)
+        self.csi = (np.squeeze(data[:, 0, :, :]) * np.squeeze(np.exp(1.j * data[:, 1, :, :]))).reshape(-1, 30, 3, 100)
         self.result = {'AoA': np.zeros(self.csi.shape[0]),
                        'ToF': np.zeros(self.csi.shape[0])}
 
