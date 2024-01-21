@@ -143,7 +143,7 @@ class PhaseDiff:
             self.result['AoA'] = np.angle(np.squeeze(u[:, 0, 0]).conj() * np.squeeze(u[:, 1, 0]))
         elif mode == 'tof':
             u, s, v = np.linalg.svd(self.csi.transpose(0, 1, 2, 3).reshape(-1, 30, 3 * 100), full_matrices=False)
-            self.result['ToF'] = np.average(np.angle(np.squeeze(u[:, :-1, 0])).conj() * np.squeeze(u[:, 1:, 0]))
+            self.result['ToF'] = np.average(np.angle(np.squeeze(u[:, :-1, 0])).conj() * np.squeeze(u[:, 1:, 0]), axis=-1)
         else:
             raise Exception('Please specify mode = \'aoa\' or \'tof\'.')
         print("Done!")
