@@ -90,7 +90,7 @@ class Regrouper:
             print("All saved!")
 
 
-class Dataviewer:
+class DataViewer:
     def __init__(self, path):
         self.path = path
         self.data = np.load(self.path, mmap_mode='r')
@@ -140,10 +140,10 @@ class PhaseDiff:
         print(f"Calculating {mode}...", end='')
         if mode == 'aoa':
             u, s, v = np.linalg.svd(self.csi.transpose(0, 2, 1, 3).reshape(-1, 3, 30 * 100), full_matrices=False)
-            self.result['Rx'] = np.angle(u[:, 0, 0].conj() * u[:, 1, 0])
+            self.result['Rx'] = np.angle(np.squeeze(u[:, 0, 0]).conj() * np.squeeze(u[:, 1, 0]))
         elif mode == 'tof':
             u, s, v = np.linalg.svd(self.csi.transpose(0, 1, 2, 3).reshape(-1, 30, 3 * 100), full_matrices=False)
-            self.result['Sub'] = np.average(np.angle(u[:, :-1, 0]).conj() * u[:, 1:, 0])
+            self.result['Sub'] = np.average(np.angle(np.squeeze(u[:, :-1, 0])).conj() * np.squeeze(u[:, 1:, 0]))
         else:
             raise Exception('Please specify mode = \'aoa\' or \'tof\'.')
         print("Done!")
