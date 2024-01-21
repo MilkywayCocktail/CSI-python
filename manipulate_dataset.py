@@ -132,11 +132,12 @@ class PhaseDiff:
         self.out_path = out_path
         data = np.load(self.in_path, mmap_mode='r')
         print(f"Loaded file of {data.shape} as {data.dtype}")
-        self.csi = np.squeeze(data[:, 0, :, :]) * np.squeeze(np.exp(data[:, 1, :, :])).reshape(-1, 30, 3, 100)
+        self.csi = (np.squeeze(data[:, 0, :, :]) * np.squeeze(np.exp(data[:, 1, :, :]))).reshape(-1, 30, 3, 100)
         self.result = {'AoA': np.zeros(self.csi.shape[0]),
                        'ToF': np.zeros(self.csi.shape[0])}
 
     def svd(self, mode='aoa'):
+        print(f"Calculating {mode}...", end='')
         if mode == 'aoa':
             u, s, v = np.linalg.svd(self.csi.transpose(0, 2, 1, 3).reshape(-1, 3, 30 * 100), full_matrices=False)
             self.result['Rx'] = np.angle(u[:, 0, 0].conj() * u[:, 1, 0])
@@ -145,6 +146,7 @@ class PhaseDiff:
             self.result['Sub'] = np.average(np.angle(u[:, :-1, 0]).conj() * u[:, 1:, 0])
         else:
             raise Exception('Please specify mode = \'aoa\' or \'tof\'.')
+        print("Done!")
 
     def view(self):
         plt.subplot(1, 2, 1)
