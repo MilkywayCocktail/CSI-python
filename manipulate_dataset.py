@@ -160,9 +160,8 @@ class PhaseDiff:
     def save(self):
         if not os.path.exists(self.out_path):
             os.makedirs(self.out_path)
-        for key in list(self.result.keys()):
-            print(f"Saved {key} of len {len(self.result[key])}")
-            np.save(f"{self.out_path}{key}.npy", self.result[key])
+        np.save(f"{self.out_path}pd.npy", np.concatenate(
+            (self.result['AoA'][np.newaxis, ...], self.result['ToF'][np.newaxis, ...]), axis=0))
         print("All saved!")
 
 
@@ -312,7 +311,7 @@ def wi2vi_channels(inpath, outpath):
 
 
 if __name__ == '__main__':
-    viewer = Dataviewer('../dataset/0509/make01-finished/csi.npy')
+    viewer = DataViewer('../dataset/0509/make01-finished/csi.npy')
     viewer.view_csi()
     #pseudo_dataset('../dataset/0221/make01_finished/')
 
