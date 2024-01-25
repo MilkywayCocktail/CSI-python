@@ -54,6 +54,7 @@ class Regrouper:
             self.result[name] = np.zeros(shape)
             
     def load(self):
+        print("Loading...")
         filenames = os.listdir(self.in_path)
         for file in filenames:
             if file[:2] in self.scope:
