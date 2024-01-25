@@ -279,9 +279,9 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             for i in tqdm(range(self.frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
 
-                self.result['tim'][i] = frame_timestamp
+                self.result['vanilla']['tim'][i] = frame_timestamp
                 image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
-                self.result['img'][i, ...] = image
+                self.result['vanilla']['img'][i, ...] = image
 
                 if show_img:
                     # cv2.namedWindow('Image', cv2.WINDOW_AUTOSIZE)
@@ -321,10 +321,9 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         for i in tqdm(range(self.frames)):
 
-            csi_index = np.searchsorted(self.raw_csi.timestamps, self.result['tim'][i])
-            self.result['ind'][i] = csi_index
-            print(self.raw_csi.timestamps[csi_index], self.result['tim'][i])
-            csi_sample = self.raw_csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
+            csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['tim'][i])
+            self.result['vanilla']['ind'][i] = csi_index
+            csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
             if window_dynamic:
                 csi_sample = self.windowed_dynamic(csi_sample).reshape(self.csi_length, 90).T
             else:
@@ -354,7 +353,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                     print(t.strftime("%Y-%m-%d %H:%M:%S.%f"))
                     ind = np.searchsorted(self.result['tim'], timestamp)
                     print(f"Found No.{ind} from results.")
-                    plt.imshow(self.result['img'][ind])
+                    plt.imshow(self.result['vanilla']['img'][ind])
                     plt.show()
                 except Exception:
                     pass
@@ -370,8 +369,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         selected = {}
         changed_frames = 0
         for ii, (start, end, *others) in enumerate(self.labels):
-            start_id = np.searchsorted(self.result['tim'], start - self.camtime_delta)
-            end_id = np.searchsorted(self.result['tim'], end - self.camtime_delta)
+            start_id = np.searchsorted(self.result['vanilla']['tim'], start - self.camtime_delta)
+            end_id = np.searchsorted(self.result['vanilla']['tim'], end - self.camtime_delta)
             selected[ii] = (list(range(start_id, end_id)))
             changed_frames += 1 + start_id - end_id
 
@@ -414,38 +413,38 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         if not self.caliberated:
             temp_lag = np.zeros(self.frames)
             for i in range(self.frames):
-                temp_lag[i] = self.result['tim'][i] - self.video_stream.local_time[i]
+                temp_lag[i] = self.result['vanilla']['tim'][i] - self.video_stream.local_time[i]
 
             camtime_delta = np.mean(temp_lag)
             print('lag={}'.format(camtime_delta))
 
             for i in range(self.frames):
-                self.result['tim'][i] = self.result['tim'][i] - camtime_delta
+                self.result['vanilla']['tim'][i] = self.result['vanilla']['tim'][i] - camtime_delta
             self.caliberated = True
             self.camtime_delta = camtime_delta
         print('Done')
 
     def depth_mask(self, threshold=0.5):
         tqdm.write("Masking...")
-        median = np.median(self.result['img'], axis=0)
+        median = np.median(self.result['vanilla']['img'], axis=0)
         threshold = median * threshold
         tqdm.write(f"Threshold depth = {threshold}")
-        for i in tqdm(range(len(self.result['img']))):
-            mask = self.result['img'][i] < threshold
-            masked = self.result['img'][i] * mask
+        for i in tqdm(range(len(self.result['vanilla']['img']))):
+            mask = self.result['vanilla']['img'][i] < threshold
+            masked = self.result['vanilla']['img'][i] * mask
             self.result['img'][i] = masked
 
     def compress_image(self):
         print("Compressing...", end='')
-        self.result['img'] = self.result['img'].astype(np.uint16)
+        self.result['vanilla']['img'] = self.result['img'].astype(np.uint16)
         print("Done")
 
-    def save_dataset(self, save_name, *args):
+    def save_dataset(self, save_name, data='vanilla', *args):
         print("Saving...", end='')
         if not os.path.exists(self.paths['save']):
             os.makedirs(self.paths['save'])
 
         for key in args:
             if key in self.result.keys():
-                np.save(os.path.join(self.paths['save'], save_name + '_' + key + '.npy'), self.result[key])
+                np.save(os.path.join(self.paths['save'], save_name + '_' + key + '.npy'), self.result[data][key])
         print("Done")
