@@ -63,6 +63,7 @@ class LabelParser:
         labels['start'] *= 1e3
         labels['end'] *= 1e3
         self.labels = labels
+        print('Done')
 
     def add_condition(self):
         self.labels['direction'] = []
@@ -330,8 +331,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 csi_sample = csi_sample.reshape(self.csi_length, 90).T
 
             # Store in two channels
-            self.result['csi'][i, 0, :, :] = np.abs(csi_sample)
-            self.result['csi'][i, 1, :, :] = np.angle(csi_sample)
+            self.result['vanilla']['csi'][i, 0, :, :] = np.abs(csi_sample)
+            self.result['vanilla']['csi'][i, 1, :, :] = np.angle(csi_sample)
 
     def lookup_image(self):
         print("\033[32mLOOKUP MODE" +
@@ -376,14 +377,14 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         self.frames = changed_frames
 
-        for key in self.result.keys():
-            self.result['annotated'][key] = {}
+        for types in self.result.keys():
+            self.result['annotated'][types] = {}
             for ii in selected.keys():
-                if key != 'label':
-                    self.result['annotated'][key][ii] = self.result['vanilla'][key][selected[ii]]
+                if types != 'label':
+                    self.result['annotated'][types][ii] = self.result['vanilla'][types][selected[ii]]
                 else:
-                    self.result['annotated'][key][ii] = [self.labels[ii]
-                                                         for _ in range(selected[ii][0], selected[ii][-1])]
+                    self.result['annotated'][types][ii] = [self.labels[ii]
+                                                           for _ in range(selected[ii][0], selected[ii][-1])]
 
         print('Done')
 
@@ -400,7 +401,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 changed_length = length // self.assemble_number
                 self.result[data][types][seg] = self.result[data][types][seg].reshape(
                     changed_length, self.assemble_number, *shape)
-        print("Done!")
+        print("Done")
 
     def calibrate_camtime(self):
         """
@@ -436,7 +437,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
     def compress_image(self):
         print("Compressing...", end='')
-        self.result['vanilla']['img'] = self.result['img'].astype(np.uint16)
+        self.result['vanilla']['img'] = self.result['vanilla']['img'].astype(np.uint16)
         print("Done")
 
     def save_dataset(self, save_name, data='vanilla', *args):
@@ -444,7 +445,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         if not os.path.exists(self.paths['save']):
             os.makedirs(self.paths['save'])
 
-        for key in args:
-            if key in self.result.keys():
-                np.save(os.path.join(self.paths['save'], save_name + '_' + key + '.npy'), self.result[data][key])
+        for types in args:
+            if types in self.result[data].keys():
+                np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
+                        np.concatenate(self.result[data][types].values(), axis=0))
         print("Done")
