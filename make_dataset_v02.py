@@ -1,7 +1,7 @@
 import numpy
 import pyrealsense2 as rs
 import cv2
-import csi_loader
+import pandas
 import numpy as np
 import os
 import pycsi
@@ -226,7 +226,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                     img_size = (1280, 720)
             elif source == 'result':
                 display_size = (display_size[0], display_size[1] * self.assemble_number)
-                img_size = (self.result['img'][0][0].shape[1] * self.assemble_number, self.result['img'][0][0].shape[0])
+                img_size = (self.result['annotated']['img'][0][0].shape[1] * self.assemble_number,
+                            self.result['annotated']['img'][0][0].shape[0])
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
             videowriter = cv2.VideoWriter(self.paths['save'] + save_name, fourcc, 10, img_size)
 
