@@ -2,7 +2,6 @@ import pyrealsense2 as rs
 import cv2
 import csi_loader
 import numpy as np
-import sys
 import os
 import pycsi
 import matplotlib.pyplot as plt
@@ -164,7 +163,10 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def __init__(self, total_frames: int,
                  csi_configs: pycsi.MyConfigs,
                  img_size: tuple = (128, 128),
-                 sample_length: int = 100,
+                 csi_size: tuple = (90, 100),
+                 csi_length: int = 100,
+                 assemble_number: int = 1,
+                 alignment: str = 'head',
                  paths: dict = None,
                  jupyter_mode=False
                  ):
@@ -177,8 +179,13 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                      'save': '/saved/'
                      }
         self.paths = paths
-        self.total_frames = total_frames
-        self.sample_length = sample_length
+        self.frames = total_frames
+        self.samples = total_frames // assemble_number
+        self.csi_size = csi_size
+        self.csi_length = csi_length
+        self.assemble_number = assemble_number
+        self.alignment = alignment
+
         self.caliberated = False
         self.camtime_delta = 0.
         self.jupyter_mode = jupyter_mode
@@ -187,18 +194,15 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         CSILoader.__init__(self, self.paths['csi'], self.paths['csitime'], csi_configs)
         LabelParser.__init__(self, self.paths['label'])
 
-        self.result = self.init_data()
+        self.result = {'vanilla': self.init_data()}
 
     def init_data(self):
         # img_size = (width, height)
 
-        if self.raw_csi:
-            csi = np.zeros((self.total_frames, self.sample_length, 30, 3))
-        else:
-            csi = np.zeros((self.total_frames, 2, 90, self.sample_length))
-        images = np.zeros((self.total_frames, self.img_size[1], self.img_size[0]))
-        timestamps = np.zeros(self.total_frames)
-        indices = np.zeros(self.total_frames, dtype=int)
+        csi = np.zeros((self.frames, 90, self.csi_length))
+        images = np.zeros((self.frames, self.img_size[1], self.img_size[0]))
+        timestamps = np.zeros(self.frames)
+        indices = np.zeros(self.frames, dtype=int)
 
         labels = [] if not self.labels else self.labels
 
@@ -219,20 +223,21 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 elif mode == 'color':
                     img_size = (1280, 720)
             elif source == 'result':
-                img_size = (self.result['img'][0].shape[1], self.result['img'][0].shape[0])
+                display_size = (display_size[0], display_size[1] * self.assemble_number)
+                img_size = (self.result['img'][0][0].shape[1] * self.assemble_number, self.result['img'][0][0].shape[0])
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
             videowriter = cv2.VideoWriter(self.paths['save'] + save_name, fourcc, 10, img_size)
 
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
         try:
-            for i in range(self.total_frames):
+            for i in range(self.frames):
                 if source == 'raw':
                     image, _ = self.__get_image__(mode=mode)
                     if mode == 'depth':
                         image = cv2.convertScaleAbs(image, alpha=0.02)
                 elif source == 'result':
-                    image = self.result['img'][i]
+                    image = np.concatenate(np.squeeze(self.result['img'][i]), axis=-1)
                 else:
                     raise Exception('Please specify source = \'raw\' or \'result\'.')
                 if save_flag is True:
@@ -247,7 +252,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                     clear_output(wait=True)
                     plt.clf()
                     plt.imshow(image)
-                    plt.title(f"Image {i} of {self.total_frames}")
+                    plt.title(f"Image {i} of {self.samples}")
                     # display(plt.gcf())'
                     plt.axis('off')
                     plt.show()
@@ -271,7 +276,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def export_image(self, mode='depth', show_img=False):
         try:
             tqdm.write('Starting exporting image...')
-            for i in tqdm(range(self.total_frames)):
+            for i in tqdm(range(self.frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
 
                 self.result['tim'][i] = frame_timestamp
@@ -289,7 +294,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                         clear_output(wait=True)
                         plt.clf()
                         plt.imshow(image)
-                        plt.title(f"Image {i} of {self.total_frames}")
+                        plt.title(f"Image {i} of {self.frames}")
                         # display(plt.gcf())'
                         plt.axis('off')
                         plt.show()
@@ -314,16 +319,16 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         """
         tqdm.write('Starting exporting CSI...')
 
-        for i in tqdm(range(self.total_frames)):
+        for i in tqdm(range(self.frames)):
 
             csi_index = np.searchsorted(self.raw_csi.timestamps, self.result['tim'][i])
             self.result['ind'][i] = csi_index
             print(self.raw_csi.timestamps[csi_index], self.result['tim'][i])
-            csi_sample = self.raw_csi.csi[csi_index: csi_index + self.sample_length, :, :, pick_tx]
+            csi_sample = self.raw_csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
             if window_dynamic:
-                csi_sample = self.windowed_dynamic(csi_sample).reshape(self.sample_length, 90).T
+                csi_sample = self.windowed_dynamic(csi_sample).reshape(self.csi_length, 90).T
             else:
-                csi_sample = csi_sample.reshape(self.sample_length, 90).T
+                csi_sample = csi_sample.reshape(self.csi_length, 90).T
 
             # Store in two channels
             self.result['csi'][i, 0, :, :] = np.abs(csi_sample)
@@ -362,17 +367,41 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         """
         print('Slicing...', end='')
 
-        selected = []
-        for (start, end, *others) in self.labels:
+        selected = {}
+        changed_frames = 0
+        for ii, (start, end, *others) in enumerate(self.labels):
             start_id = np.searchsorted(self.result['tim'], start - self.camtime_delta)
             end_id = np.searchsorted(self.result['tim'], end - self.camtime_delta)
-            selected.extend(list(range(start_id, end_id)))
+            selected[ii] = (list(range(start_id, end_id)))
+            changed_frames += 1 + start_id - end_id
 
-        self.total_frames = len(selected)
+        self.frames = changed_frames
 
         for key in self.result.keys():
-            self.result[key] = self.result[key][selected]
+            self.result['annotated'][key] = {}
+            for ii in selected.keys():
+                if key != 'label':
+                    self.result['annotated'][key][ii] = self.result['vanilla'][key][selected[ii]]
+                else:
+                    self.result['annotated'][key][ii] = [self.labels[ii]
+                                                         for _ in range(selected[ii][0], selected[ii][-1])]
+
         print('Done')
+
+    def alignment(self):
+        print(f"Aligning into {self.frames} * {self.assemble_number}...", end='')
+        if self.result['annotated']:
+            data = 'annotated'
+        else:
+            data = 'vanilla'
+
+        for types in self.result.keys():
+            for seg in self.result[data][types].keys():
+                length, *shape = self.result[data][types][seg].shape(0)
+                changed_length = length // self.assemble_number
+                self.result[data][types][seg] = self.result[data][types][seg].reshape(
+                    changed_length, self.assemble_number, *shape)
+        print("Done!")
 
     def calibrate_camtime(self):
         """
@@ -383,14 +412,14 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         cvt = datetime.fromtimestamp
 
         if not self.caliberated:
-            temp_lag = np.zeros(self.total_frames)
-            for i in range(self.total_frames):
+            temp_lag = np.zeros(self.frames)
+            for i in range(self.frames):
                 temp_lag[i] = self.result['tim'][i] - self.video_stream.local_time[i]
 
             camtime_delta = np.mean(temp_lag)
             print('lag={}'.format(camtime_delta))
 
-            for i in range(self.total_frames):
+            for i in range(self.frames):
                 self.result['tim'][i] = self.result['tim'][i] - camtime_delta
             self.caliberated = True
             self.camtime_delta = camtime_delta
