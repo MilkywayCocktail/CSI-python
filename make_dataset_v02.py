@@ -132,7 +132,7 @@ class CSILoader:
         self.__csi_path = csi_path
         self.__csitime_path = csitime_path
         self.csi_configs = csi_configs
-        self.raw_csi = self.__load_csi__()
+        self.csi = self.__load_csi__()
 
     def __load_csi__(self):
         print('Loading CSI...')
