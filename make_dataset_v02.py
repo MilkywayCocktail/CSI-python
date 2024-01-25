@@ -388,7 +388,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         print('Done')
 
-    def alignment(self):
+    def assemble(self):
         print(f"Aligning into {self.frames} * {self.assemble_number}...", end='')
         if self.result['annotated']:
             data = 'annotated'
