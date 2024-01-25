@@ -441,7 +441,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         for i in tqdm(range(len(self.result['vanilla']['img']))):
             mask = self.result['vanilla']['img'][i] < threshold
             masked = self.result['vanilla']['img'][i] * mask
-            self.result['img'][i] = masked
+            self.result['vanilla']['img'][i] = masked
 
     def compress_image(self):
         print("Compressing...", end='')
