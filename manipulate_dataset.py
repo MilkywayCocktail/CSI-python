@@ -76,6 +76,7 @@ class Regrouper:
             self.result[key] = np.delete(self.result[key], 0, axis=0)
 
     def regroup(self, number=0):
+        print("Saving...")
         if not os.path.exists(self.out_path):
             os.makedirs(self.out_path)
         for key in list(self.result.keys()):
