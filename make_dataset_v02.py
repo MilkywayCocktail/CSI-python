@@ -1,3 +1,4 @@
+import numpy
 import pyrealsense2 as rs
 import cv2
 import csi_loader
@@ -200,7 +201,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def init_data(self):
         # img_size = (width, height)
 
-        csi = np.zeros((self.frames, 90, self.csi_length))
+        csi = np.zeros((self.frames, *self.csi_size))
         images = np.zeros((self.frames, self.img_size[1], self.img_size[0]))
         timestamps = np.zeros(self.frames)
         indices = np.zeros(self.frames, dtype=int)
@@ -238,7 +239,10 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                     if mode == 'depth':
                         image = cv2.convertScaleAbs(image, alpha=0.02)
                 elif source == 'result':
-                    image = np.concatenate(np.squeeze(self.result['img'][i]), axis=-1)
+                    if self.assemble_number == 1:
+                        image = np.squeeze(self.result['annotated']['img'][i])
+                    else:
+                        image = np.concatenate(np.squeeze(self.result['annotated']['img'][i].values()), axis=-1)
                 else:
                     raise Exception('Please specify source = \'raw\' or \'result\'.')
                 if save_flag is True:
@@ -313,6 +317,10 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             self.video_stream.stop()
             self.calibrate_camtime()
 
+    def reshape_csi(self, csi_sample: numpy.ndarray):
+        csi_sample = csi_sample.reshape(self.csi_length, 90).T
+        return csi_sample
+
     def export_csi(self, window_dynamic=False, pick_tx=0):
         """
         Finds csi packets according to the timestamps of images.\n
@@ -326,13 +334,13 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             self.result['vanilla']['ind'][i] = csi_index
             csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
             if window_dynamic:
-                csi_sample = self.windowed_dynamic(csi_sample).reshape(self.csi_length, 90).T
+                csi_sample = self.reshape_csi(self.windowed_dynamic(csi_sample))
             else:
-                csi_sample = csi_sample.reshape(self.csi_length, 90).T
+                csi_sample = self.reshape_csi(csi_sample)
 
             # Store in two channels
-            self.result['vanilla']['csi'][i, 0, :, :] = np.abs(csi_sample)
-            self.result['vanilla']['csi'][i, 1, :, :] = np.angle(csi_sample)
+            self.result['vanilla']['csi'][i, 0, ...] = np.abs(csi_sample)
+            self.result['vanilla']['csi'][i, 1, ...] = np.angle(csi_sample)
 
     def lookup_image(self):
         print("\033[32mLOOKUP MODE" +
@@ -414,7 +422,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         if not self.caliberated:
             temp_lag = np.zeros(self.frames)
             for i in range(self.frames):
-                temp_lag[i] = self.result['vanilla']['tim'][i] - self.video_stream.local_time[i]
+                temp_lag[i] = self.result['vanilla']['tim'][i] - self.local_time[i]
 
             camtime_delta = np.mean(temp_lag)
             print('lag={}'.format(camtime_delta))
@@ -450,3 +458,12 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
                         np.concatenate(self.result[data][types].values(), axis=0))
         print("Done")
+
+
+class DataMakerV02(MyDataMaker):
+    def __init__(self, *args, **kwargs):
+        super(DataMakerV02, self).__init__(*args, **kwargs)
+
+    def reshape_csi(self, csi_sample: numpy.ndarray):
+        csi_sample = np.transpose(csi_sample, (0, 3, 2, 1))
+        return csi_sample
