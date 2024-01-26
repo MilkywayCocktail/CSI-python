@@ -395,9 +395,9 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         selected = {}
         changed_frames = 0
-        for seg, (start, end, *others) in enumerate(self.labels):
-            start_id = np.searchsorted(self.result['vanilla']['tim'], start - self.camtime_delta)
-            end_id = np.searchsorted(self.result['vanilla']['tim'], end - self.camtime_delta)
+        for seg in range(len(self.labels['start'])):
+            start_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['start'][seg] - self.camtime_delta)
+            end_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['end'][seg] - self.camtime_delta)
             selected[seg] = (list(range(start_id, end_id)))
             changed_frames += 1 + start_id - end_id
 
