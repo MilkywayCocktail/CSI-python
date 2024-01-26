@@ -218,7 +218,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def init_data(self):
         # img_size = (width, height)
 
-        csi = np.zeros((self.frames, *self.csi_size))
+        csi = np.zeros((self.frames, 2, *self.csi_size))
         images = np.zeros((self.frames, self.img_size[1], self.img_size[0]))
         timestamps = np.zeros(self.frames)
         indices = np.zeros(self.frames, dtype=int)
@@ -443,13 +443,15 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 temp_lag[i] = self.result['vanilla']['tim'][i] - self.local_time[i]
 
             camtime_delta = np.mean(temp_lag)
-            print('lag={}'.format(camtime_delta))
 
             for i in range(self.frames):
                 self.result['vanilla']['tim'][i] = self.result['vanilla']['tim'][i] - camtime_delta
             self.caliberated = True
             self.camtime_delta = camtime_delta
-        print('Done')
+            print('Done')
+            print('lag={}'.format(camtime_delta))
+        else:
+            print("Already calibrated")
 
     def depth_mask(self, threshold=0.5):
         tqdm.write("Masking...")
