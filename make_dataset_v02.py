@@ -161,6 +161,23 @@ class CSILoader:
         return dynamic
 
 
+# ------ Data structure of "result" ------
+# result
+#   |------ 'vanilla'
+#               |------ 'img'
+#               |------ 'csi
+#               |------ 'tim
+#               |------ 'ind
+#               |------ 'label'
+#   |------ 'annotated'
+#               |------ 'img'
+#                           |------ 0 (#segment)
+#                           |------ 1
+#                           ...
+#               ...
+# ----------------------------------------
+
+
 class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def __init__(self, total_frames: int,
                  csi_configs: pycsi.MyConfigs,
@@ -378,22 +395,22 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         selected = {}
         changed_frames = 0
-        for ii, (start, end, *others) in enumerate(self.labels):
+        for seg, (start, end, *others) in enumerate(self.labels):
             start_id = np.searchsorted(self.result['vanilla']['tim'], start - self.camtime_delta)
             end_id = np.searchsorted(self.result['vanilla']['tim'], end - self.camtime_delta)
-            selected[ii] = (list(range(start_id, end_id)))
+            selected[seg] = (list(range(start_id, end_id)))
             changed_frames += 1 + start_id - end_id
 
         self.frames = changed_frames
 
         for types in self.result.keys():
             self.result['annotated'][types] = {}
-            for ii in selected.keys():
+            for seg in selected.keys():
                 if types != 'label':
-                    self.result['annotated'][types][ii] = self.result['vanilla'][types][selected[ii]]
+                    self.result['annotated'][types][seg] = self.result['vanilla'][types][selected[seg]]
                 else:
-                    self.result['annotated'][types][ii] = [self.labels[ii]
-                                                           for _ in range(selected[ii][0], selected[ii][-1])]
+                    self.result['annotated'][types][seg] = [self.labels[seg]
+                                                            for _ in range(selected[seg][0], selected[seg][-1])]
 
         print('Done')
 
@@ -438,11 +455,14 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         tqdm.write("Masking...")
         median = np.median(self.result['vanilla']['img'], axis=0)
         threshold = median * threshold
-        tqdm.write(f"Threshold depth = {threshold}")
+        plt.imshow(threshold / np.max(threshold))
+        plt.title("Threshold map")
+        plt.show()
         for i in tqdm(range(len(self.result['vanilla']['img']))):
             mask = self.result['vanilla']['img'][i] < threshold
             masked = self.result['vanilla']['img'][i] * mask
             self.result['vanilla']['img'][i] = masked
+        tqdm.write("Done")
 
     def compress_image(self):
         print("Compressing...", end='')
