@@ -61,8 +61,6 @@ class LabelParser:
         for key in labels.keys():
             labels[key] = np.array(labels[key])
 
-        labels['start'] *= 1e3
-        labels['end'] *= 1e3
         self.labels = labels
         print('Done')
 
@@ -110,7 +108,7 @@ class BagLoader:
 
         if mode == 'depth':
             depth_frame = frames.get_depth_frame()
-            frame_timestamp = depth_frame.get_timestamp() / 1000  # Camera timestamps in us
+            frame_timestamp = depth_frame.get_timestamp()
             if not depth_frame:
                 eval('continue')
             depth_frame = my_filter(depth_frame)
@@ -118,7 +116,7 @@ class BagLoader:
 
         elif mode == 'color':
             color_frame = frames.get_color_frame()
-            frame_timestamp = color_frame.get_timestamp() / 1000
+            frame_timestamp = color_frame.get_timestamp()
             if not color_frame:
                 eval('continue')
             image = np.asanyarray(color_frame.get_data())
@@ -397,11 +395,12 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         segments = {}
         changed_frames = 0
         for seg in range(len(self.labels['start'])):
+
             start_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['start'][seg] - self.camtime_delta)
             end_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['end'][seg] - self.camtime_delta)
-            print(start_id, end_id)
             segments[seg] = np.arange(start_id, end_id)
             changed_frames += 1 + end_id - start_id
+        print(segments.items())
 
         self.frames = changed_frames
 
