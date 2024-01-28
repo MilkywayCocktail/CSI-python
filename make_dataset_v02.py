@@ -407,6 +407,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         for types in self.result['vanilla'].keys():
             self.result['annotated'][types] = {}
             for seg in segments.keys():
+                self.result['annotated'][types][seg] = {}
                 if types != 'label':
                     self.result['annotated'][types][seg] = self.result['vanilla'][types][segments[seg]]
                 else:
