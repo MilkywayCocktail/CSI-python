@@ -399,9 +399,10 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         for seg in range(len(self.labels['start'])):
             start_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['start'][seg] - self.camtime_delta)
             end_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['end'][seg] - self.camtime_delta)
+            print(start_id, end_id)
             segments[seg] = np.arange(start_id, end_id)
-            changed_frames += 1 + start_id - end_id
-        print(segments.items())
+            changed_frames += 1 + end_id - start_id
+
         self.frames = changed_frames
 
         for types in self.result['vanilla'].keys():
