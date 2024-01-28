@@ -61,8 +61,8 @@ class LabelParser:
         for key in labels.keys():
             labels[key] = np.array(labels[key])
 
-        self.labels['start'] *= 1.e-3
-        self.labels['end'] *= 1.e-3
+        self.labels['start'] *= 1e-3
+        self.labels['end'] *= 1e-3
         self.labels = labels
         print('Done')
 
