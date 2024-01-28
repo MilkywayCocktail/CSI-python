@@ -213,7 +213,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         CSILoader.__init__(self, self.paths['csi'], self.paths['csitime'], csi_configs)
         LabelParser.__init__(self, self.paths['label'])
 
-        self.result = {'vanilla': self.init_data()}
+        self.result = {'vanilla': self.init_data(), 'annotated': {}}
 
     def init_data(self):
         # img_size = (width, height)
@@ -417,16 +417,15 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def assemble(self):
         print(f"Aligning into {self.frames} * {self.assemble_number}...", end='')
         if self.result['annotated']:
-            data = 'annotated'
+            for types in self.result.keys():
+                for seg in self.result['annotated'][types].keys():
+                    length, *shape = self.result['annotated'][types][seg].shape(0)
+                    changed_length = length // self.assemble_number
+                    self.result['annotated'][types][seg] = self.result['annotated'][types][seg].reshape(
+                        changed_length, self.assemble_number, *shape)
         else:
-            data = 'vanilla'
-
-        for types in self.result.keys():
-            for seg in self.result[data][types].keys():
-                length, *shape = self.result[data][types][seg].shape(0)
-                changed_length = length // self.assemble_number
-                self.result[data][types][seg] = self.result[data][types][seg].reshape(
-                    changed_length, self.assemble_number, *shape)
+            # Assemble vanilla data (ordinarily not needed)
+            pass
         print("Done")
 
     def calibrate_camtime(self):
