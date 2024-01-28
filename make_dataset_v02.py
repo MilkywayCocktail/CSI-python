@@ -108,7 +108,7 @@ class BagLoader:
 
         if mode == 'depth':
             depth_frame = frames.get_depth_frame()
-            frame_timestamp = depth_frame.get_timestamp()
+            frame_timestamp = depth_frame.get_timestamp() * 1.e3
             if not depth_frame:
                 eval('continue')
             depth_frame = my_filter(depth_frame)
@@ -116,7 +116,7 @@ class BagLoader:
 
         elif mode == 'color':
             color_frame = frames.get_color_frame()
-            frame_timestamp = color_frame.get_timestamp()
+            frame_timestamp = color_frame.get_timestamp() * 1.e3
             if not color_frame:
                 eval('continue')
             image = np.asanyarray(color_frame.get_data())
@@ -224,7 +224,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         labels = [] if not self.labels else self.labels
 
-        return {'csi': csi, 'img': images, 'tim': timestamps, 'ind': indices, 'labels': labels}
+        return {'csi': csi, 'img': images, 'time': timestamps, 'ind': indices, 'labels': labels}
 
     def playback(self, source='raw', mode='depth', display_size=(640, 480), save_name=None):
         print(f"Playback {source} {mode}...", end='')
@@ -301,7 +301,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             for i in tqdm(range(self.frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
 
-                self.result['vanilla']['tim'][i] = frame_timestamp
+                self.result['vanilla']['time'][i] = frame_timestamp
                 image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
                 self.result['vanilla']['img'][i, ...] = image
 
@@ -347,7 +347,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         for i in tqdm(range(self.frames)):
 
-            csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['tim'][i])
+            csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['time'][i])
             self.result['vanilla']['ind'][i] = csi_index
             csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
             if window_dynamic:
@@ -377,7 +377,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 try:
                     t = datetime.fromtimestamp(timestamp)
                     print(t.strftime("%Y-%m-%d %H:%M:%S.%f"))
-                    ind = np.searchsorted(self.result['tim'], timestamp)
+                    ind = np.searchsorted(self.result['time'], timestamp)
                     print(f"Found No.{ind} from results.")
                     plt.imshow(self.result['vanilla']['img'][ind])
                     plt.show()
@@ -396,8 +396,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         changed_frames = 0
         for seg in range(len(self.labels['start'])):
 
-            start_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['start'][seg] - self.camtime_delta)
-            end_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['end'][seg] - self.camtime_delta)
+            start_id = np.searchsorted(self.result['vanilla']['time'], self.labels['start'][seg] - self.camtime_delta)
+            end_id = np.searchsorted(self.result['vanilla']['time'], self.labels['end'][seg] - self.camtime_delta)
             segments[seg] = np.arange(start_id, end_id)
             changed_frames += 1 + end_id - start_id
         print(segments.items())
@@ -433,7 +433,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def calibrate_camtime(self):
         """
         Calibrate camera timestamps against local timestamps. All timestamps are absolute.\n
-        :return: result['tim']
+        :return: result['time']
         """
         print('Calibrating camera time against local time file...', end='')
         cvt = datetime.fromtimestamp
@@ -441,12 +441,12 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         if not self.caliberated:
             temp_lag = np.zeros(self.frames)
             for i in range(self.frames):
-                temp_lag[i] = self.result['vanilla']['tim'][i] - self.local_time[i]
+                temp_lag[i] = self.result['vanilla']['time'][i] - self.local_time[i]
 
             camtime_delta = np.mean(temp_lag)
 
             for i in range(self.frames):
-                self.result['vanilla']['tim'][i] = self.result['vanilla']['tim'][i] - camtime_delta
+                self.result['vanilla']['time'][i] = self.result['vanilla']['time'][i] - camtime_delta
             self.caliberated = True
             self.camtime_delta = camtime_delta
             print('Done')
