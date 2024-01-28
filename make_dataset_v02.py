@@ -394,15 +394,14 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         """
         print('Slicing...', end='')
 
-        segments = {}
+        segments = {seg: None for seg in range(len(self.labels['start']))}
         changed_frames = 0
         for seg in range(len(self.labels['start'])):
-
             start_id = np.searchsorted(self.result['vanilla']['time'], self.labels['start'][seg] - self.camtime_delta)
             end_id = np.searchsorted(self.result['vanilla']['time'], self.labels['end'][seg] - self.camtime_delta)
             segments[seg] = np.arange(start_id, end_id)
             changed_frames += 1 + end_id - start_id
-
+        print(segments.items)
         self.frames = changed_frames
 
         for types in self.result['vanilla'].keys():
