@@ -213,7 +213,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         CSILoader.__init__(self, self.paths['csi'], self.paths['csitime'], csi_configs)
         LabelParser.__init__(self, self.paths['label'])
 
-        self.result = {'vanilla': self.init_data(), 'annotated': {}}
+        self.result = {'vanilla': self.init_data(),
+                       'annotated': {}}
 
     def init_data(self):
         # img_size = (width, height)
@@ -393,24 +394,24 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         """
         print('Slicing...', end='')
 
-        selected = {}
+        segments = {}
         changed_frames = 0
         for seg in range(len(self.labels['start'])):
             start_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['start'][seg] - self.camtime_delta)
             end_id = np.searchsorted(self.result['vanilla']['tim'], self.labels['end'][seg] - self.camtime_delta)
-            selected[seg] = (list(range(start_id, end_id)))
+            segments[seg] = np.arange(start_id, end_id)
             changed_frames += 1 + start_id - end_id
 
         self.frames = changed_frames
 
-        for types in self.result.keys():
+        for types in self.result['vanilla'].keys():
             self.result['annotated'][types] = {}
-            for seg in selected.keys():
+            for seg in segments.keys():
                 if types != 'label':
-                    self.result['annotated'][types][seg] = self.result['vanilla'][types][selected[seg]]
+                    self.result['annotated'][types][seg] = self.result['vanilla'][types][segments[seg]]
                 else:
                     self.result['annotated'][types][seg] = [self.labels[seg]
-                                                            for _ in range(selected[seg][0], selected[seg][-1])]
+                                                            for _ in range(segments[seg][0], segments[seg][-1])]
 
         print('Done')
 
