@@ -404,14 +404,11 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         print('Slicing...', end='')
 
         segment = {seg: None for seg in range(len(self.label['segment']))}
-        changed_frames = 0
         for seg in range(len(self.label['start'])):
             start_id = np.searchsorted(self.result['vanilla']['time'], self.label['start'][seg] - self.camtime_delta)
             end_id = np.searchsorted(self.result['vanilla']['time'], self.label['end'][seg] - self.camtime_delta)
             segment[seg] = np.arange(start_id, end_id)
-            changed_frames += 1 + end_id - start_id
 
-        self.frames = changed_frames
         self.label['segment'] = segment
 
         for types in self.result['vanilla'].keys():
@@ -422,12 +419,11 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         print('Done')
 
     def assemble(self):
-        print(f"Aligning into {self.frames} * {self.assemble_number}...", end='')
+        print("Aligning...")
         if self.result['annotated']:
             for types in self.result['vanilla'].keys():
                 for seg in self.label['segment'].keys():
                     length, *shape = self.result['annotated'][types][seg].shape
-                    print(length, *shape)
                     assemble_length = length // self.assemble_number
                     slice_length = assemble_length * self.assemble_number
                     self.result['annotated'][types][seg] = self.result['annotated'][types][seg][:slice_length].reshape(
