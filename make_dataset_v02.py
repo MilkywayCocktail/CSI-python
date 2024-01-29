@@ -111,10 +111,10 @@ class BagLoader:
         return local_time.astype(np.float64)
 
     def __get_image__(self, mode):
-        frames = self.video_stream.wait_for_frames()
+        frame = self.video_stream.wait_for_frames()
 
         if mode == 'depth':
-            depth_frame = frames.get_depth_frame()
+            depth_frame = frame.get_depth_frame()
             frame_timestamp = depth_frame.get_timestamp() / 1.e3
             if not depth_frame:
                 eval('continue')
@@ -122,7 +122,7 @@ class BagLoader:
             image = np.asanyarray(depth_frame.get_data())
 
         elif mode == 'color':
-            color_frame = frames.get_color_frame()
+            color_frame = frame.get_color_frame()
             frame_timestamp = color_frame.get_timestamp() / 1.e3
             if not color_frame:
                 eval('continue')
@@ -360,7 +360,13 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
             csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['time'][i])
             self.result['vanilla']['ind'][i] = csi_index
-            csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
+            try:
+                if self.alignment == 'head':
+                    csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
+                elif self.alignment == 'tail':
+                    csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
+            except Exception:
+                continue
             if window_dynamic:
                 csi_sample = self.reshape_csi(self.windowed_dynamic(csi_sample))
             else:
@@ -415,6 +421,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             self.result['annotated'][types] = {seg: None for seg in segment.keys()}
             for seg in segment.keys():
                 self.result['annotated'][types][seg] = self.result['vanilla'][types][segment[seg]]
+
+        self.result['annotated']['label'] = {seg: [seg] * len(segment[seg]) for seg in segment.keys()}
 
         print('Done')
 
@@ -482,8 +490,12 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         for types in args:
             if types in self.result[data].keys():
-                np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
-                        np.concatenate(self.result[data][types], axis=0))
+                if types in ('time', 'label'):
+                    np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
+                            self.result[data][types])
+                else:
+                    np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
+                            np.concatenate(list(self.result[data][types].values())))
         print("Done")
 
 
