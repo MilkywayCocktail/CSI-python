@@ -46,17 +46,21 @@ class LabelParser:
 
     def parse(self):
         print('Loading labels...', end='')
-        labels = {}
+        labels = {'segment': []}
         with open(self.__label_path) as f:
             for i, line in enumerate(f):
                 if i == 0:
+                    # ---Keys of label---
                     key_list = line.strip().split(',')
                     for key in key_list:
                         labels[key] = []
                 else:
+                    # ---Values of label---
                     line_list = line.split(',')
+                    labels['segment'].append(i - 1)
                     for ii, key in enumerate(key_list):
-                        labels[key].append(eval(line_list[ii]))
+                        if key != 'segment':
+                            labels[key].append(eval(line_list[ii]))
 
         for key in labels.keys():
             labels[key] = np.array(labels[key])
@@ -413,8 +417,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                     if types != 'label':
                         self.result['annotated'][types][seg] = self.result['vanilla'][types][self.segments[seg]]
                     else:
-                        self.result['annotated'][types][seg] = [self.labels[seg] for _ in range(self.segments[seg][0],
-                                                                                                self.segments[seg][-1])]
+                        self.result['annotated'][types][seg] = {{key: self.result['labels'][key][seg]} for key in
+                                                                self.result['labels'].keys()}
                 except Exception:
                     print(types, seg)
 
