@@ -231,10 +231,10 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         return {'csi': csi, 'img': images, 'time': timestamps, 'ind': indices}
 
-    def manual_load(self, type, path):
-        print(f"Loading {type}...", end='')
-        if type in self.result['vanilla'].keys():
-            self.result[type] = np.load(path)
+    def manual_load(self, types, path):
+        print(f"Loading {types}...", end='')
+        if types in self.result['vanilla'].keys():
+            self.result[types] = np.load(path)
         print('Done')
 
     def playback(self, source='raw', mode='depth', display_size=(640, 480), save_name=None):
@@ -425,8 +425,9 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         print(f"Aligning into {self.frames} * {self.assemble_number}...", end='')
         if self.result['annotated']:
             for types in self.result['vanilla'].keys():
-                for seg in self.result['annotated'][types].keys():
+                for seg in self.label['segment'].keys():
                     length, *shape = self.result['annotated'][types][seg].shape
+                    print(length, *shape)
                     assemble_length = length // self.assemble_number
                     slice_length = assemble_length * self.assemble_number
                     self.result['annotated'][types][seg] = self.result['annotated'][types][seg][:slice_length].reshape(
