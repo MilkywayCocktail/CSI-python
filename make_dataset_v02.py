@@ -402,6 +402,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             segments[seg] = np.arange(start_id, end_id)
             changed_frames += 1 + end_id - start_id
         print(segments.items())
+        print(segments[0])
         self.frames = changed_frames
 
         for types in self.result['vanilla'].keys():
