@@ -204,6 +204,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.csi_length = csi_length
         self.assemble_number = assemble_number
         self.alignment = alignment
+        self.segments = None
 
         self.caliberated = False
         self.camtime_delta = 0.
@@ -394,26 +395,25 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         """
         print('Slicing...', end='')
 
-        segments = {seg: None for seg in range(len(self.labels['start']))}
+        self.segments = {seg: None for seg in range(len(self.labels['start']))}
         changed_frames = 0
         for seg in range(len(self.labels['start'])):
             start_id = np.searchsorted(self.result['vanilla']['time'], self.labels['start'][seg] - self.camtime_delta)
             end_id = np.searchsorted(self.result['vanilla']['time'], self.labels['end'][seg] - self.camtime_delta)
-            segments[seg] = np.arange(start_id, end_id)
+            self.segments[seg] = np.arange(start_id, end_id)
             changed_frames += 1 + end_id - start_id
-        print(segments.items())
-        print(segments[0])
+
         self.frames = changed_frames
 
         for types in self.result['vanilla'].keys():
             self.result['annotated'][types] = {}
-            for seg in segments.keys():
+            for seg in self.segments.keys():
                 self.result['annotated'][types][seg] = {}
                 if types != 'label':
-                    self.result['annotated'][types][seg] = self.result['vanilla'][types][segments[seg]]
+                    self.result['annotated'][types][seg] = self.result['vanilla'][types][self.segments[seg]]
                 else:
-                    self.result['annotated'][types][seg] = [self.labels[seg]
-                                                            for _ in range(segments[seg][0], segments[seg][-1])]
+                    self.result['annotated'][types][seg] = [self.labels[seg] for _ in range(self.segments[seg][0],
+                                                                                            self.segments[seg][-1])]
 
         print('Done')
 
