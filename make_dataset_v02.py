@@ -40,43 +40,44 @@ def my_filter(frame):
 class LabelParser:
     def __init__(self, label_path):
         self.__label_path = label_path
-        self.labels = None
+        self.label = None
         if self.__label_path:
             self.parse()
 
     def parse(self):
-        print('Loading labels...', end='')
-        labels = {'segment': []}
+        print('Loading label...', end='')
+        label = {'segment': []}
         with open(self.__label_path) as f:
             for i, line in enumerate(f):
                 if i == 0:
                     # ---Keys of label---
                     key_list = line.strip().split(',')
                     for key in key_list:
-                        labels[key] = []
+                        label[key] = []
                 else:
                     # ---Values of label---
                     line_list = line.split(',')
-                    labels['segment'].append(i - 1)
+                    label['segment'].append(i - 1)
                     for ii, key in enumerate(key_list):
                         if key != 'segment':
-                            labels[key].append(eval(line_list[ii]))
+                            label[key].append(eval(line_list[ii]))
 
-        for key in labels.keys():
-            labels[key] = np.array(labels[key])
+        for key in label.keys():
+            label[key] = np.array(label[key])
 
-        labels['start'] *= 1.e-3
-        labels['end'] *= 1.e-3
-        self.labels = labels
+        label['start'] *= 1.e-3
+        label['end'] *= 1.e-3
+        label['indices'] = {}
+        self.label = label
         print('Done')
 
     def add_condition(self):
-        self.labels['direction'] = []
-        for i in range(len(self.labels['start'])):
-            if self.labels['x0'][i] == self.labels['x1'][i]:
-                self.labels['direction'].append('y')
-            elif self.labels['y0'][i] == self.labels['y1'][i]:
-                self.labels['direction'].append('x')
+        self.label['direction'] = []
+        for i in range(len(self.label['start'])):
+            if self.label['x0'][i] == self.label['x1'][i]:
+                self.label['direction'].append('y')
+            elif self.label['y0'][i] == self.label['y1'][i]:
+                self.label['direction'].append('x')
 
 
 class BagLoader:
@@ -208,7 +209,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.csi_length = csi_length
         self.assemble_number = assemble_number
         self.alignment = alignment
-        self.segments = None
 
         self.caliberated = False
         self.camtime_delta = 0.
@@ -229,9 +229,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         timestamps = np.zeros(self.frames)
         indices = np.zeros(self.frames, dtype=int)
 
-        labels = [] if not self.labels else self.labels
-
-        return {'csi': csi, 'img': images, 'time': timestamps, 'ind': indices, 'labels': labels}
+        return {'csi': csi, 'img': images, 'time': timestamps, 'ind': indices}
 
     def playback(self, source='raw', mode='depth', display_size=(640, 480), save_name=None):
         print(f"Playback {source} {mode}...", end='')
@@ -399,26 +397,22 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         """
         print('Slicing...', end='')
 
-        self.segments = {seg: None for seg in range(len(self.labels['start']))}
+        segment = {seg: None for seg in range(len(self.label['segment']))}
         changed_frames = 0
-        for seg in range(len(self.labels['start'])):
-            start_id = np.searchsorted(self.result['vanilla']['time'], self.labels['start'][seg] - self.camtime_delta)
-            end_id = np.searchsorted(self.result['vanilla']['time'], self.labels['end'][seg] - self.camtime_delta)
-            self.segments[seg] = np.arange(start_id, end_id)
+        for seg in range(len(self.label['start'])):
+            start_id = np.searchsorted(self.result['vanilla']['time'], self.label['start'][seg] - self.camtime_delta)
+            end_id = np.searchsorted(self.result['vanilla']['time'], self.label['end'][seg] - self.camtime_delta)
+            segment[seg] = np.arange(start_id, end_id)
             changed_frames += 1 + end_id - start_id
 
         self.frames = changed_frames
+        self.label['segment'] = segment
 
         for types in self.result['vanilla'].keys():
-            self.result['annotated'][types] = {}
-            for seg in self.segments.keys():
-                self.result['annotated'][types][seg] = {}
+            self.result['annotated'][types] = {seg: None for seg in segment.keys()}
+            for seg in segment.keys():
                 try:
-                    if types != 'label':
-                        self.result['annotated'][types][seg] = self.result['vanilla'][types][self.segments[seg]]
-                    else:
-                        self.result['annotated'][types][seg] = {{key: self.result['labels'][key][seg]} for key in
-                                                                self.result['labels'].keys()}
+                    self.result['annotated'][types][seg] = self.result['vanilla'][types][segment[seg]]
                 except Exception:
                     print(types, seg)
 
@@ -427,14 +421,14 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def assemble(self):
         print(f"Aligning into {self.frames} * {self.assemble_number}...", end='')
         if self.result['annotated']:
-            for types in self.result.keys():
+            for types in self.result['vanilla'].keys():
                 for seg in self.result['annotated'][types].keys():
-                    length, *shape = self.result['annotated'][types][seg].shape(0)
+                    length, *shape = self.result['annotated'][types][seg].shape
                     changed_length = length // self.assemble_number
                     self.result['annotated'][types][seg] = self.result['annotated'][types][seg].reshape(
                         changed_length, self.assemble_number, *shape)
         else:
-            # Assemble vanilla data (ordinarily not needed)
+            # Assemble vanilla data (usually not needed)
             pass
         print("Done")
 
