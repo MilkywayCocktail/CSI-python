@@ -231,6 +231,12 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         return {'csi': csi, 'img': images, 'time': timestamps, 'ind': indices}
 
+    def manual_load(self, type, path):
+        print(f"Loading {type}...", end='')
+        if type in self.result['vanilla'].keys():
+            self.result[type] = np.load(path)
+        print('Done')
+
     def playback(self, source='raw', mode='depth', display_size=(640, 480), save_name=None):
         print(f"Playback {source} {mode}...", end='')
         save_flag = False
@@ -411,10 +417,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         for types in self.result['vanilla'].keys():
             self.result['annotated'][types] = {seg: None for seg in segment.keys()}
             for seg in segment.keys():
-                try:
-                    self.result['annotated'][types][seg] = self.result['vanilla'][types][segment[seg]]
-                except Exception:
-                    print(types, seg)
+                self.result['annotated'][types][seg] = self.result['vanilla'][types][segment[seg]]
 
         print('Done')
 
@@ -424,9 +427,10 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             for types in self.result['vanilla'].keys():
                 for seg in self.result['annotated'][types].keys():
                     length, *shape = self.result['annotated'][types][seg].shape
-                    changed_length = length // self.assemble_number
-                    self.result['annotated'][types][seg] = self.result['annotated'][types][seg].reshape(
-                        changed_length, self.assemble_number, *shape)
+                    assemble_length = length // self.assemble_number
+                    slice_length = assemble_length * self.assemble_number
+                    self.result['annotated'][types][seg] = self.result['annotated'][types][seg][:slice_length].reshape(
+                        assemble_length, self.assemble_number, *shape)
         else:
             # Assemble vanilla data (usually not needed)
             pass
@@ -474,7 +478,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.result['vanilla']['img'] = self.result['vanilla']['img'].astype(np.uint16)
         print("Done")
 
-    def save_dataset(self, save_name, data='vanilla', *args):
+    def save_dataset(self, save_name=None, data='vanilla', *args):
         print("Saving...", end='')
         if not os.path.exists(self.paths['save']):
             os.makedirs(self.paths['save'])
@@ -482,7 +486,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         for types in args:
             if types in self.result[data].keys():
                 np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
-                        np.concatenate(self.result[data][types].values(), axis=0))
+                        np.concatenate(self.result[data][types], axis=0))
         print("Done")
 
 
