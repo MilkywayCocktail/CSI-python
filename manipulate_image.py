@@ -15,10 +15,10 @@ class ImageGen:
         self.gen_bbx = None
 
     def load_images(self, path):
-        print("Loading images...", end='')
+        print("Loading images...")
         self.raw_imgs = np.load(path)
         self.raw_bbx = np.zeros((len(self.raw_imgs), 4))
-        print("Complete!")
+        print(f"Loaded img of {self.raw_imgs.shape} as {self.raw_imgs.dtype}")
 
     def print_len(self):
         print(f"raw images: {len(self.raw_imgs)}, raw bbx: {len(self.raw_bbx)}, gen images: {len(self.gen_imgs)}, "
