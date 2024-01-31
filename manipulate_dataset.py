@@ -45,13 +45,13 @@ def separate(in_path, out_path, scope: tuple):
     
     
 class Regrouper:
-    def __init__(self, in_path, out_path, scope: tuple, wanted_types: dict):
+    def __init__(self, in_path, out_path, scope: tuple, wanted_types: dict, assemble_number=1):
         self.in_path = in_path
         self.out_path = out_path
         self.scope = scope
         self.result = {}
-        for name, shape in wanted_types.items():
-            self.result[name] = np.zeros(shape)
+        for name, *shape in wanted_types.items():
+            self.result[name] = np.zeros((1, assemble_number, shape))
             
     def load(self):
         print("Loading...")
