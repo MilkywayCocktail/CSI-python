@@ -50,8 +50,8 @@ class Regrouper:
         self.out_path = out_path
         self.scope = scope
         self.result = {}
-        for name, *shape in wanted_types.items():
-            self.result[name] = np.zeros((1, assemble_number, shape))
+        for name, shape in wanted_types.items():
+            self.result[name] = np.zeros((1, assemble_number, *shape))
             
     def load(self):
         print("Loading...")
