@@ -225,9 +225,9 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         # img_size = (width, height)
 
         csi = np.zeros((self.frames, 2, *self.csi_size))
-        images = np.zeros((self.frames, self.img_size[1], self.img_size[0]))
-        timestamps = np.zeros(self.frames)
-        indices = np.zeros(self.frames, dtype=int)
+        images = np.zeros((self.frames, 1, self.img_size[1], self.img_size[0]))
+        timestamps = np.zeros((self.frames, 1, 1))
+        indices = np.zeros((self.frames, 1, 1), dtype=int)
 
         return {'csi': csi, 'img': images, 'time': timestamps, 'ind': indices}
 
@@ -312,7 +312,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             for i in tqdm(range(self.frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
 
-                self.result['vanilla']['time'][i] = frame_timestamp
+                self.result['vanilla']['time'][i, ...] = frame_timestamp
                 image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
                 self.result['vanilla']['img'][i, ...] = image
 
@@ -355,16 +355,23 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         Requires export_image.\n
         """
         tqdm.write('Starting exporting CSI...')
-
+        boundary = [-1, -1, -1]
         for i in tqdm(range(self.frames)):
-
-            csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['time'][i])
-            self.result['vanilla']['ind'][i] = csi_index
+            csi_index = np.searchsorted(self.csi.timestamps,
+                                        self.result['vanilla']['time'][i])
+            self.result['vanilla']['ind'][i, ...] = csi_index
             try:
-                if self.alignment == 'head':
-                    csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
-                elif self.alignment == 'tail':
-                    csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
+                if self.alignment == 'head' and csi_index > boundary[2]:
+                    csi_sample = self.csi.csi[boundary[1]:boundary[2], :, :, pick_tx]
+                    boundary = [csi_index, csi_index + self.csi_length]
+
+                elif self.alignment == 'tail' and csi_index > boundary[1]:
+                    csi_sample = self.csi.csi[boundary[0]:boundary[1], :, :, pick_tx]
+                    boundary = [csi_index - self.csi_length, csi_index]
+
+                boundary = [csi_index - self.csi_length,
+                            csi_index,
+                            csi_index + self.csi_length]
             except Exception:
                 continue
             if window_dynamic:
@@ -411,8 +418,9 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         segment = {seg: None for seg in range(len(self.label['segment']))}
         for seg in range(len(self.label['start'])):
-            start_id = np.searchsorted(self.result['vanilla']['time'], self.label['start'][seg] - self.camtime_delta)
-            end_id = np.searchsorted(self.result['vanilla']['time'], self.label['end'][seg] - self.camtime_delta)
+            start_id, end_id = np.searchsorted(self.result['vanilla']['time'],
+                                               [self.label['start'][seg] - self.camtime_delta,
+                                                self.label['end'][seg] - self.camtime_delta])
             segment[seg] = np.arange(start_id, end_id)
 
         self.label['segment'] = segment
@@ -431,11 +439,11 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         if self.result['annotated']:
             for types in self.result['vanilla'].keys():
                 for seg in self.label['segment'].keys():
-                    length, *shape = self.result['annotated'][types][seg].shape
+                    length, channel, *shape = self.result['annotated'][types][seg].shape
                     assemble_length = length // self.assemble_number
                     slice_length = assemble_length * self.assemble_number
                     self.result['annotated'][types][seg] = self.result['annotated'][types][seg][:slice_length].reshape(
-                        assemble_length, self.assemble_number, *shape)
+                        assemble_length, self.assemble_number * channel, *shape)
         else:
             # Assemble vanilla data (usually not needed)
             pass

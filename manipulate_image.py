@@ -9,6 +9,7 @@ class ImageGen:
     def __init__(self, name):
         self.name = name
         self.ind = []
+        self.img_size = None
         self.raw_imgs = None
         self.raw_bbx = None
         self.gen_imgs = None
@@ -18,6 +19,7 @@ class ImageGen:
         print("Loading images...")
         self.raw_imgs = np.load(path)
         self.raw_bbx = np.zeros((len(self.raw_imgs), 4))
+        length, *self.img_size = self.raw_imgs.shape
         print(f"Loaded img of {self.raw_imgs.shape} as {self.raw_imgs.dtype}")
 
     def print_len(self):
