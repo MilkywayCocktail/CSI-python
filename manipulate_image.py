@@ -56,8 +56,9 @@ class ImageGen:
         imgs = np.squeeze(self.raw_imgs)
 
         for i in range(len(imgs)):
-            img = np.squeeze(imgs[i])
-            (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
+            img = (np.squeeze(imgs[i]) * 255).astype(np.uint8)
+            print(img.dtype)
+            (T, timg) = cv2.threshold(img, 1, 255, cv2.THRESH_BINARY)
             contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
             if len(contours) != 0:
