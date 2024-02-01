@@ -177,11 +177,15 @@ class CSILoader:
 #   |------ 'annotated'
 #               |------ 'img'
 #                           |------ 0 (#segment)
+#                                   |------ 0 (#channel)
+#                                               |------ * (data size)
+#                                               ...
 #                           |------ 1
 #                           ...
 #               ...
+# PS. To save as ndarrays, the {segment: data} structure is
+# removed while saving.
 # ----------------------------------------
-
 
 class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def __init__(self, total_frames: int,
@@ -498,12 +502,12 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         for types in args:
             if types in self.result[data].keys():
-                if types in ('time', 'label'):
-                    np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
-                            self.result[data][types])
-                else:
-                    np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
-                            np.concatenate(list(self.result[data][types].values())))
+                # if types in ('time', 'label'):
+                #   np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
+                #   self.result[data][types])
+                # else:
+                np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
+                        np.concatenate(list(self.result[data][types].values())))
         print("Done")
 
 
