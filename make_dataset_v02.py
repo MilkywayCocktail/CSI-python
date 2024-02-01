@@ -366,15 +366,14 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             self.result['vanilla']['ind'][i, ...] = csi_index
             try:
                 if self.alignment == 'head' and csi_index > boundary[2]:
-                    csi_sample = self.csi.csi[boundary[1]:boundary[2], :, :, pick_tx]
+                    csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
 
                 elif self.alignment == 'tail' and csi_index > boundary[1]:
-                    csi_sample = self.csi.csi[boundary[0]:boundary[1], :, :, pick_tx]
+                    csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
 
                 boundary = [csi_index - self.csi_length,
                             csi_index,
                             csi_index + self.csi_length]
-                print(boundary)
 
                 if window_dynamic:
                     csi_sample = self.reshape_csi(self.windowed_dynamic(csi_sample))
@@ -382,7 +381,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                     csi_sample = self.reshape_csi(csi_sample)
 
             except Exception:
-                print(f"Error at {csi_index}")
+                print(f"Error at {csi_index}, boundary={boundary}")
 
             # Store in two channels
             self.result['vanilla']['csi'][i, 0, ...] = np.abs(csi_sample)
