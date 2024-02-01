@@ -479,15 +479,14 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
     def depth_mask(self, threshold=0.5):
         tqdm.write("Masking...")
-        median = np.median(self.result['vanilla']['img'], axis=0)
+        median = np.median(np.squeeze(self.result['vanilla']['img']), axis=0)
         threshold = median * threshold
         plt.imshow(threshold / np.max(threshold))
         plt.title("Threshold map")
         plt.show()
         for i in tqdm(range(len(self.result['vanilla']['img']))):
-            mask = self.result['vanilla']['img'][i] < threshold
-            masked = self.result['vanilla']['img'][i] * mask
-            self.result['vanilla']['img'][i] = masked
+            mask = np.squeeze(self.result['vanilla']['img'][i]) < threshold
+            self.result['vanilla']['img'][i] *= mask
         tqdm.write("Done")
 
     def compress_image(self):
