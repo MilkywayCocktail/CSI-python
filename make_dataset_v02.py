@@ -362,8 +362,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         boundary = [-1, -1, -1]
         for i in tqdm(range(self.frames)):
             csi_index = np.searchsorted(self.csi.timestamps,
-                                        self.result['vanilla']['time'][i])[0]
-            print(csi_index)
+                                        self.result['vanilla']['time'][i, 0, 0])
             self.result['vanilla']['ind'][i, ...] = csi_index
             try:
                 if self.alignment == 'head' and csi_index > boundary[2]:
