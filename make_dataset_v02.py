@@ -374,12 +374,15 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 boundary = [csi_index - self.csi_length,
                             csi_index,
                             csi_index + self.csi_length]
+                print(boundary)
+
+                if window_dynamic:
+                    csi_sample = self.reshape_csi(self.windowed_dynamic(csi_sample))
+                else:
+                    csi_sample = self.reshape_csi(csi_sample)
+
             except Exception:
                 print(f"Error at {csi_index}")
-            if window_dynamic:
-                csi_sample = self.reshape_csi(self.windowed_dynamic(csi_sample))
-            else:
-                csi_sample = self.reshape_csi(csi_sample)
 
             # Store in two channels
             self.result['vanilla']['csi'][i, 0, ...] = np.abs(csi_sample)
