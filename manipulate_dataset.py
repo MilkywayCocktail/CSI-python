@@ -67,6 +67,8 @@ class Regrouper:
                         data = data / 3000.
                         
                         self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
+                    if datatype in ('label', 'time'):
+                        data = np.load(self.in_path + file).tolist()
                     else:
                         data = np.load(self.in_path + file, mmap_mode='r')
                         self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
