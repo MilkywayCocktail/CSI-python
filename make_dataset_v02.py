@@ -434,7 +434,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             for seg in segment.keys():
                 self.result['annotated'][types][seg] = self.result['vanilla'][types][segment[seg]]
 
-        self.result['annotated']['label'] = {seg: [seg] * len(segment[seg]) for seg in segment.keys()}
+        self.result['annotated']['label'] = {seg: seg * np.ones((len(segment[seg]), 1)) for seg in segment.keys()}
 
         print('Done')
 
