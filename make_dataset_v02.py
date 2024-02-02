@@ -191,7 +191,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def __init__(self, total_frames: int,
                  csi_configs: pycsi.MyConfigs,
                  img_size: tuple = (128, 128),
-                 csi_size: tuple = (90, 100),
                  csi_length: int = 100,
                  assemble_number: int = 1,
                  alignment: str = 'head',
@@ -209,7 +208,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.paths = paths
         self.frames = total_frames
         self.samples = total_frames // assemble_number
-        self.csi_size = csi_size
         self.csi_length = csi_length
         self.assemble_number = assemble_number
         self.alignment = alignment
@@ -228,7 +226,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def init_data(self):
         # img_size = (width, height)
 
-        csi = np.zeros((self.frames, 2, *self.csi_size))
+        csi = np.zeros((self.frames, 2, 30, 3))
         images = np.zeros((self.frames, 1, self.img_size[1], self.img_size[0]))
         timestamps = np.zeros((self.frames, 1, 1))
         indices = np.zeros((self.frames, 1, 1), dtype=int)
@@ -349,9 +347,10 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             self.video_stream.stop()
             self.calibrate_camtime()
 
-    def reshape_csi(self, csi_sample: numpy.ndarray):
-        csi_sample = csi_sample.reshape(self.csi_length, 90).T
-        return csi_sample
+    def reshape_csi(self):
+        length, channel, *csi_shape = self.result['vanilla']['csi'].shape
+        self.result['vanilla']['csi'] = self.result['vanilla']['csi'].reshape(
+            length, channel, 100, 90).transpose((-1, -2))
 
     def export_csi(self, window_dynamic=False, pick_tx=0):
         """
@@ -359,33 +358,31 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         Requires export_image.\n
         """
         tqdm.write('Starting exporting CSI...')
-        boundary = [-1, -1, -1]
+        boundary = [-1, -1]
         for i in tqdm(range(self.frames)):
-            csi_index = np.searchsorted(self.csi.timestamps,
-                                        self.result['vanilla']['time'][i, 0, 0])
+            csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['time'][i, 0, 0])
+
             self.result['vanilla']['ind'][i, ...] = csi_index
             try:
-                if self.alignment == 'head' and csi_index > boundary[2]:
-                    csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
+                if csi_index > boundary[1]:
+                    if self.alignment == 'head':
+                        csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
+                    elif self.alignment == 'tail':
+                        csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
 
-                elif self.alignment == 'tail' and csi_index > boundary[1]:
-                    csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
-
-                boundary = [csi_index - self.csi_length,
-                            csi_index,
-                            csi_index + self.csi_length]
+                    boundary = [csi_index,
+                                csi_index + self.csi_length]
 
                 if window_dynamic:
-                    csi_sample = self.reshape_csi(self.windowed_dynamic(csi_sample))
-                else:
-                    csi_sample = self.reshape_csi(csi_sample)
+                    csi_sample = self.windowed_dynamic(csi_sample)
 
             except Exception:
                 print(f"Error at {csi_index}, boundary={boundary}")
 
-            # Store in two channels
+            # Store in two channels and reshape
             self.result['vanilla']['csi'][i, 0, ...] = np.abs(csi_sample)
             self.result['vanilla']['csi'][i, 1, ...] = np.angle(csi_sample)
+            self.reshape_csi()
 
     def lookup_image(self):
         print("\033[32mLOOKUP MODE" +
@@ -515,6 +512,7 @@ class DataMakerV02(MyDataMaker):
     def __init__(self, *args, **kwargs):
         super(DataMakerV02, self).__init__(*args, **kwargs)
 
-    def reshape_csi(self, csi_sample: numpy.ndarray):
-        csi_sample = np.transpose(csi_sample, (0, 3, 2, 1))
-        return csi_sample
+    def reshape_csi(self):
+        length, channel, *csi_shape = self.result['vanilla']['csi'].shape
+        self.result['vanilla']['csi'] = (self.result['vanilla']['csi'].transpose(
+            (-1, -3))).reshape(length, channel * 3, 30, 30)
