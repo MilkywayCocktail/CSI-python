@@ -423,8 +423,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         segment = {seg: None for seg in range(len(self.label['segment']))}
         for seg in range(len(self.label['start'])):
             start_id, end_id = np.searchsorted(self.result['vanilla']['time'],
-                                               [self.label['start'][seg] - self.camtime_delta,
-                                                self.label['end'][seg] - self.camtime_delta])
+                                               [np.squeeze(self.label['start'][seg]) - self.camtime_delta,
+                                                np.squeeze(self.label['end'][seg]) - self.camtime_delta])
             segment[seg] = np.arange(start_id, end_id)
 
         self.label['segment'] = segment
