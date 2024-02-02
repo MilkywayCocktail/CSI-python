@@ -405,7 +405,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 try:
                     t = datetime.fromtimestamp(timestamp)
                     print(t.strftime("%Y-%m-%d %H:%M:%S.%f"))
-                    ind = np.searchsorted(self.result['time'], timestamp)
+                    ind = np.searchsorted(self.result['vanilla']['time'][:, 0, 0], timestamp)
                     print(f"Found No.{ind} from results.")
                     plt.imshow(self.result['vanilla']['img'][ind])
                     plt.show()
@@ -421,11 +421,14 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         print('Slicing...', end='')
 
         segment = {seg: None for seg in range(len(self.label['segment']))}
+        self.result['annotated']['label'] = {}
+
         for seg in range(len(self.label['start'])):
             start_id, end_id = np.searchsorted(self.result['vanilla']['time'][:, 0, 0],
                                                [self.label['start'][seg] - self.camtime_delta,
                                                 self.label['end'][seg] - self.camtime_delta])
             segment[seg] = np.arange(start_id, end_id)
+            self.result['annotated']['label'][seg] = seg * np.ones((len(segment[seg]), 1, 1))
 
         self.label['segment'] = segment
 
@@ -433,8 +436,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             self.result['annotated'][types] = {seg: None for seg in segment.keys()}
             for seg in segment.keys():
                 self.result['annotated'][types][seg] = self.result['vanilla'][types][segment[seg]]
-
-        self.result['annotated']['label'] = {seg: seg * np.ones((len(segment[seg]), 1, 1)) for seg in segment.keys()}
 
         print('Done')
 
