@@ -414,8 +414,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
     def slice_by_label(self):
         """
-        Trim out labeled segments.\n
-        Executed after exporting images and csi.\n
+        Segmentation regarding annotation.\n
         :return: sliced results
         """
         print('Slicing...', end='')
@@ -506,8 +505,9 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 #   np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
                 #   self.result[data][types])
                 # else:
-                np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
-                        np.concatenate(list(self.result[data][types].values())))
+                np.save(os.path.join(
+                    self.paths['save'],f"{save_name}_asmb{self.assemble_number}_len{self.csi_length}_{types}.npy"),
+                    np.concatenate(list(self.result[data][types].values())))
         print("Done")
 
 

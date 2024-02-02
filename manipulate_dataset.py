@@ -103,7 +103,7 @@ class DataViewer:
     def view_csi(self):
         np.set_printoptions(threshold=np.inf)
         plt.subplot(1, 3, 1)
-        plt.plot(self.data[:, 0, 0, 0])
+        plt.plot(self.data[:, :, 0, 0])
         plt.title("Overall")
         plt.subplot(1, 3, 2)
         plt.imshow(self.data[0, 0])
