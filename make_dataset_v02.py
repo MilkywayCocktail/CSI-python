@@ -350,7 +350,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def reshape_csi(self):
         length, channel, *csi_shape = self.result['vanilla']['csi'].shape
         self.result['vanilla']['csi'] = self.result['vanilla']['csi'].reshape(
-            length, channel, 100, 90).transpose((-1, -2))
+            length, channel, 100, 90).transpose(0, 1, 3, 2)
 
     def export_csi(self, window_dynamic=False, pick_tx=0):
         """
