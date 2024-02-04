@@ -373,8 +373,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                     boundary = [csi_index,
                                 csi_index + self.csi_length]
 
-                if window_dynamic:
-                    csi_sample = self.windowed_dynamic(csi_sample)
+                    if window_dynamic:
+                        csi_sample = self.windowed_dynamic(csi_sample)
 
             except Exception:
                 print(f"Error at {csi_index}, boundary={boundary}")
@@ -382,7 +382,8 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             # Store in two channels and reshape
             self.result['vanilla']['csi'][i, 0, ...] = np.abs(csi_sample)
             self.result['vanilla']['csi'][i, 1, ...] = np.angle(csi_sample)
-            self.reshape_csi()
+
+        self.reshape_csi()
 
     def lookup_image(self):
         print("\033[32mLOOKUP MODE" +
