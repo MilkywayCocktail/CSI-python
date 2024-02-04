@@ -194,6 +194,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                  csi_length: int = 100,
                  assemble_number: int = 1,
                  alignment: str = 'head',
+                 non_overlap: bool=True,
                  paths: dict = None,
                  jupyter_mode=False
                  ):
@@ -211,6 +212,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.csi_length = csi_length
         self.assemble_number = assemble_number
         self.alignment = alignment
+        self.non_overlap = non_overlap
 
         self.caliberated = False
         self.camtime_delta = 0.
@@ -233,10 +235,10 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         return {'csi': csi, 'img': images, 'time': timestamps, 'ind': indices}
 
-    def manual_load(self, types, path):
-        print(f"Loading {types}...", end='')
-        if types in self.result['vanilla'].keys():
-            self.result[types] = np.load(path)
+    def manual_load(self, modality, path):
+        print(f"Loading {modality}...", end='')
+        if modality in self.result['vanilla'].keys():
+            self.result[modality] = np.load(path)
         print('Done')
 
     def playback(self, source='raw', mode='depth', display_size=(640, 480), save_name=None):
@@ -359,22 +361,23 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         """
         tqdm.write('Starting exporting CSI...')
         boundary = [-1, -1]
+
         for i in tqdm(range(self.frames)):
             csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['time'][i, 0, 0])
-
             self.result['vanilla']['ind'][i, ...] = csi_index
+
             try:
-                if csi_index > boundary[1]:
+                if self.result['vanilla']['time'][i, 0, 0] > boundary[1]:
                     if self.alignment == 'head':
                         csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
                     elif self.alignment == 'tail':
                         csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
 
-                    boundary = [csi_index,
-                                csi_index + self.csi_length]
+                    boundary = [self.result['vanilla']['time'][i, 0, 0],
+                                self.result['vanilla']['time'][i, 0, 0] + self.csi_length * 1.e-3]
 
-                    if window_dynamic:
-                        csi_sample = self.windowed_dynamic(csi_sample)
+                if window_dynamic:
+                    csi_sample = self.windowed_dynamic(csi_sample)
 
             except Exception:
                 print(f"Error at {csi_index}, boundary={boundary}")
@@ -429,22 +432,22 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
         self.label['segment'] = segment
 
-        for types in self.result['vanilla'].keys():
-            self.result['annotated'][types] = {seg: None for seg in segment.keys()}
+        for modality in self.result['vanilla'].keys():
+            self.result['annotated'][modality] = {seg: None for seg in segment.keys()}
             for seg in segment.keys():
-                self.result['annotated'][types][seg] = self.result['vanilla'][types][segment[seg]]
+                self.result['annotated'][modality][seg] = self.result['vanilla'][modality][segment[seg]]
 
         print('Done')
 
     def assemble(self):
         print("Aligning...")
         if self.result['annotated']:
-            for types in self.result['vanilla'].keys():
+            for modality in self.result['vanilla'].keys():
                 for seg in self.label['segment'].keys():
-                    length, channel, *shape = self.result['annotated'][types][seg].shape
+                    length, channel, *shape = self.result['annotated'][modality][seg].shape
                     assemble_length = length // self.assemble_number
                     slice_length = assemble_length * self.assemble_number
-                    self.result['annotated'][types][seg] = self.result['annotated'][types][seg][:slice_length].reshape(
+                    self.result['annotated'][modality][seg] = self.result['annotated'][modality][seg][:slice_length].reshape(
                         assemble_length, self.assemble_number * channel, *shape)
         else:
             # Assemble vanilla data (usually not needed)
@@ -497,15 +500,15 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         if not os.path.exists(self.paths['save']):
             os.makedirs(self.paths['save'])
 
-        for types in args:
-            if types in self.result[data].keys():
-                # if types in ('time', 'label'):
-                #   np.save(os.path.join(self.paths['save'], f"{save_name}_{types}.npy"),
-                #   self.result[data][types])
+        for modality in args:
+            if modality in self.result[data].keys():
+                # if modality in ('time', 'label'):
+                #   np.save(os.path.join(self.paths['save'], f"{save_name}_{modality}.npy"),
+                #   self.result[data][modality])
                 # else:
                 np.save(os.path.join(
-                    self.paths['save'],f"{save_name}_asmb{self.assemble_number}_len{self.csi_length}_{types}.npy"),
-                    np.concatenate(list(self.result[data][types].values())))
+                    self.paths['save'],f"{save_name}_asmb{self.assemble_number}_len{self.csi_length}_{modality}.npy"),
+                    np.concatenate(list(self.result[data][modality].values())))
         print("Done")
 
 
