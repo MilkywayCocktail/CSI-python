@@ -226,7 +226,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def init_data(self):
         # img_size = (width, height)
 
-        csi = np.zeros((self.frames, 2, 30, 3))
+        csi = np.zeros((self.frames, 2, self.csi_length, 30, 3))
         images = np.zeros((self.frames, 1, self.img_size[1], self.img_size[0]))
         timestamps = np.zeros((self.frames, 1, 1))
         indices = np.zeros((self.frames, 1, 1), dtype=int)
