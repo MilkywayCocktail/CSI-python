@@ -143,10 +143,10 @@ class MyCommonFuncs:
 
 class MySpectrumViewer:
 
-    def __init__(self, name, spectrum, timestamps, num_ticks=11):
+    def __init__(self, name, spectrum, timescale, num_ticks=11):
         self.name = name
         self.spectrum = spectrum
-        self.timestamps = timestamps
+        self.timescale = timescale
         self.num_ticks = num_ticks
         self.algorithm = None
 
@@ -200,18 +200,18 @@ class MySpectrumViewer:
         pass
 
     @staticmethod
-    def replace(input_timestamps: list, input_ticks: int):
+    def replace(input_timescale: list, input_ticks: int):
         """
-        Generates a list of timestamps to be plotted as x-axis labels.\n
-        :param input_timestamps: timestamps
+        Generates a list of timescale to be plotted as x-axis labels.\n
+        :param input_timescale: timescale
         :param input_ticks: number of ticks (including start and end)
-        :return: a list of timestamps
+        :return: a list of timescale
         """
 
-        indices = [i * len(input_timestamps) // (input_ticks - 1) for i in range(input_ticks - 1)]
-        indices.append(len(input_timestamps) - 1)
+        indices = [i * len(input_timescale) // (input_ticks - 1) for i in range(input_ticks - 1)]
+        indices.append(len(input_timescale) - 1)
 
-        labels = [float('%.1f' % input_timestamps[x]) for x in indices]
+        labels = [float('%.1f' % input_timescale[x]) for x in indices]
 
         return indices, labels
 
@@ -226,10 +226,10 @@ class AoAViewer(MySpectrumViewer):
 
         if isinstance(srange, list):
             ax = sns.heatmap(self.spectrum[srange])
-            label0, label1 = self.replace(self.timestamps[srange], self.num_ticks)
+            label0, label1 = self.replace(self.timescale[srange], self.num_ticks)
         else:
             ax = sns.heatmap(self.spectrum)
-            label0, label1 = self.replace(self.timestamps, self.num_ticks)
+            label0, label1 = self.replace(self.timescale, self.num_ticks)
 
         ax.yaxis.set_major_formatter(ticker.FixedFormatter([120, 90, 60, 30, 0, -30, -60, -90]))
         ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
@@ -251,10 +251,10 @@ class AoDViewer(MySpectrumViewer):
     def show(self, srange=None, notion=''):
         if isinstance(srange, list):
             ax = sns.heatmap(self.spectrum[srange])
-            label0, label1 = self.replace(self.timestamps[srange], self.num_ticks)
+            label0, label1 = self.replace(self.timescale[srange], self.num_ticks)
         else:
             ax = sns.heatmap(self.spectrum)
-            label0, label1 = self.replace(self.timestamps, self.num_ticks)
+            label0, label1 = self.replace(self.timescale, self.num_ticks)
 
         ax.yaxis.set_major_formatter(ticker.FixedFormatter([120, 90, 60, 30, 0, -30, -60, -90]))
         ax.yaxis.set_major_locator(ticker.MultipleLocator(30))
@@ -276,10 +276,10 @@ class ToFViewer(MySpectrumViewer):
     def show(self, srange=None, notion=''):
         if isinstance(srange, list):
             ax = sns.heatmap(self.spectrum[srange])
-            label0, label1 = self.replace(self.timestamps[srange], self.num_ticks)
+            label0, label1 = self.replace(self.timescale[srange], self.num_ticks)
         else:
             ax = sns.heatmap(self.spectrum)
-            label0, label1 = self.replace(self.timestamps, self.num_ticks)
+            label0, label1 = self.replace(self.timescale, self.num_ticks)
 
         ax.yaxis.set_major_formatter(ticker.FixedFormatter([450, 400, 300, 200, 100, 0, -100]))
         ax.yaxis.set_major_locator(ticker.MultipleLocator(100))
@@ -370,8 +370,8 @@ class MyCsi:
         self.path = path
 
         self.csi = None
+        self.timescale = None
         self.timestamps = None
-        self.abs_timestamps = None
         self.length = None
         self.actual_sr = None
         self.labels = None
@@ -393,7 +393,7 @@ class MyCsi:
     def load_data(self, remove_sm=False):
         """
         Loads csi data into current MyCsi instance.\n
-        Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timestamps).\n
+        Supports .dat (raw) and .npz (csi_amp, csi_phase, csi_timescale).\n
         :return: csi data
         """
         try:
@@ -426,8 +426,9 @@ class MyCsi:
                 print('Done')
 
             self.csi = csi
-            self.timestamps = np.array(t - t[0]) / 1.e6
-            self.actual_sr = self.length / self.timestamps[-1]
+            self.timescale = np.array(t - t[0]) / 1.e6
+            self.timestamps = t
+            self.actual_sr = self.length / self.timescale[-1]
             print(self.name, self.csi.shape, "load complete", time.asctime(time.localtime(time.time())))
 
     def load_label(self, path):
@@ -461,10 +462,10 @@ class MyCsi:
             segments = []
 
             for (start, end) in labels:
-                start_id = np.searchsorted(self.timestamps, start)
-                end_id = np.searchsorted(self.timestamps, end)
+                start_id = np.searchsorted(self.timescale, start)
+                end_id = np.searchsorted(self.timescale, end)
                 dyn.extend(list(range(start_id, end_id)))
-                period.append([self.timestamps[start_id], self.timestamps[end_id]])
+                period.append([self.timescale[start_id], self.timescale[end_id]])
                 segments.append(list(range(start_id, end_id)))
 
             # static = list(set(full).difference(set(dyn)))
@@ -492,18 +493,18 @@ class MyCsi:
 
             if overwrite is True:
                 self.csi = self.csi[seg]
-                self.timestamps = self.timestamps[seg]
+                self.timescale = self.timescale[seg]
                 self.length = len(self.csi)
             else:
-                return self.csi[seg], self.timestamps[seg]
+                return self.csi[seg], self.timescale[seg]
         print('Done')
 
     def load_lists(self, csilist=None, timelist=None):
         """
         Loads separate items into current MyCsi instance.\n
         :param csilist: input csi
-        :param timelist: input timestamps
-        :return: amplitude, phase, timestamps, length, sampling_rate
+        :param timelist: input timescale
+        :return: amplitude, phase, timescale, length, sampling_rate
         """
 
         if self.path is not None:
@@ -512,13 +513,13 @@ class MyCsi:
                 self.csi = dic['csi']
             else:
                 self.csi = dic['amp'] * np.exp(1.j * dic['phs'])
-            self.timestamps = dic['time']
+            self.timescale = dic['time']
         else:
             self.csi = csilist
-            self.timestamps = timelist
+            self.timescale = timelist
         self.length = len(self.csi)
-        if self.timestamps:
-            self.actual_sr = self.length / self.timestamps[-1]
+        if self.timescale:
+            self.actual_sr = self.length / self.timescale[-1]
 
     def load_spectrum(self, input_path=None):
         """
@@ -580,7 +581,7 @@ class MyCsi:
             os.makedirs(save_path)
 
         save = {'csi': self.csi,
-                'time': self.timestamps}
+                'time': self.timescale}
 
         np.save(save_path + self.name + "-csis" + ".npy", save)
 
@@ -667,7 +668,7 @@ class MyCsi:
             plt.suptitle(str(self.name) + ' Phase Difference - packet ' + str(step * stride))
             plt.tight_layout()
 
-            save_name = save_path + str(self.timestamps[step * stride]) + '.jpg'
+            save_name = save_path + str(self.timescale[step * stride]) + '.jpg'
             plt.savefig(save_name)
             plt.close()
 
@@ -739,7 +740,7 @@ class MyCsi:
         else:
             for rx in range(csi_matrix.shape[2]):
                 csi_matrix_squeezed = np.squeeze(csi_matrix[:, :, rx, 0])
-                plt.plot(csi_matrix_squeezed, self.timestamps)
+                plt.plot(csi_matrix_squeezed, self.timescale)
 
             print(self.name, metric, "plot complete", time.asctime(time.localtime(time.time())))
 
@@ -792,7 +793,7 @@ class MyCsi:
                 spectrum[:, i] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
             self.spectrum = np.log(spectrum)
-            self.viewer = AoAViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps)
+            self.viewer = AoAViewer(name=self.name, spectrum=self.spectrum, timescale=self.timescale)
             print(self.name, "AoA by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
@@ -832,7 +833,7 @@ class MyCsi:
                 spectrum[:, i] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
             self.spectrum = np.log(spectrum)
-            self.viewer = AoDViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps)
+            self.viewer = AoDViewer(name=self.name, spectrum=self.spectrum, timescale=self.timescale)
             print(self.name, "AoD by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
@@ -868,7 +869,7 @@ class MyCsi:
                 spectrum[:, i] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
             self.spectrum = np.log(spectrum)
-            self.viewer = ToFViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps)
+            self.viewer = ToFViewer(name=self.name, spectrum=self.spectrum, timescale=self.timescale)
             print(self.name, "ToF by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
@@ -880,7 +881,7 @@ class MyCsi:
                          pick_rx=0,
                          pick_tx=0,
                          ref_antenna=1,
-                         raw_timestamps=False,
+                         raw_timescale=False,
                          dynamic=True):
         """
         Computes Doppler spectrum by MUSIC.\n
@@ -891,7 +892,7 @@ class MyCsi:
         :param pick_rx: select 1 rx antenna, default is 0. (You can also Specify 'strong' or 'weak')
         :param pick_tx: select 1 tx antenna, default is 0
         :param ref_antenna: select 2 rx antenna for dynamic extraction, default is 1
-        :param raw_timestamps: whether to use original timestamps. Default is False
+        :param raw_timescale: whether to use original timescale. Default is False
         :param dynamic: whether to use raw CSI or dynamic CSI. Default is True
         :return: Doppler spectrum by MUSIC stored in self.data.spectrum
         """
@@ -918,7 +919,7 @@ class MyCsi:
                 pick_rx = np.argmin(self.show_antenna_strength())
 
             spectrum = np.zeros((len(input_velocity_list), total_strides))
-            temp_timestamps = np.zeros(total_strides)
+            temp_timescale = np.zeros(total_strides)
 
             for i in range(total_strides):
 
@@ -931,21 +932,21 @@ class MyCsi:
                 else:
                     noise_space = noise(csi_windowed[:, :, pick_rx, pick_tx].T)
 
-                if raw_timestamps is True:
-                    # Using original timestamps (possibly uneven intervals)
-                    delay_list = self.timestamps[i * stride: i * stride + window_length] - \
-                                 self.timestamps[i * stride]
+                if raw_timescale is True:
+                    # Using original timescale (possibly uneven intervals)
+                    delay_list = self.timescale[i * stride: i * stride + window_length] - \
+                                 self.timescale[i * stride]
 
                 steering_vector = np.exp(-1.j * 2 * np.pi * center_freq * velocity_list.dot(delay_list.T) / lightspeed)
 
                 a_en = steering_vector.conj().dot(noise_space)
                 spectrum[:, i] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
-                temp_timestamps[i] = self.timestamps[i * stride]
+                temp_timescale[i] = self.timescale[i * stride]
 
             self.spectrum = np.log(spectrum)
-            self.viewer = DopplerViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps,
-                                        xlabels=temp_timestamps)
+            self.viewer = DopplerViewer(name=self.name, spectrum=self.spectrum, timescale=self.timescale,
+                                        xlabels=temp_timescale)
 
             print(self.name, "Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
@@ -1015,7 +1016,7 @@ class MyCsi:
                     spectrum[i, :, j] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
             self.spectrum = np.log(spectrum)
-            self.viewer = AoAToFViewer(name=self.name, spectrum=self.spectrum, timestamps=self.timestamps)
+            self.viewer = AoAToFViewer(name=self.name, spectrum=self.spectrum, timescale=self.timescale)
             print(self.name, "AoA-ToF by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
@@ -1027,7 +1028,7 @@ class MyCsi:
                              input_velocity_list=np.arange(-5, 5.05, 0.05),
                              window_length=100,
                              stride=100,
-                             raw_timestamps=False,
+                             raw_timescale=False,
                              raw_window=False):
         """
         Computes AoA-Doppler spectrum by MUSIC.\n
@@ -1035,7 +1036,7 @@ class MyCsi:
         :param input_velocity_list: list of velocities. Default = -5~5
         :param window_length: window length for each step
         :param stride: stride for each step
-        :param raw_timestamps: whether use original timestamps. Default is False
+        :param raw_timescale: whether use original timescale. Default is False
         :param raw_window: whether skip extracting dynamic CSI. Default is False
         :return:  AoA-Doppler spectrum by MUSIC stored in self.data.spectrum
         """
@@ -1066,7 +1067,7 @@ class MyCsi:
                 antenna_list.T) * center_freq / lightspeed).reshape(-1, 1)
             spectrum = np.zeros(((self.length - window_length) // stride, len(input_theta_list),
                                  len(input_velocity_list)))
-            temp_timestamps = np.zeros((self.length - window_length) // stride)
+            temp_timescale = np.zeros((self.length - window_length) // stride)
 
             # Using windowed dynamic extraction
             for i in range((self.length - window_length) // stride):
@@ -1080,10 +1081,10 @@ class MyCsi:
                     csi_dynamic = dynamic(csi_windowed, ref='rx', reference_antenna=2)
                     noise_space = noise(csi_dynamic.swapaxes(0, 1).reshape(nsub, window_length * nrx))
 
-                if raw_timestamps is True:
-                    # Using original timestamps (possibly uneven intervals)
-                    delay_list = self.timestamps[i * stride: i * stride + window_length] - \
-                                 self.timestamps[i * stride]
+                if raw_timescale is True:
+                    # Using original timescale (possibly uneven intervals)
+                    delay_list = self.timescale[i * stride: i * stride + window_length] - \
+                                 self.timescale[i * stride]
 
                 for j, velocity in enumerate(velocity_list):
 
@@ -1098,7 +1099,7 @@ class MyCsi:
                     spectrum[i, :, j] = 1. / np.absolute(np.diagonal(a_en.dot(a_en.conj().T)))
 
             self.spectrum = np.log(spectrum)
-            self.viewer = AoADopplerViewer(name=self.name, spectrum=self.spectrum, timestamps=temp_timestamps)
+            self.viewer = AoADopplerViewer(name=self.name, spectrum=self.spectrum, timescale=temp_timescale)
             print(self.name, "AoA-Doppler by MUSIC - compute complete", time.asctime(time.localtime(time.time())))
 
         except DataError as e:
@@ -1361,23 +1362,23 @@ class MyCsi:
 
             new_interval = 1. / sampling_rate
 
-            new_length = int(self.timestamps[-1] * sampling_rate) + 1  # Flooring
+            new_length = int(self.timescale[-1] * sampling_rate) + 1  # Flooring
             resample_indicies = []
 
             for i in range(new_length):
 
-                index = np.searchsorted(self.timestamps, i * new_interval)
+                index = np.searchsorted(self.timescale, i * new_interval)
 
                 if index > 0 and (
                         index == self.length or
-                        abs(self.timestamps[index] - i * new_interval) >
-                        abs(self.timestamps[index - 1] - i * new_interval)):
+                        abs(self.timescale[index] - i * new_interval) >
+                        abs(self.timescale[index - 1] - i * new_interval)):
                     index -= 1
 
                 resample_indicies.append(index)
 
             self.csi = self.csi[resample_indicies]
-            self.timestamps = self.timestamps[resample_indicies]
+            self.timescale = self.timescale[resample_indicies]
             self.length = new_length
             self.actual_sr = sampling_rate
 
@@ -1396,17 +1397,19 @@ if __name__ == '__main__':
     mycon.tx_rate = 0x1c113
     mycsi = MyCsi(mycon, '0725Aenv', '../npsave/0725/0725Aenv-csio.npy')
     mycsi.load_data(remove_sm=True)
+    print(mycsi.timescale)
+    print(mycsi.timestamps)
     # mycsi.load_lists()
     # mycsi.load_label('../sense/0509/01_labels.csv')
     # mycsi.slice_by_label(overwrite=True)
     # mycsi.verbose_packet(index=10)
     # mycsi.remove_csd()
     # mycsi.verbose_packet(index=10)
-    mycsi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1, subtract_mean=False)
-    mycsi.extract_dynamic(mode='highpass')
+    # mycsi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1, subtract_mean=False)
+    # mycsi.extract_dynamic(mode='highpass')
     # mycsi.calibrate_phase(reference_antenna=0, cal_dict={'0': ref})
     # mycsi.windowed_phase_difference(folder_name='phasediff_dyn')
 
-    mycsi.doppler_by_music(pick_tx=0, dynamic=False)
-    mycsi.viewer.view(threshold=-4.2)
+    # mycsi.doppler_by_music(pick_tx=0, dynamic=False)
+    # mycsi.viewer.view(threshold=-4.2)
 
