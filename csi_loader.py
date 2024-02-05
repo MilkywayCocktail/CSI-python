@@ -314,7 +314,7 @@ def dat2npy(filename, save_path, autosave=True):
             warnings.warn("different length: datetimelist {} and csilist {}".format(len(datetimelist), len(csilist)))
 
         print('loaded timestamp')
-        print('sampling rate: ' + str(float(len(datetimelist)) / (datetimelist[-1] - datetimelist[0]).total_seconds()))
+        print('sampling rate: ' + str(float(len(datetimelist)) / (datetimelist[-1] - datetimelist[0])))
 
     real_csilist = np.asarray(np.real(newcsilist), np.int8)
     assert np.all(real_csilist == np.real(newcsilist)), "real part of csi list may overflow or underflow"
