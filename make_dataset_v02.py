@@ -351,21 +351,20 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         Requires export_image.\n
         """
         tqdm.write('Starting exporting CSI...')
-        boundary = [-1, -1]
+        boundary = -1
 
         for i in tqdm(range(self.frames)):
             csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['time'][i, 0, 0])
             self.result['vanilla']['ind'][i, ...] = csi_index
 
             try:
-                if self.result['vanilla']['time'][i, 0, 0] > boundary[1]:
+                if self.result['vanilla']['time'][i, 0, 0] > boundary:
                     if self.alignment == 'head':
                         csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
                     elif self.alignment == 'tail':
                         csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
 
-                    boundary = [self.result['vanilla']['time'][i, 0, 0],
-                                self.result['vanilla']['time'][i, 0, 0] + self.csi_length * 1.e-3]
+                    boundary = self.result['vanilla']['time'][i, 0, 0] + self.csi_length * 1.e-3
 
                 if window_dynamic:
                     csi_sample = self.windowed_dynamic(csi_sample)

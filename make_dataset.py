@@ -141,7 +141,7 @@ class MyDataMaker:
 
         if mode == 'depth':
             depth_frame = frames.get_depth_frame()
-            frame_timestamp = depth_frame.get_timestamp() / 1000  # Camera timestamps in us
+            frame_timestamp = depth_frame.get_timestamp() / 1000  # Camera timestamps in ms
             if not depth_frame:
                 eval('continue')
             depth_frame = my_filter(depth_frame)
