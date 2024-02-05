@@ -184,7 +184,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                  csi_length: int = 100,
                  assemble_number: int = 1,
                  alignment: str = 'head',
-                 non_overlap: bool=True,
                  paths: dict = None,
                  jupyter_mode=False
                  ):
@@ -201,7 +200,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.csi_length = csi_length
         self.assemble_number = assemble_number
         self.alignment = alignment
-        self.non_overlap = non_overlap
 
         self.caliberated = False
         self.camtime_delta = 0.
@@ -355,26 +353,40 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['time'][i, 0, 0])
             self.result['vanilla']['ind'][i, ...] = csi_index
 
-            try:
-                if self.result['vanilla']['time'][i, 0, 0] > boundary:
-                    if self.alignment == 'head':
-                        csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
-                    elif self.alignment == 'tail':
-                        csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
+            if self.result['vanilla']['time'][i, 0, 0] > boundary:
+                if self.alignment == 'head':
+                    csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
+                elif self.alignment == 'tail':
+                    csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
 
-                    boundary = self.csi.timestamps[csi_index] + self.csi_length * 1.e-3
+                boundary = self.csi.timestamps[csi_index] + self.csi_length * 1.e-3
 
-                if window_dynamic:
-                    csi_sample = self.windowed_dynamic(csi_sample)
+            if window_dynamic:
+                csi_sample = self.windowed_dynamic(csi_sample)
 
-            except Exception:
-                print(f"Error at {csi_index}, boundary={boundary}")
 
             # Store in two channels and reshape
             self.result['vanilla']['csi'][i, 0, ...] = np.abs(csi_sample)
             self.result['vanilla']['csi'][i, 1, ...] = np.angle(csi_sample)
 
         self.reshape_csi()
+
+    def deoverlap(self):
+        print("Deopverlapping...", end='')
+        de_flag = np.zeros(self.frames, dtype=bool)
+        boundary = -1
+
+        for i in range(len(self.result['vanilla']['time'])):
+            if self.result['vanilla']['time'][i, 0, 0] > boundary:
+                de_flag[i] = True
+                boundary = self.result['vanilla']['time'][i, 0, 0] + self.csi_length * 1.e-3
+                print(boundary)
+            else:
+                continue
+
+        for modality in self.result['vanilla'].keys():
+            self.result['vanilla'][modality] = self.result['vanilla'][modality][de_flag]
+        print('Done')
 
     def lookup_image(self):
         print("\033[32mLOOKUP MODE" +
