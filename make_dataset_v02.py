@@ -135,9 +135,8 @@ class BagLoader:
 
 
 class CSILoader:
-    def __init__(self, csi_path, csitime_path, csi_configs):
+    def __init__(self, csi_path, csi_configs):
         self.__csi_path = csi_path
-        self.__csitime_path = csitime_path
         self.csi_configs = csi_configs
         self.csi = self.__load_csi__()
 
@@ -193,7 +192,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             paths = {'bag': None,
                      'localtime': None,
                      'csi': None,
-                     'csitime': None,
                      'label': None,
                      'save': '/saved/'
                      }
@@ -210,7 +208,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.jupyter_mode = jupyter_mode
 
         BagLoader.__init__(self, self.paths['bag'], self.paths['localtime'], img_size)
-        CSILoader.__init__(self, self.paths['csi'], self.paths['csitime'], csi_configs)
+        CSILoader.__init__(self, self.paths['csi'], csi_configs)
         LabelParser.__init__(self, self.paths['label'])
 
         self.result = {'vanilla': self.init_data(),
