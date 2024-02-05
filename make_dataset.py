@@ -111,14 +111,14 @@ class MyDataMaker:
         _csi = pycsi.MyCsi(self.configs, 'CSI', self.paths['csi'])
         _csi.load_data(remove_sm=True)
 
-        csi_abs_tf = open(self.paths['ct'], mode='r', encoding='utf-8')
-        _csi_abs_timestamps = np.array(csi_abs_tf.readlines())
-        for i in range(len(_csi_abs_timestamps)):
-            _csi_abs_timestamps[i] = datetime.timestamp(
-                datetime.strptime(_csi_abs_timestamps[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
-        csi_abs_tf.close()
-
-        _csi.abs_timestamps = _csi_abs_timestamps.astype(np.float64)
+        # csi_abs_tf = open(self.paths['ct'], mode='r', encoding='utf-8')
+        # _csi_abs_timestamps = np.array(csi_abs_tf.readlines())
+        # for i in range(len(_csi_abs_timestamps)):
+        #     _csi_abs_timestamps[i] = datetime.timestamp(
+        #         datetime.strptime(_csi_abs_timestamps[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
+        # csi_abs_tf.close()
+        #
+        # _csi.abs_timestamps = _csi_abs_timestamps.astype(np.float64)
         
         self.raw_csi = _csi
 

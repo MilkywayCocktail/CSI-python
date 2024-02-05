@@ -427,7 +427,7 @@ class MyCsi:
 
             self.csi = csi
             self.timescale = np.array(t - t[0]) / 1.e3
-            self.timestamps = d
+            self.timestamps = np.array(d)
             self.actual_sr = self.length / (t[-1] - t[0])
             print(self.name, self.csi.shape, "load complete", time.asctime(time.localtime(time.time())))
 

@@ -146,16 +146,7 @@ class CSILoader:
         csi = pycsi.MyCsi(self.csi_configs, 'CSI', self.__csi_path)
         csi.load_data(remove_sm=True)
 
-        csi_tf = open(self.__csitime_path, mode='r', encoding='utf-8')
-        csi_timestamps = np.array(csi_tf.readlines())
-        for i in range(len(csi_timestamps)):
-            csi_timestamps[i] = datetime.timestamp(
-                datetime.strptime(csi_timestamps[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
-        csi_tf.close()
-
-        csi.timestamps = csi_timestamps.astype(np.float64)
-
-        return csi  # Pre-calibrated absolute CSI timestamp
+        return csi  # Pre-calibrated versus local machine
 
     @staticmethod
     def windowed_dynamic(in_csi):
