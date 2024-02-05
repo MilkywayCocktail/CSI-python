@@ -156,9 +156,11 @@ def remove_sm_list(csilist, ratelist=None, isHT40=None):
 def load_datetime(filename):
     lines = np.loadtxt(filename, delimiter='\t', dtype=np.str)
     try:
-        timelist = [datetime.datetime.strptime(lines[i], '%Y/%m/%d %H:%M:%S.%f') for i in range(len(lines))]
+        timelist = [datetime.datetime.timestamp(datetime.datetime.strptime(lines[i], '%Y/%m/%d %H:%M:%S.%f'))
+                    for i in range(len(lines))]
     except Exception:
-        timelist = [datetime.datetime.strptime(lines[i], '%Y-%m-%d %H:%M:%S.%f') for i in range(len(lines))]
+        timelist = [datetime.datetime.timestamp(datetime.datetime.strptime(lines[i], '%Y-%m-%d %H:%M:%S.%f'))
+                    for i in range(len(lines))]
 
     return timelist
 
@@ -340,7 +342,7 @@ def dat2npy(filename, save_path, autosave=True):
     #     (real_csilist, imag_csilist, uint_rssilist, int_noiselist, uint_agclist, timelist, datetimelist),
     #     filename.replace(".dat", ".dump"))
 
-    return real_csilist.swapaxes(1, 3) + 1.j * imag_csilist.swapaxes(1, 3), timelist
+    return real_csilist.swapaxes(1, 3) + 1.j * imag_csilist.swapaxes(1, 3), timelist, datetimelist
 
 
 def load_npy(filename):

@@ -412,7 +412,7 @@ class MyCsi:
             t = None
             if self.path[-3:] == "dat":
                 print(self.name, "raw load start...", time.asctime(time.localtime(time.time())))
-                csi, t = csi_loader.dat2npy(self.path, None, autosave=False)
+                csi, t, d = csi_loader.dat2npy(self.path, None, autosave=False)
 
             elif self.path[-3:] == "npy":
                 print(self.name, "npy load start...", time.asctime(time.localtime(time.time())))
@@ -426,9 +426,9 @@ class MyCsi:
                 print('Done')
 
             self.csi = csi
-            self.timescale = np.array(t - t[0]) / 1.e6
-            self.timestamps = t
-            self.actual_sr = self.length / self.timescale[-1]
+            self.timescale = np.array(t - t[0]) / 1.e3
+            self.timestamps = d
+            self.actual_sr = self.length / (t[-1] - t[0])
             print(self.name, self.csi.shape, "load complete", time.asctime(time.localtime(time.time())))
 
     def load_label(self, path):
