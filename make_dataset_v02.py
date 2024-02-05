@@ -362,7 +362,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                     elif self.alignment == 'tail':
                         csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
 
-                    boundary = self.result['vanilla']['time'][i, 0, 0] + self.csi_length * 1.e-3
+                    boundary = self.csi.timestamps[csi_index] + self.csi_length * 1.e-3
 
                 if window_dynamic:
                     csi_sample = self.windowed_dynamic(csi_sample)
@@ -428,7 +428,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         print('Done')
 
     def assemble(self):
-        print("Aligning...")
+        print("Aligning...", end='')
         if self.result['annotated']:
             for modality in self.result['vanilla'].keys():
                 for seg in self.label['segment'].keys():
