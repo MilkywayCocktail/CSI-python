@@ -59,7 +59,7 @@ class Regrouper:
         
         for file in filenames:
             if file[:2] in self.scope:
-                modality = file[-7:-4]
+                modality = file.split('_')[-1].split('.')[0]
                 try:
                     if modality in list(self.result.keys()):
                         if modality == 'img':
@@ -97,7 +97,7 @@ class Regrouper:
                 else:
                     print(f"Saved {key} of len {number}")
                     np.save(filename, self.result[key][:number])
-            print("All saved!")
+        print("All saved!")
 
 
 class DataViewer:
