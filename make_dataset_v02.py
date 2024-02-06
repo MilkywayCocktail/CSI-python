@@ -506,7 +506,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
                 #   self.result[data][modality])
                 # else:
                 np.save(os.path.join(
-                    self.paths['save'],f"{save_name}_asmb{self.assemble_number}_len{self.csi_length}_{modality}.npy"),
+                    self.paths['save'], f"{save_name}_asmb{self.assemble_number}_len{self.csi_length}_{modality}.npy"),
                     np.concatenate(list(self.result[data][modality].values())))
         print("Done")
 

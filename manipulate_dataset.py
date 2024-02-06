@@ -45,13 +45,13 @@ def separate(in_path, out_path, scope: tuple):
     
     
 class Regrouper:
-    def __init__(self, in_path, out_path, scope: tuple, wanted_types: dict, assemble_number=1):
+    def __init__(self, in_path, out_path, scope: tuple, wanted_types: dict):
         self.in_path = in_path
         self.out_path = out_path
         self.scope = scope
         self.result = {}
         for name, shape in wanted_types.items():
-            self.result[name] = np.zeros((1, assemble_number, *shape))
+            self.result[name] = np.zeros((1, *shape))
             
     def load(self):
         print("Loading...")
@@ -67,8 +67,6 @@ class Regrouper:
                         data = data / 3000.
                         
                         self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
-                    if datatype in ('label', 'time'):
-                        data = np.load(self.in_path + file).tolist()
                     else:
                         data = np.load(self.in_path + file, mmap_mode='r')
                         self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
