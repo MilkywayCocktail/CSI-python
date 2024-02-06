@@ -179,7 +179,7 @@ class ImageGen:
         :param unified_size: whether to unify the size of cropped images. Default is False
         :return: None
         """
-        generated_images = np.zeros((1, self.assemble_number, self.img_size))
+        generated_images = np.zeros((1, self.assemble_number, 128, 128))
         generated_bbx = np.zeros((1, self.assemble_number, 4))
         tqdm.write('Starting exporting image...')
         for i in tqdm(range(len(self.raw_imgs))):
