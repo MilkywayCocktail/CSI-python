@@ -64,7 +64,6 @@ class Regrouper:
                     if modality in list(self.result.keys()):
                         if modality == 'img':
                             data = np.load(self.in_path + file)
-                            data = data[:, np.newaxis, ...]
                             data[data > 3000] = 3000
                             data = data / 3000.
                             
