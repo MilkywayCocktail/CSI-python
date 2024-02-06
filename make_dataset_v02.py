@@ -79,6 +79,11 @@ class LabelParser:
             elif self.label['y0'][i] == self.label['y1'][i]:
                 self.label['direction'].append('x')
 
+    def save_raw_labels(self):
+        print("Saving labels...", end='')
+        np.save(f"../{os.path.splitext(os.path.basename(self.__label_path))[0]}_labels.npy", self.label)
+        print("Done")
+
 
 class BagLoader:
     def __init__(self, bag_path, localtime_path, img_size=(128, 128)):
@@ -132,6 +137,21 @@ class BagLoader:
             raise Exception('Please specify mode = \'depth\' or \'color\'.')
 
         return image, frame_timestamp
+
+    def save_raw_images(self, frames, mode='depth'):
+        print("Saving raw images...", end='')
+        images = np.zeros((frames, self.img_size[1], self.img_size[0]))
+        timestamps = np.zeros(frames)
+
+        for i in range(frames):
+            image, frame_timestamp = self.__get_image__(mode=mode)
+            timestamps[i, ...] = frame_timestamp
+            image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
+            images[i, ...] = image
+
+        np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_raw.npy", images)
+        np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_timestamps.npy", timestamps)
+        print("Done")
 
 
 class CSILoader:

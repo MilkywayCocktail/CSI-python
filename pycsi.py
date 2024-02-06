@@ -575,15 +575,21 @@ class MyCsi:
             print(self.name, "spectrum save complete", time.asctime(time.localtime(time.time())))
 
     def save_csi(self):
-        save_path = "../npsave/" + self.name[:4] + '/'
+        """
+        Save CSI and timestamps as .npy files.\n
+        Attention: csio.npy saved by csi_loader already contains timestamps and other items,
+        and thus must be loaded via pycsi.load_data().\n
+        :return: None
+        """
+        print(f"{self.name} saving...", end='')
+        save_path = f"../npsave/{self.name[:4]}/"
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-
-        save = {'csi': self.csi,
-                'time': self.timescale}
-
-        np.save(save_path + self.name + "-csis" + ".npy", save)
+        # timestamps and timescales are already included in csi.npy
+        np.save(f"{save_path}{self.name}_csir.npy", self.csi)
+        np.save(f"{save_path}{self.name}_time.npy", self.timestamps)
+        print("Done")
 
     def show_antenna_strength(self):
         """
