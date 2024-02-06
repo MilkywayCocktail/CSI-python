@@ -60,7 +60,7 @@ class Regrouper:
             if file[:2] in self.scope:
                 datatype = file[-7:-4]
                 if datatype in list(self.result.keys()):
-                    if datatype in ('img', 'c_img', 'r_img'):
+                    if datatype == 'img':
                         data = np.load(self.in_path + file)
                         data = data[:, np.newaxis, ...]
                         data[data > 3000] = 3000

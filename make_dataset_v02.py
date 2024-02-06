@@ -380,7 +380,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
             if self.result['vanilla']['time'][i, 0, 0] > boundary:
                 de_flag[i] = True
                 boundary = self.result['vanilla']['time'][i, 0, 0] + self.csi_length * 1.e-3
-                print(boundary)
             else:
                 continue
 
