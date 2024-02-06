@@ -6,8 +6,9 @@ from tqdm import tqdm
 
 
 class ImageGen:
-    def __init__(self, name):
+    def __init__(self, name, assemble_number=1):
         self.name = name
+        self.assemble_number = assemble_number
         self.ind = []
         self.img_size = None
         self.raw_imgs = None
@@ -18,15 +19,28 @@ class ImageGen:
     def load_images(self, path):
         print("Loading images...")
         self.raw_imgs = np.load(path)
-        self.raw_bbx = np.zeros((len(self.raw_imgs), 1, 4))
-        length, *self.img_size = self.raw_imgs.shape
+        self.raw_bbx = np.zeros((len(self.raw_imgs), self.assemble_number, 4))
+        length, channels, *self.img_size = self.raw_imgs.shape
+        if channels != self.assemble_number:
+            print(f"Attention: channels {channels} doesn't match assemble number {self.assemble_number}")
         print(f"Loaded img of {self.raw_imgs.shape} as {self.raw_imgs.dtype}")
 
     def print_shape(self):
-        print(f"raw images: {self.raw_imgs.shape}, raw bbx: {self.raw_bbx.shape}, gen images: {self.gen_imgs.shape}, "
-              f"gen_bbx: {self.gen_bbx.shape}")
+        try:
+            print(f"raw images: {self.raw_imgs.shape}")
+            print(f"raw bbx: {self.raw_bbx.shape}")
+            print(f"gen images: {self.gen_imgs.shape}")
+            print(f"gen_bbx: {self.gen_bbx.shape}")
+        except Exception:
+            pass
 
     def show_images(self, select_ind=None, select_num=8):
+        """
+        Currently not applicable for assemble_number >1\n
+        :param select_ind: specify some indices to display. Default is None
+        :param select_num: specify the number of images to display. Default is 8
+        :return: None
+        """
         if self.raw_imgs is not None:
             if select_ind:
                 inds = np.array(select_ind)
@@ -58,39 +72,48 @@ class ImageGen:
         imgs = np.squeeze(self.raw_imgs)
 
         for i in range(len(imgs)):
-            img = np.squeeze(imgs[i]).astype('float32')
-            (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
-            contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            for j in range(self.assemble_number):
+                img = np.squeeze(imgs[i][j]).astype('float32')
+                (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
+                contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-            if len(contours) != 0:
-                contour = max(contours, key=lambda x: cv2.contourArea(x))
-                area = cv2.contourArea(contour)
+                if len(contours) != 0:
+                    contour = max(contours, key=lambda x: cv2.contourArea(x))
+                    area = cv2.contourArea(contour)
 
-                if area < min_area:
-                    # print(area)
-                    pass
+                    if area < min_area:
+                        # print(area)
+                        pass
 
-                else:
-                    x, y, w, h = cv2.boundingRect(contour)
-                    patch = np.average(img[y:y + h, x:x + w])
-                    non_zero = (patch != 0)
-                    average_depth = patch.sum() / non_zero.sum()
-                    # self.raw_bbx[i] = np.array([x, y, w, h, average_depth])
-                    self.raw_bbx[i][0] = np.array([x, y, w, h])
+                    else:
+                        x, y, w, h = cv2.boundingRect(contour)
+                        patch = np.average(img[y:y + h, x:x + w])
+                        non_zero = (patch != 0)
+                        average_depth = patch.sum() / non_zero.sum()
+                        # self.raw_bbx[i] = np.array([x, y, w, h, average_depth])
+                        self.raw_bbx[i][j] = np.array([x, y, w, h])
 
-                    img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
-                                        (x, y),
-                                        (x + w, y + h),
-                                        (0, 255, 0), 1)
-                    if show:
-                        cv2.namedWindow('Raw Image', cv2.WINDOW_AUTOSIZE)
-                        cv2.imshow('Raw Image', img)
-                        key = cv2.waitKey(33) & 0xFF
-                        if key == ord('q'):
-                            break
+                        img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
+                                            (x, y),
+                                            (x + w, y + h),
+                                            (0, 255, 0), 1)
+                        if show:
+                            cv2.namedWindow('Raw Image', cv2.WINDOW_AUTOSIZE)
+                            cv2.imshow('Raw Image', img)
+                            key = cv2.waitKey(33) & 0xFF
+                            if key == ord('q'):
+                                break
         print("Complete!")
 
     def generate_imgs(self, Bx=None, By=None, HW=None, select_ind=None):
+        """
+        Currently not applicable for assemble_number > 1\n
+        :param Bx: Variations to generate on x axis
+        :param By: Variations to generate on y axis
+        :param HW: Variations to generate of size
+        :param select_ind: specify some images to reproduce. Default is None
+        :return: None
+        """
         if select_ind:
             ind = [select_ind]
         else:
@@ -151,30 +174,43 @@ class ImageGen:
             print("Please specify an index!")
 
     def align_to_center(self, unified_size=False):
-        generated_images = np.zeros((1, 1, 128, 128))
-        generated_bbx = np.zeros((1, 1, 4))
+        """
+        Align the cropped images to center.
+        :param unified_size: whether to unify the size of cropped images. Default is False
+        :return: None
+        """
+        generated_images = np.zeros((1, self.assemble_number, self.img_size))
+        generated_bbx = np.zeros((1, self.assemble_number, 4))
         tqdm.write('Starting exporting image...')
         for i in tqdm(range(len(self.raw_imgs))):
-            # x, y, w, h, d = self.raw_bbx[i]
-            x, y, w, h = self.raw_bbx[i][0]
-            x, y, w, h = int(x), int(y), int(w), int(h)
-            subject = np.squeeze(self.raw_imgs[i])[y:y + h, x:x + w]
+            img_anchor = np.zeros((1, 1, self.img_size))
+            bbx_anchor = np.zeros((1, 1, 4))
+            for j in range(self.assemble_number):
+                # x, y, w, h, d = self.raw_bbx[i]
+                x, y, w, h = self.raw_bbx[i][j]
+                x, y, w, h = int(x), int(y), int(w), int(h)
+                subject = np.squeeze(self.raw_imgs[i][j])[y:y + h, x:x + w]
 
-            image = np.zeros((128, 128))
-            if unified_size:
-                f1 = 128 / w
-                f2 = 128 / h
-                f = min(f1, f2)  # resizing factor
-                dim = (int(w * f), int(h * f))
-                subject = cv2.resize(subject, dim)
-                image[int(64 - dim[1] / 2):int(64 + dim[1] / 2), int(64 - dim[0] / 2):int(64 + dim[0] / 2)] = subject
-                bbx = np.array([int(64 - dim[0] / 2), int(64 - dim[1] / 2), dim[0], dim[1]])
-            else:
-                image[y:y + h, int(64-w/2):int(64+w/2)] = subject
-                # bbx = np.array([int(64-w/2), y, w, h, d])
-                bbx = np.array([int(64 - w / 2), y, w, h])
-            generated_images = np.concatenate((generated_images, image.reshape(1, 1, 128, 128)), axis=0)
-            generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 1, 4)), axis=0)
+                image = np.zeros((128, 128))
+                if unified_size:
+                    f1 = 128 / w
+                    f2 = 128 / h
+                    f = min(f1, f2)  # resizing factor
+                    dim = (int(w * f), int(h * f))
+                    subject = cv2.resize(subject, dim)
+                    image[int(64 - dim[1] / 2):int(64 + dim[1] / 2), int(64 - dim[0] / 2):int(64 + dim[0] / 2)] = subject
+                    bbx = np.array([int(64 - dim[0] / 2), int(64 - dim[1] / 2), dim[0], dim[1]])
+                else:
+                    image[y:y + h, int(64-w/2):int(64+w/2)] = subject
+                    # bbx = np.array([int(64-w/2), y, w, h, d])
+                    bbx = np.array([int(64 - w / 2), y, w, h])
+                img_anchor = np.concatenate((img_anchor, image.reshape(1, 1, self.img_size)), axis=1)
+                bbx_anchor = np.concatenate((bbx_anchor, bbx.reshape(1, 1, 4)), axis=1)
+
+            img_anchor = np.delete(img_anchor, 0, axis=1)
+            bbx_anchor = np.delete(bbx_anchor, 0, axis=1)
+            generated_images = np.concatenate((generated_images, img_anchor), axis=0)
+            generated_bbx = np.concatenate((generated_bbx, bbx_anchor), axis=0)
 
         generated_images = np.delete(generated_images, 0, axis=0)
         generated_bbx = np.delete(generated_bbx, 0, axis=0)
