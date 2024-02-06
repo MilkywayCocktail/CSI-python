@@ -56,21 +56,26 @@ class Regrouper:
     def load(self):
         print("Loading...")
         filenames = os.listdir(self.in_path)
+        
         for file in filenames:
             if file[:2] in self.scope:
-                datatype = file[-7:-4]
-                if datatype in list(self.result.keys()):
-                    if datatype == 'img':
-                        data = np.load(self.in_path + file)
-                        data = data[:, np.newaxis, ...]
-                        data[data > 3000] = 3000
-                        data = data / 3000.
-                        
-                        self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
-                    else:
-                        data = np.load(self.in_path + file, mmap_mode='r')
-                        self.result[datatype] = np.concatenate((self.result[datatype], data), axis=0)
-                    print(f"Loaded {file} of {data.shape}")
+                modality = file[-7:-4]
+                try:
+                    if modality in list(self.result.keys()):
+                        if modality == 'img':
+                            data = np.load(self.in_path + file)
+                            data = data[:, np.newaxis, ...]
+                            data[data > 3000] = 3000
+                            data = data / 3000.
+                            
+                            self.result[modality] = np.concatenate((self.result[modality], data), axis=0)
+                        else:
+                            data = np.load(self.in_path + file, mmap_mode='r')
+                            self.result[modality] = np.concatenate((self.result[modality], data), axis=0)
+                        print(f"Loaded {file} of {data.shape}")
+                except Exception as e:
+                    print(f"Error at {modality}:", e)
+
         print("All loaded!")
         for key in list(self.result.keys()):
             self.result[key] = np.delete(self.result[key], 0, axis=0)
