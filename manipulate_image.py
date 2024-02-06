@@ -182,7 +182,7 @@ class ImageGen:
         generated_bbx = np.zeros((1, self.assemble_number, 4))
         tqdm.write('Starting exporting image...')
         for i in tqdm(range(len(self.raw_imgs))):
-            img_anchor = np.zeros((1, 1, self.img_size))
+            img_anchor = np.zeros((1, 1, 128, 128))
             bbx_anchor = np.zeros((1, 1, 4))
             for j in range(self.assemble_number):
                 # x, y, w, h, d = self.raw_bbx[i]
@@ -203,7 +203,7 @@ class ImageGen:
                     image[y:y + h, int(64-w/2):int(64+w/2)] = subject
                     # bbx = np.array([int(64-w/2), y, w, h, d])
                     bbx = np.array([int(64 - w / 2), y, w, h])
-                img_anchor = np.concatenate((img_anchor, image.reshape(1, 1, self.img_size)), axis=1)
+                img_anchor = np.concatenate((img_anchor, image.reshape(1, 1, 128, 128)), axis=1)
                 bbx_anchor = np.concatenate((bbx_anchor, bbx.reshape(1, 1, 4)), axis=1)
 
             img_anchor = np.delete(img_anchor, 0, axis=1)
