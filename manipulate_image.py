@@ -70,7 +70,7 @@ class ImageGen:
     def bounding_box(self, min_area=100, show=False):
         print("Labeling bounding boxes...", end='')
 
-        for i in range(len(imgs)):
+        for i in range(len(self.raw_imgs)):
             for j in range(self.assemble_number):
                 img = np.squeeze(self.raw_imgs[i][j]).astype('float32')
                 (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
