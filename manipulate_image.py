@@ -18,13 +18,13 @@ class ImageGen:
     def load_images(self, path):
         print("Loading images...")
         self.raw_imgs = np.load(path)
-        self.raw_bbx = np.zeros((len(self.raw_imgs), 4))
+        self.raw_bbx = np.zeros((len(self.raw_imgs), 1, 4))
         length, *self.img_size = self.raw_imgs.shape
         print(f"Loaded img of {self.raw_imgs.shape} as {self.raw_imgs.dtype}")
 
-    def print_len(self):
-        print(f"raw images: {len(self.raw_imgs)}, raw bbx: {len(self.raw_bbx)}, gen images: {len(self.gen_imgs)}, "
-              f"gen_bbx: {len(self.gen_bbx)}")
+    def print_shape(self):
+        print(f"raw images: {self.raw_imgs.shape}, raw bbx: {self.raw_bbx.shape}, gen images: {self.gen_imgs.shape}, "
+              f"gen_bbx: {self.gen_bbx.shape}")
 
     def show_images(self, select_ind=None, select_num=8):
         if self.raw_imgs is not None:
@@ -76,7 +76,7 @@ class ImageGen:
                     non_zero = (patch != 0)
                     average_depth = patch.sum() / non_zero.sum()
                     # self.raw_bbx[i] = np.array([x, y, w, h, average_depth])
-                    self.raw_bbx[i] = np.array([x, y, w, h])
+                    self.raw_bbx[i][0] = np.array([x, y, w, h])
 
                     img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
                                         (x, y),
@@ -151,12 +151,12 @@ class ImageGen:
             print("Please specify an index!")
 
     def align_to_center(self, unified_size=False):
-        generated_images = np.zeros((1, 128, 128))
-        generated_bbx = np.zeros((1, 4))
+        generated_images = np.zeros((1, 1, 128, 128))
+        generated_bbx = np.zeros((1, 1, 4))
         tqdm.write('Starting exporting image...')
         for i in tqdm(range(len(self.raw_imgs))):
             # x, y, w, h, d = self.raw_bbx[i]
-            x, y, w, h = self.raw_bbx[i]
+            x, y, w, h = self.raw_bbx[i][0]
             x, y, w, h = int(x), int(y), int(w), int(h)
             subject = np.squeeze(self.raw_imgs[i])[y:y + h, x:x + w]
 
@@ -173,8 +173,8 @@ class ImageGen:
                 image[y:y + h, int(64-w/2):int(64+w/2)] = subject
                 # bbx = np.array([int(64-w/2), y, w, h, d])
                 bbx = np.array([int(64 - w / 2), y, w, h])
-            generated_images = np.concatenate((generated_images, image.reshape((1, 128, 128))), axis=0)
-            generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 4)), axis=0)
+            generated_images = np.concatenate((generated_images, image.reshape(1, 1, 128, 128)), axis=0)
+            generated_bbx = np.concatenate((generated_bbx, bbx.reshape(1, 1, 4)), axis=0)
 
         generated_images = np.delete(generated_images, 0, axis=0)
         generated_bbx = np.delete(generated_bbx, 0, axis=0)
