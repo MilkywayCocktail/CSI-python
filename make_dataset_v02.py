@@ -531,9 +531,9 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         print("Done")
 
 
-class DataMakerV02(MyDataMaker):
+class MyDataMakerV02(MyDataMaker):
     def __init__(self, *args, **kwargs):
-        super(DataMakerV02, self).__init__(*args, **kwargs)
+        super(MyDataMakerV02, self).__init__(*args, **kwargs)
 
     def reshape_csi(self):
         length, channel, *csi_shape = self.result['vanilla']['csi'].shape
