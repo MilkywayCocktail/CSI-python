@@ -538,4 +538,4 @@ class DataMakerV02(MyDataMaker):
     def reshape_csi(self):
         length, channel, *csi_shape = self.result['vanilla']['csi'].shape
         self.result['vanilla']['csi'] = (self.result['vanilla']['csi'].transpose(
-            (-1, -3))).reshape(length, channel * 3, 30, 30)
+            (0, 1, 4, 3, 2))).reshape(length, channel * 3, 30, 30)
