@@ -514,7 +514,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.result['vanilla']['img'] = self.result['vanilla']['img'].astype(np.uint16)
         print("Done")
 
-    def save_dataset(self, save_name=None, data='vanilla', *args):
+    def save_dataset(self, save_name=None, data='annotated', *args):
         print("Saving...", end='')
         if not os.path.exists(self.paths['save']):
             os.makedirs(self.paths['save'])
