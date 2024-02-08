@@ -144,6 +144,7 @@ class BagLoader:
         timestamps = np.zeros(frames)
 
         try:
+            self.__setup_video_stream__()
             for i in range(frames):
                 image, frame_timestamp = self.__get_image__(mode=mode)
                 timestamps[i, ...] = frame_timestamp
