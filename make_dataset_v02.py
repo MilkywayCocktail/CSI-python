@@ -139,13 +139,14 @@ class BagLoader:
         return image, frame_timestamp
 
     def save_raw_images(self, frames, mode='depth'):
-        print("Saving raw images...", end='')
+        tqdm.write('Starting exporting image...')
+
         images = np.zeros((frames, self.img_size[1], self.img_size[0]))
         timestamps = np.zeros(frames)
 
         try:
             self.__setup_video_stream__()
-            for i in range(frames):
+            for i in tqdm(range(frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
                 timestamps[i, ...] = frame_timestamp
                 image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
