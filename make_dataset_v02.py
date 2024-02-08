@@ -143,11 +143,17 @@ class BagLoader:
         images = np.zeros((frames, self.img_size[1], self.img_size[0]))
         timestamps = np.zeros(frames)
 
-        for i in range(frames):
-            image, frame_timestamp = self.__get_image__(mode=mode)
-            timestamps[i, ...] = frame_timestamp
-            image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
-            images[i, ...] = image
+        try:
+            for i in range(frames):
+                image, frame_timestamp = self.__get_image__(mode=mode)
+                timestamps[i, ...] = frame_timestamp
+                image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
+                images[i, ...] = image
+        except RuntimeError:
+            pass
+
+        finally:
+            self.video_stream.stop()
 
         np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_raw.npy", images)
         np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_timestamps.npy", timestamps)
