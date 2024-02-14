@@ -149,7 +149,7 @@ class BagLoader:
             for i in tqdm(range(frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
                 timestamps[i, ...] = frame_timestamp
-                image = cv2.resize(image, self.img_size, interpolation=cv2.INTER_AREA)
+                image = cv2.resize(image[:, 4:-4], self.img_size, interpolation=cv2.INTER_AREA)
                 images[i, ...] = image
         except RuntimeError:
             pass
