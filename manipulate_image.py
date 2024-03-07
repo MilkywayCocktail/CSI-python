@@ -15,11 +15,13 @@ class ImageGen:
         self.raw_bbx = None
         self.gen_imgs = None
         self.gen_bbx = None
+        self.depth = None
 
     def load_images(self, path):
         print("Loading images...")
         self.raw_imgs = np.load(path)
         self.raw_bbx = np.zeros((len(self.raw_imgs), self.assemble_number, 4))
+        self.depth = np.zeros(len(self.raw_imgs))
         length, channels, *self.img_size = self.raw_imgs.shape
         if channels != self.assemble_number:
             print(f"Attention: channels {channels} doesn't match assemble number {self.assemble_number}")
@@ -31,6 +33,7 @@ class ImageGen:
             print(f"raw bbx: {self.raw_bbx.shape}")
             print(f"gen images: {self.gen_imgs.shape}")
             print(f"gen_bbx: {self.gen_bbx.shape}")
+            print(f"depth: {self.depth.shape}")
         except Exception:
             pass
 
@@ -89,7 +92,7 @@ class ImageGen:
                         patch = np.average(img[y:y + h, x:x + w])
                         non_zero = (patch != 0)
                         average_depth = patch.sum() / non_zero.sum()
-                        # self.raw_bbx[i] = np.array([x, y, w, h, average_depth])
+                        self.depth[i] = average_depth
                         self.raw_bbx[i][j] = np.array([x, y, w, h])
 
                         img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
@@ -121,7 +124,6 @@ class ImageGen:
         if ind:
             for i in ind:
                 print(f"Generating {i} of {ind}...")
-                # x, y, w, h, d = self.raw_bbx[i]
                 x, y, w, h = self.raw_bbx[i]
                 x, y, w, h = int(x), int(y), int(w), int(h)
                 subject = np.squeeze(self.raw_imgs[i])[y:y + h, x:x + w]
@@ -185,7 +187,6 @@ class ImageGen:
             img_anchor = np.zeros((1, 1, 128, 128))
             bbx_anchor = np.zeros((1, 1, 4))
             for j in range(self.assemble_number):
-                # x, y, w, h, d = self.raw_bbx[i]
                 x, y, w, h = self.raw_bbx[i][j]
                 x, y, w, h = int(x), int(y), int(w), int(h)
                 subject = np.squeeze(self.raw_imgs[i][j])[y:y + h, x:x + w]
@@ -231,7 +232,6 @@ class ImageGen:
 
             for i in range(len(self.gen_imgs)):
                 print(f"\r{i} of {self.gen_imgs.shape[0]}", end='')
-                # x, y, w, h, d = self.gen_bbx[i]
                 x, y, w, h = self.gen_bbx[i]
                 x, y, w, h = int(x), int(y), int(w), int(h)
                 img = np.squeeze(self.gen_imgs[i]) * 255
