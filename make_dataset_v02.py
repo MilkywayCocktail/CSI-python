@@ -93,6 +93,10 @@ class BagLoader:
         self.img_size = img_size
         self.video_stream = self.__setup_video_stream__()
         self.local_time = self.__load_local_timestamps__()
+        self.images = None
+        self.timestamps = None
+        self.caliberated = False
+        self.camtime_delta = 0.
 
     def __setup_video_stream__(self):
         # timestamps is the local time; works as reference time
@@ -108,12 +112,15 @@ class BagLoader:
         return pipeline
 
     def __load_local_timestamps__(self):
-        local_tf = open(self.__localtime_path, mode='r', encoding='utf-8')
-        local_time = np.array(local_tf.readlines())
-        for i in range(len(local_time)):
-            local_time[i] = datetime.timestamp(datetime.strptime(local_time[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
-        local_tf.close()
-        return local_time.astype(np.float64)
+        if self.__localtime_path:
+            local_tf = open(self.__localtime_path, mode='r', encoding='utf-8')
+            local_time = np.array(local_tf.readlines())
+            for i in range(len(local_time)):
+                local_time[i] = datetime.timestamp(datetime.strptime(local_time[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
+            local_tf.close()
+            return local_time.astype(np.float64)
+        else:
+            return None
 
     def __get_image__(self, mode):
         frame = self.video_stream.wait_for_frames()
@@ -138,28 +145,85 @@ class BagLoader:
 
         return image, frame_timestamp
 
-    def save_raw_images(self, frames, mode='depth'):
+    def calibrate_camtime(self, camtime, localtime):
+        """
+        Calibrate camera timestamps against local timestamps.\n
+        This is important for fetching CSI packets according to timestamps.\n
+        :return: calibrated timestamps
+        """
+        print('Calibrating camera time against local time file...', end='')
+        cvt = datetime.fromtimestamp
+
+        assert len(camtime) == len(localtime)
+
+        if not self.caliberated:
+            temp_lag = np.zeros(len(camtime))
+            for i in range(len(camtime)):
+                temp_lag[i] = camtime[i] - localtime[i]
+
+            camtime_delta = np.mean(temp_lag)
+
+            for i in range(len(camtime)):
+                camtime[i] -= camtime_delta
+
+            self.caliberated = True
+            self.camtime_delta = camtime_delta
+            print('Done')
+            print('lag={}'.format(camtime_delta))
+            return camtime
+        else:
+            print("Already calibrated")
+
+    def depth_mask(self, threshold=0.5):
+        tqdm.write("Masking...")
+        median = np.median(np.squeeze(self.images), axis=0)
+        threshold = median * threshold
+        plt.imshow(threshold / np.max(threshold))
+        plt.title("Threshold map")
+        plt.show()
+        for i in tqdm(range(len(self.images))):
+            mask = np.squeeze(self.images[i]) < threshold
+            self.images[i] *= mask
+        tqdm.write("Done")
+
+    def export_images(self, frames, mode='depth'):
         tqdm.write('Starting exporting image...')
 
-        images = np.zeros((frames, self.img_size[1], self.img_size[0]))
-        timestamps = np.zeros(frames)
+        self.images = np.zeros((frames, self.img_size[1], self.img_size[0]))
+        self.timestamps = np.zeros(frames)
 
         try:
             self.__setup_video_stream__()
             for i in tqdm(range(frames)):
                 image, frame_timestamp = self.__get_image__(mode=mode)
-                timestamps[i, ...] = frame_timestamp
+                self.timestamps[i, ...] = frame_timestamp
                 image = cv2.resize(image[:, 4:-4], self.img_size, interpolation=cv2.INTER_AREA)
-                images[i, ...] = image
+                self.images[i, ...] = image
         except RuntimeError:
             pass
 
         finally:
             self.video_stream.stop()
+            if self.local_time is not None:
+                self.timestamps = self.calibrate_camtime(self.timestamps, self.local_time)
 
-        np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_raw.npy", images)
-        np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_timestamps.npy", timestamps)
+    def save_images(self, path=None):
+        print("Saving...", end='')
+        if path:
+            np.save(f"{path}img.npy", self.images)
+            np.save(f"{path}timestamps.npy", self.timestamps)
+        else:
+            np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_raw.npy", self.images)
+            np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_timestamps.npy", self.timestamps)
         print("Done")
+
+
+class ImageLoader:
+    def __init__(self, img_path, timestamp_path):
+        self.__img_path = img_path
+        self.__timestamppath = timestamp_path
+        self.__img = np.load(self.__img_path, mmap_mode='r')
+        self.__timestamp = np.load(timestamp_path)
 
 
 class CSILoader:
@@ -229,8 +293,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
         self.assemble_number = assemble_number
         self.alignment = alignment
 
-        self.caliberated = False
-        self.camtime_delta = 0.
         self.jupyter_mode = jupyter_mode
 
         BagLoader.__init__(self, self.paths['bag'], self.paths['localtime'], img_size)
