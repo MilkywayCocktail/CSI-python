@@ -266,7 +266,7 @@ class ImageGen:
             print("Saved gen_bbx")
         if 'depth' in save_terms and self.depth is not None:
             np.save(f"{save_path}{self.name}_depth.npy",  self.gen_bbx)
-            print("Saved gen_bbx")
+            print("Saved depth")
 
 
 if __name__ == '__main__':
