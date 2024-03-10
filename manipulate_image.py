@@ -92,7 +92,7 @@ class ImageGen:
                         patch = np.average(img[y:y + h, x:x + w])
                         non_zero = (patch != 0)
                         average_depth = patch.sum() / non_zero.sum()
-                        self.depth[i] = average_depth
+                        self.depth[i][j] = average_depth
                         self.raw_bbx[i][j] = np.array([x, y, w, h])
 
                         img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
