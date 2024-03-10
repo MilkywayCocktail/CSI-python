@@ -251,7 +251,8 @@ class ImageGen:
         else:
             print("No generated images!")
 
-    def save(self, save_path, save_terms=('raw_bbx', 'gen_img', 'gen_bbx')):
+    def save(self, save_path, save_terms=('raw_bbx', 'gen_img', 'gen_bbx', 'depth')):
+
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         if 'raw_bbx' in save_terms and self.raw_bbx is not None:
@@ -262,6 +263,9 @@ class ImageGen:
             print("Saved gen_img")
         if 'gen_bbx' in save_terms and self.gen_bbx is not None:
             np.save(f"{save_path}{self.name}_gen_bbx.npy",  self.gen_bbx)
+            print("Saved gen_bbx")
+        if 'depth' in save_terms and self.depth is not None:
+            np.save(f"{save_path}{self.name}_depth.npy",  self.gen_bbx)
             print("Saved gen_bbx")
 
 
