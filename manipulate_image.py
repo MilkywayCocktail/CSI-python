@@ -92,8 +92,8 @@ class ImageGen:
                     else:
                         x, y, w, h = cv2.boundingRect(contour)
                         patch = img[y:y + h, x:x + w]
-                        non_zero = (patch != 0) * patch
-                        average_depth = np.average(non_zero)
+                        non_zero = (patch != 0)
+                        average_depth = patch.sum() / non_zero.sum()
                         self.patches.append(patch)
                         self.depth[i][j] = average_depth
                         self.raw_bbx[i][j] = np.array([x, y, w, h])
