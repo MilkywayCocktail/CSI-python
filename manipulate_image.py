@@ -16,12 +16,14 @@ class ImageGen:
         self.gen_imgs = None
         self.gen_bbx = None
         self.depth = None
+        self.patches = []
 
     def load_images(self, path):
         print("Loading images...")
         self.raw_imgs = np.load(path)
+        self.raw_imgs = self.raw_imgs.reshape(-1, 1, 128, 226)
         self.raw_bbx = np.zeros((len(self.raw_imgs), self.assemble_number, 4))
-        self.depth = np.zeros(len(self.raw_imgs))
+        self.depth = np.zeros((len(self.raw_imgs), self.assemble_number, 1))
         length, channels, *self.img_size = self.raw_imgs.shape
         if channels != self.assemble_number:
             print(f"Attention: channels {channels} doesn't match assemble number {self.assemble_number}")
@@ -89,9 +91,10 @@ class ImageGen:
 
                     else:
                         x, y, w, h = cv2.boundingRect(contour)
-                        patch = np.average(img[y:y + h, x:x + w])
-                        non_zero = (patch != 0)
-                        average_depth = patch.sum() / non_zero.sum()
+                        patch = img[y:y + h, x:x + w]
+                        non_zero = (patch != 0) * patch
+                        average_depth = np.average(non_zero)
+                        self.patches.append(patch)
                         self.depth[i][j] = average_depth
                         self.raw_bbx[i][j] = np.array([x, y, w, h])
 
@@ -271,15 +274,23 @@ class ImageGen:
 
 if __name__ == '__main__':
 
-    names = ('01', '02', '03', '04')
+    names = {'01'}
+        #('01', '02', '03', '04')
     for name in names:
         print(name)
         gen = ImageGen(name)
         gen.load_images(f"../dataset/0509/make05/{name}_226_img.npy")
         gen.bounding_box(min_area=0, show=False)
         gen.align_to_center(unified_size=True)
+        print(gen.depth[0])
+        plt.subplot(1, 2, 1)
+        plt.imshow(gen.patches[0])
+        plt.subplot(1, 2, 2)
+        plt.imshow(gen.gen_imgs[0][0])
+        plt.show()
+
         #gen.print_len()
-        gen.save('../dataset/0509/make05-resize/', save_terms=('raw_bbx', 'gen_img'))
+        #gen.save('../dataset/0509/make05-resize/', save_terms=('raw_bbx', 'gen_img'))
         #gen.view_generation()
     #gen.show_images(select_ind=[250, 300, 350, 200], select_num=4)
 
