@@ -1338,8 +1338,8 @@ class MyCsi:
                             dynamic_csi[:, sub, rx, tx] = signal.filtfilt(b, a, self.csi[:, sub, rx, tx])
 
             elif mode == 'savgol':
-                real = signal.savgol_filter(np.real(self.csi), 21, 3, axis=-1)
-                imag = signal.savgol_filter(np.imag(self.csi), 21, 3, axis=-1)
+                real = signal.savgol_filter(np.real(self.csi), 21, 3, axis=0)
+                imag = signal.savgol_filter(np.imag(self.csi), 21, 3, axis=0)
                 dynamic_csi = real + 1.j * imag
 
             else:
