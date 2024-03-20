@@ -6,7 +6,7 @@ import matplotlib.ticker as ticker
 import seaborn as sns
 from scipy import signal
 import csi_loader
-import signal
+
 
 
 class MyException(Exception):
