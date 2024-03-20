@@ -300,7 +300,7 @@ class MyWidar2:
         Plot final results.
         :return: plot of final results (ToF, AoA, Doppler, Amplitude)
         """
-
+        plt.rcParams['figure.figsize'] = (20, 10)
         plt.rcParams["figure.titlesize"] = 35
         plt.rcParams['axes.titlesize'] = 30
         plt.rcParams['axes.labelsize'] = 30
