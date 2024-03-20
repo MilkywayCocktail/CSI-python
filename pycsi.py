@@ -6,6 +6,7 @@ import matplotlib.ticker as ticker
 import seaborn as sns
 from scipy import signal
 import csi_loader
+import signal
 
 
 class MyException(Exception):
@@ -1335,6 +1336,11 @@ class MyCsi:
                     for rx in range(nrx):
                         for tx in range(ntx):
                             dynamic_csi[:, sub, rx, tx] = signal.filtfilt(b, a, self.csi[:, sub, rx, tx])
+
+            elif mode == 'savgol':
+                real = signal.savgol_filter(np.real(self.csi), 21, 3, axis=-1)
+                imag = signal.savgol_filter(np.imag(self.csi), 21, 3, axis=-1)
+                dynamic_csi = real + 1.j * imag
 
             else:
                 raise ArgError("mode: " + str(mode) +
