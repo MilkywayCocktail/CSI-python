@@ -1,7 +1,5 @@
-import numpy
 import pyrealsense2 as rs
 import cv2
-import pandas
 import numpy as np
 import os
 import pycsi
@@ -218,14 +216,6 @@ class BagLoader:
         print("Done")
 
 
-class ImageLoader:
-    def __init__(self, img_path, timestamp_path):
-        self.__img_path = img_path
-        self.__timestamppath = timestamp_path
-        self.__img = np.load(self.__img_path, mmap_mode='r')
-        self.__timestamp = np.load(timestamp_path)
-
-
 class CSILoader:
     def __init__(self, csi_path, csi_configs):
         self.__csi_path = csi_path
@@ -273,7 +263,7 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
     def __init__(self, total_frames: int,
                  csi_configs: pycsi.MyConfigs,
                  img_size: tuple = (128, 128),
-                 csi_length: int = 100,
+                 csi_length: int = 30,
                  assemble_number: int = 1,
                  alignment: str = 'head',
                  paths: dict = None,
@@ -453,7 +443,6 @@ class MyDataMaker(BagLoader, CSILoader, LabelParser):
 
             if window_dynamic:
                 csi_sample = self.windowed_dynamic(csi_sample)
-
 
             # Store in two channels and reshape
             self.result['vanilla']['csi'][i, 0, ...] = np.abs(csi_sample)
