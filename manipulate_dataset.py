@@ -135,6 +135,50 @@ class DataViewer:
                 break
 
 
+class DataSplitter:
+    def __init__(self, paths: dict, save_path):
+        self.data = {}
+        self.length = 0
+        self.save_path = save_path
+
+        print("Loading...")
+        for key, value in paths:
+            self.data[key] = np.load(value)
+            self.length = len(self.data[key])
+            print(f"Loaded {key} of len {self.length} as {self.data[key].dtype}")
+
+        self.indices = np.arange(self.length)
+        self.train_mask = None
+        self.valid_mask = None
+        self.train_ind = None
+        self.valid_ind = None
+
+    def split(self, train_ratio, valid_ratio):
+        train_size = int(self.length * train_ratio)
+        valid_size = int(self.length * valid_ratio)
+        test_size = int(self.length - train_size - valid_size)
+        print(f"Splitting. Train size = {train_size}, Valid size = {valid_size}, Test size = {test_size}...")
+
+        self.train_ind = np.random.choice(np.arange(self.length).astype(int), train_size, replace=False)
+        self.train_mask = np.ones(self.length, np.bool)
+        self.train_mask[self.train_ind] = 0
+
+        self.valid_ind = np.random.choice(np.arange(self.length - train_size).astype(int), valid_size, replace=False)
+        self.valid_mask = np.ones(self.length - train_size, np.bool)
+        self.valid_mask[self.valid_ind] = 0
+
+    def save(self):
+        print("Saving...")
+        if not os.path.exists(self.save_path):
+            os.makedirs(self.save_path)
+        for key, value in self.data:
+            print(f"Saving {key}...")
+            np.save(f"{self.save_path}{key}_train.npy", value[self.train_ind])
+            np.save(f"{self.save_path}{key}_valid.npy", value[self.train_mask][self.valid_ind])
+            np.save(f"{self.save_path}{key}_test.npy", value[self.train_mask][self.valid_mask])
+        print("All saved!")
+
+
 class PhaseDiff:
     def __init__(self, in_path, out_path):
         self.in_path = in_path
@@ -172,42 +216,6 @@ class PhaseDiff:
         np.save(f"{self.out_path}pd.npy", np.concatenate(
             (self.result['AoA'][np.newaxis, ...], self.result['ToF'][np.newaxis, ...]), axis=0))
         print("All saved!")
-
-
-def to_onehot(path, path2):
-    labels = np.load(path)
-    out = np.zeros((len(labels), 3))
-
-    for i in range(len(labels)):
-        if labels[i] == 0:
-            print("-1")
-            out[i] = [1, 0, 0]
-        elif labels[i] == 1:
-            print("0")
-            out[i] = [0, 1, 0]
-        elif labels[i] == 2:
-            print("1")
-            out[i] = [0, 0, 1]
-
-    np.save(path2, out)
-
-
-def from_onehot(path, path2):
-    labels = np.load(path)
-    out = np.zeros(len(labels))
-
-    for i in range(len(labels)):
-        if (labels[i] == [1, 0, 0]).all():
-            print("0")
-            out[i] = 0
-        elif (labels[i] == [0, 1, 0]).all():
-            print("1")
-            out[i] = 1
-        elif (labels[i] == [0, 0, 1]).all():
-            print("2")
-            out[i] = 2
-
-    np.save(path2, out)
 
 
 def pseudo_dataset(out_path):
@@ -303,20 +311,6 @@ def simu_dataset(paths, out_path):
         os.makedirs(out_path)
     #np.save(out_path + 'csi.npy', out)
     np.save(out_path + 'sid.npy', sid)
-
-
-def wi2vi_channels(inpath, outpath):
-    csi = np.load(inpath)
-    print(csi.shape)
-    result = np.zeros((len(csi), 6, 30, 100))
-    #for i in range(len(csi)):#
-#
-#        amp = np.swapaxes(csi[i][0].reshape(30, 3, 100), 0, 1)
-##        phs = np.swapaxes(csi[i][1].reshape(30, 3, 100), 0, 1)
- #       pkt = np.concatenate((amp, phs), axis=0)
- #       result[i] = pkt
-
-    print(result.shape)
 
 
 if __name__ == '__main__':
