@@ -96,15 +96,15 @@ class LabelParser:
 
 
 class BagLoader:
-    def __init__(self, bag_path, localtime_path, img_size=(128, 128)):
-
-        self.__bag_path = bag_path
-        self.__localtime_path = localtime_path
-        self.img_size = img_size
+    def __init__(self, total_frames, bag_path, local_time_path, img_shape=(128, 128)):
+        self.total_frames = total_frames
+        self.bag_path = bag_path
+        self.local_time_path = local_time_path
+        self.img_shape = img_shape
         self.video_stream = self.__setup_video_stream__()
-        self.local_time = self.__load_local_timestamps__()
+        self.local_time = self.load_local_timestamps()
         self.images = None
-        self.timestamps = None
+        self.camera_time = None
         self.caliberated = False
         self.camtime_delta = 0.
 
@@ -113,7 +113,7 @@ class BagLoader:
         print('Setting camera stream...', end='')
         pipeline = rs.pipeline()
         config = rs.config()
-        config.enable_device_from_file(self.__bag_path, False)
+        config.enable_device_from_file(self.bag_path, False)
         config.enable_all_streams()
         profile = pipeline.start(config)
         profile.get_device().as_playback().set_real_time(False)
@@ -121,12 +121,12 @@ class BagLoader:
 
         return pipeline
 
-    def __load_local_timestamps__(self):
-        if self.__localtime_path:
-            local_tf = open(self.__localtime_path, mode='r', encoding='utf-8')
+    def load_local_timestamps(self):
+        if self.local_time_path:
+            local_tf = open(self.local_time_path, mode='r', encoding='utf-8')
             local_time = np.array(local_tf.readlines())
-            for i in range(len(local_time)):
-                local_time[i] = datetime.timestamp(datetime.strptime(local_time[i].strip(), "%Y-%m-%d %H:%M:%S.%f"))
+            for i, line in enumerate(local_time):
+                local_time[i] = datetime.timestamp(datetime.strptime(line.strip(), "%Y-%m-%d %H:%M:%S.%f"))
             local_tf.close()
             return local_time.astype(np.float64)
         else:
@@ -196,18 +196,17 @@ class BagLoader:
             self.images[i] *= mask
         tqdm.write("Done")
 
-    def export_images(self, frames, mode='depth'):
+    def export_images(self, mode='depth'):
         tqdm.write('Starting exporting image...')
 
-        self.images = np.zeros((frames, self.img_size[1], self.img_size[0]))
-        self.timestamps = np.zeros(frames)
+        self.images = np.zeros((self.total_frames, self.img_shape[1], self.img_shape[0]))
+        self.camera_time = np.zeros(self.total_frames)
 
         try:
             self.__setup_video_stream__()
-            for i in tqdm(range(frames)):
-                image, frame_timestamp = self.__get_image__(mode=mode)
-                self.timestamps[i, ...] = frame_timestamp
-                image = cv2.resize(image[:, 4:-4], self.img_size, interpolation=cv2.INTER_AREA)
+            for i in tqdm(range(self.total_frames)):
+                image, self.camera_time[i, ...] = self.__get_image__(mode=mode)
+                image = cv2.resize(image, self.img_shape, interpolation=cv2.INTER_AREA)
                 self.images[i, ...] = image
         except RuntimeError:
             pass
@@ -215,16 +214,19 @@ class BagLoader:
         finally:
             self.video_stream.stop()
             if self.local_time is not None:
-                self.timestamps = self.calibrate_camtime(self.timestamps, self.local_time)
+                self.camera_time = self.calibrate_camtime(self.camera_time, self.local_time)
 
     def save_images(self, path=None):
         print("Saving...", end='')
         if path:
-            np.save(f"{path}img.npy", self.images)
-            np.save(f"{path}timestamps.npy", self.timestamps)
+            if not os.path.exists(path):
+                os.makedirs(path)
+            _, filename = os.path.split(self.bag_path)
+            np.save(f"{path}{filename}_img.npy", self.images)
+            np.save(f"{path}{filename}_camtime.npy", self.camera_time)
         else:
-            np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_raw.npy", self.images)
-            np.save(f"../{os.path.splitext(os.path.basename(self.__bag_path))[0]}_timestamps.npy", self.timestamps)
+            np.save(f"../{os.path.splitext(os.path.basename(self.bag_path))[0]}_raw.npy", self.images)
+            np.save(f"../{os.path.splitext(os.path.basename(self.bag_path))[0]}_camtime.npy", self.camera_time)
         print("Done")
 
 
