@@ -509,7 +509,7 @@ class MyCsi:
         """
 
         if self.path is not None:
-            dic = np.load(self.path, allow_pickle=True).item()
+            dic: dict = np.load(self.path, allow_pickle=True).item()
             if 'csi' in dic.keys():
                 self.csi = dic['csi']
             else:

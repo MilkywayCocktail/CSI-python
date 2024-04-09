@@ -8,6 +8,18 @@ from tqdm.notebook import tqdm
 from datetime import datetime
 from IPython.display import display, clear_output
 
+##############################################################################
+# -------------------------------------------------------------------------- #
+# ABOUT TIMESTAMPS
+# There are 3 kinds of timestamps:
+# CSI timestamp -- local timestamp -- camera timestamp
+#
+# local timestamp works as a standard
+# CSI timestamp should be pre-calibrated against local timestamp
+# camera timestamp is calibrated when exporting from bag
+# -------------------------------------------------------------------------- #
+##############################################################################
+
 
 def my_filter(frame):
     """

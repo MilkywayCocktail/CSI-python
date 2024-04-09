@@ -8,6 +8,18 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from IPython.display import display, clear_output
 
+##############################################################################
+# -------------------------------------------------------------------------- #
+# ABOUT TIMESTAMPS
+# There are 3 kinds of timestamps:
+# CSI timestamp -- local timestamp -- camera timestamp
+#
+# local timestamp works as a standard
+# CSI timestamp should be pre-calibrated against local timestamp
+# camera timestamp is calibrated when exporting from bag
+# -------------------------------------------------------------------------- #
+##############################################################################
+
 
 def my_filter(frame):
     """
@@ -37,15 +49,15 @@ def my_filter(frame):
 
 class LabelParser:
     def __init__(self, label_path):
-        self.__label_path = label_path
+        self.label_path = label_path
         self.label = None
-        if self.__label_path:
+        if self.label_path:
             self.parse()
 
     def parse(self):
         print('Loading label...', end='')
         label = {'segment': []}
-        with open(self.__label_path) as f:
+        with open(self.label_path) as f:
             for i, line in enumerate(f):
                 if i == 0:
                     # ---Keys of label---
@@ -84,41 +96,53 @@ class LabelParser:
 
 
 class ImageLoader:
-    def __init__(self, img_path, timestamp_path, img_size):
-        self.__img_path = img_path
-        self.__timestamppath = timestamp_path
-        self.__img = np.load(self.__img_path, mmap_mode='r')
-        self.__timestamp = np.load(timestamp_path)
-        self.img_size = img_size
+    # Camera time should have been calibrated
+
+    def __init__(self, img_path, camera_time_path, img_shape):
+        self.img_path = img_path
+        self.camera_time_path = camera_time_path
+        self.img, self.camera_time = self.load_img()
+        self.img_shape = img_shape
+
+    def load_img(self):
+        print('Loading IMG...', end='')
+        img = np.load(self.img_path, mmap_mode='r')
+        camera_time = np.load(self.camera_time_path)
+        print('Done')
+        return img, camera_time
 
     def depth_mask(self, threshold=0.5):
         tqdm.write("Masking...")
-        median = np.median(np.squeeze(self.__img), axis=0)
+        median = np.median(np.squeeze(self.img), axis=0)
         threshold = median * threshold
         plt.imshow(threshold / np.max(threshold))
         plt.title("Threshold map")
         plt.show()
-        for i in tqdm(range(len(self.__img))):
-            mask = np.squeeze(self.__img[i]) < threshold
-            self.__img[i] *= mask
+        for i in tqdm(range(len(self.img))):
+            mask = np.squeeze(self.img[i]) < threshold
+            self.img[i] *= mask
         tqdm.write("Done")
 
 
 class CSILoader:
+    # CSI time should have been calibrated
+    # CSI timestamps inside csi
+
     def __init__(self, csi_path, csi_configs):
-        self.__csi_path = csi_path
+        self.csi_path = csi_path
         self.csi_configs = csi_configs
-        self.csi = self.__load_csi__()
+        self.csi, self.csi_time = self.load_csi()
 
-    def __load_csi__(self):
-        print('Loading CSI...')
-        csi = pycsi.MyCsi(self.csi_configs, 'CSI', self.__csi_path)
+    def load_csi(self):
+        print('Loading CSI...', end='')
+        csi = pycsi.MyCsi(self.csi_configs, 'CSI', self.csi_path)
         csi.load_data(remove_sm=True)
-
-        return csi  # Pre-calibrated versus local machine
+        print('Done')
+        return csi.csi, csi.timestamps
 
     @staticmethod
     def windowed_dynamic(in_csi):
+        # in_csi: pkt * sub * rx
         # in_csi = np.squeeze(in_csi)
         phase_diff = in_csi * in_csi[..., 0][..., np.newaxis].conj().repeat(3, axis=2)
         static = np.mean(phase_diff, axis=0)
@@ -129,16 +153,31 @@ class CSILoader:
 class MyDataMaker(ImageLoader, CSILoader, LabelParser):
     def __init__(self, total_frames: int,
                  csi_configs: pycsi.MyConfigs,
-                 img_size: tuple = (128, 128),
-                 csi_length: int = 100,
+                 csi_shape: tuple = (2, 100, 30, 3),
+                 img_shape: tuple = (128, 128),
                  assemble_number: int = 1,
                  alignment: str = 'head',
                  paths: dict = None,
                  jupyter_mode=False
                  ):
+        """
+        Assemble of ImageLoader, CSILoader and LabelParser.\n
+        :param total_frames: number of frames of images
+        :param csi_configs: configs for loading CSI
+        :param csi_shape: (channel, packet, subcarrier, rx)
+        :param img_shape: (width, height)
+        :param assemble_number: how many img-csi pairs in one sample
+        :param alignment: how to align image and CSI
+        :param paths: paths including img, camera_time, local_time, csi, label, save
+        :param jupyter_mode: whether to run on jupyter notebook
+        """
+
+        assert alignment in {'head', 'tail'}
+
         if paths is None:
-            paths = {'bag': None,
-                     'localtime': None,
+            paths = {'img': None,
+                     'camera_time'
+                     'local_time': None,
                      'csi': None,
                      'label': None,
                      'save': '/saved/'
@@ -146,13 +185,13 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.paths = paths
         self.frames = total_frames
         self.samples = total_frames // assemble_number
-        self.csi_length = csi_length
+        self.csi_shape = csi_shape
         self.assemble_number = assemble_number
         self.alignment = alignment
 
         self.jupyter_mode = jupyter_mode
 
-        ImageLoader.__init__(self, self.paths['img'], self.paths['localtime'], img_size)
+        ImageLoader.__init__(self, self.paths['img'], self.paths['local_time'], img_shape)
         CSILoader.__init__(self, self.paths['csi'], csi_configs)
         LabelParser.__init__(self, self.paths['label'])
 
@@ -160,24 +199,28 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                        'annotated': {}}
 
     def init_data(self):
-        # img_size = (width, height)
-
-        csi = np.zeros((self.frames, 2, self.csi_length, 30, 3))
-        images = np.zeros((self.frames, 1, self.img_size[1], self.img_size[0]))
+        csi = np.zeros((self.frames, *self.csi_shape))
+        images = np.zeros((self.frames, 1, self.img_shape[1], self.img_shape[0]))
         timestamps = np.zeros((self.frames, 1, 1))
         indices = np.zeros((self.frames, 1, 1), dtype=int)
 
         return {'csi': csi, 'img': images, 'time': timestamps, 'ind': indices}
 
     def reshape_csi(self):
+        """
+        Reshape CSI into expected size. (Excluding assemble).\n
+        :return: reshaped CSI
+        """
         length, channel, *csi_shape = self.result['vanilla']['csi'].shape
         self.result['vanilla']['csi'] = (self.result['vanilla']['csi'].transpose(
             (0, 1, 4, 3, 2))).reshape(length, channel * 3, 30, 100)
 
     def export_csi(self, window_dynamic=False, pick_tx=0):
         """
-        Finds csi packets according to the timestamps of images.\n
-        Requires export_image.\n
+         Find csi packets according to the timestamps of images.\n
+        :param window_dynamic: whether to subtract static component
+        :param pick_tx: select one of the tx
+        :return: Preliminarily assorted CSI
         """
         tqdm.write('Starting exporting CSI...')
         boundary = -1
@@ -185,14 +228,12 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         for i in tqdm(range(self.frames)):
             csi_index = np.searchsorted(self.csi.timestamps, self.result['vanilla']['time'][i, 0, 0])
             self.result['vanilla']['ind'][i, ...] = csi_index
+            csi_sample = np.zeros((self.csi_shape[1], self.csi_shape[2], self.csi_shape[3], 1))
 
-            if self.result['vanilla']['time'][i, 0, 0] > boundary:
-                if self.alignment == 'head':
-                    csi_sample = self.csi.csi[csi_index: csi_index + self.csi_length, :, :, pick_tx]
-                elif self.alignment == 'tail':
-                    csi_sample = self.csi.csi[csi_index - self.csi_length: csi_index, :, :, pick_tx]
-
-                boundary = self.csi.timestamps[csi_index] + self.csi_length * 1.e-3
+            if self.alignment == 'head':
+                csi_sample = self.csi[csi_index: csi_index + self.csi_shape[1], :, :, pick_tx]
+            elif self.alignment == 'tail':
+                csi_sample = self.csi[csi_index - self.csi_shape[1]: csi_index, :, :, pick_tx]
 
             if window_dynamic:
                 csi_sample = self.windowed_dynamic(csi_sample)
@@ -204,6 +245,10 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.reshape_csi()
 
     def deoverlap(self):
+        """
+        Remove overlapping CSI samples.\n
+        :return: Deoverlapped CSI and all other metadata
+        """
         print("Deopverlapping...", end='')
         de_flag = np.zeros(self.frames, dtype=bool)
         boundary = -1
@@ -211,18 +256,18 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         for i in range(len(self.result['vanilla']['time'])):
             if self.result['vanilla']['time'][i, 0, 0] > boundary:
                 de_flag[i] = True
-                boundary = self.result['vanilla']['time'][i, 0, 0] + self.csi_length * 1.e-3
+                boundary = self.result['vanilla']['time'][i, 0, 0] + self.csi_shape[1] * 1.e-3  # CSI sampling rate
             else:
                 continue
 
-        for modality in self.result['vanilla'].keys():
-            self.result['vanilla'][modality] = self.result['vanilla'][modality][de_flag]
+        for modality, value in self.result['vanilla'].items():
+            self.result['vanilla'][modality] = value[de_flag]
         print('Done')
 
     def slice_by_label(self):
         """
-        Segmentation regarding annotation.\n
-        :return: sliced results
+        Segmentation according to annotation.\n
+        :return: sliced metadata
         """
         print('Slicing...', end='')
 
@@ -231,20 +276,25 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         for seg in range(len(self.label['start'])):
             start_id, end_id = np.searchsorted(self.result['vanilla']['time'][:, 0, 0],
-                                               [self.label['start'][seg] - self.camtime_delta,
-                                                self.label['end'][seg] - self.camtime_delta])
+                                               [self.label['start'][seg],
+                                                self.label['end'][seg]])
             segment[seg] = np.arange(start_id, end_id)
             self.result['annotated']['label'][seg] = seg * np.ones((len(segment[seg]), 1, 1))
 
         self.label['segment'] = segment
 
-        for modality in self.result['vanilla'].keys():
+        for modality, value in self.result['vanilla'].items():
             self.result['annotated'][modality] = {seg: None for seg in segment.keys()}
             for seg in segment.keys():
-                self.result['annotated'][modality][seg] = self.result['vanilla'][modality][segment[seg]]
+                self.result['annotated'][modality][seg] = value[segment[seg]]
         print('Done')
 
     def depth_mask(self, threshold=0.5):
+        """
+        Apply median filter on depth images.\n
+        :param threshold: threshold value
+        :return: filtered images
+        """
         tqdm.write("Masking...")
         median = np.median(np.squeeze(self.result['vanilla']['img']), axis=0)
         threshold = median * threshold
@@ -257,6 +307,10 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         tqdm.write("Done")
 
     def assemble(self):
+        """
+        Assemble every several samples into 1 sample.\n
+        :return: Assembled metadata
+        """
         print("Aligning...", end='')
         if self.result['annotated']:
             for modality in self.result['vanilla'].keys():
@@ -283,6 +337,6 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                 #   self.result[data][modality])
                 # else:
                 np.save(os.path.join(
-                    self.paths['save'], f"{save_name}_asmb{self.assemble_number}_len{self.csi_length}_{modality}.npy"),
+                    self.paths['save'], f"{save_name}_asmb{self.assemble_number}_len{self.csi_shape[1]}_{modality}.npy"),
                     np.concatenate(list(self.result[data][modality].values())))
         print("Done")
