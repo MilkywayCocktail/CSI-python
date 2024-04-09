@@ -131,14 +131,14 @@ class CSILoader:
     def __init__(self, csi_path, csi_configs):
         self.csi_path = csi_path
         self.csi_configs = csi_configs
-        self.csi, self.csi_time = self.load_csi()
+        self.csi = self.load_csi()
 
     def load_csi(self):
         print('Loading CSI...', end='')
         csi = pycsi.MyCsi(self.csi_configs, 'CSI', self.csi_path)
         csi.load_data(remove_sm=True)
         print('Done')
-        return csi.csi, csi.timestamps
+        return csi
 
     @staticmethod
     def windowed_dynamic(in_csi):
