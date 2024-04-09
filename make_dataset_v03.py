@@ -91,7 +91,7 @@ class LabelParser:
 
     def save_raw_labels(self):
         print("Saving labels...", end='')
-        np.save(f"../{os.path.splitext(os.path.basename(self.__label_path))[0]}_labels.npy", self.label)
+        np.save(f"../{os.path.splitext(os.path.basename(self.label_path))[0]}_labels.npy", self.label)
         print("Done")
 
 
@@ -177,7 +177,6 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         if paths is None:
             paths = {'img': None,
                      'camera_time'
-                     'local_time': None,
                      'csi': None,
                      'label': None,
                      'save': '/saved/'
@@ -191,7 +190,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         self.jupyter_mode = jupyter_mode
 
-        ImageLoader.__init__(self, self.paths['img'], self.paths['local_time'], img_shape)
+        ImageLoader.__init__(self, self.paths['img'], self.paths['camera_time'], img_shape)
         CSILoader.__init__(self, self.paths['csi'], csi_configs)
         LabelParser.__init__(self, self.paths['label'])
 
