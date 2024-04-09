@@ -230,9 +230,9 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             csi_sample = np.zeros((self.csi_shape[1], self.csi_shape[2], self.csi_shape[3], 1))
 
             if self.alignment == 'head':
-                csi_sample = self.csi[csi_index: csi_index + self.csi_shape[1], :, :, pick_tx]
+                csi_sample = self.csi.csi[csi_index: csi_index + self.csi_shape[1], :, :, pick_tx]
             elif self.alignment == 'tail':
-                csi_sample = self.csi[csi_index - self.csi_shape[1]: csi_index, :, :, pick_tx]
+                csi_sample = self.csi.csi[csi_index - self.csi_shape[1]: csi_index, :, :, pick_tx]
 
             if window_dynamic:
                 csi_sample = self.windowed_dynamic(csi_sample)
@@ -297,8 +297,9 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         tqdm.write("Masking...")
         median = np.median(np.squeeze(self.result['vanilla']['img']), axis=0)
         threshold = median * threshold
-        plt.imshow(threshold / np.max(threshold))
+        plt.imshow(threshold)
         plt.title("Threshold map")
+        plt.colorbar()
         plt.show()
         for i in tqdm(range(len(self.result['vanilla']['img']))):
             mask = np.squeeze(self.result['vanilla']['img'][i]) < threshold
