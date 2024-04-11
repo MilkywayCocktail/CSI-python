@@ -420,7 +420,7 @@ class MyCsi:
                 csi, t, r, d = csi_loader.load_npy(self.path)
 
             self.length = len(csi)
-            if remove_sm is True and self.configs.ntx != 1:
+            if remove_sm and self.configs.ntx != 1:
                 print('Removing sm...', end='')
                 for i in range(self.length):
                     csi[i] = csi_loader.remove_sm(csi[i], self.configs.tx_rate)
@@ -492,7 +492,7 @@ class MyCsi:
                 for s in segment:
                     seg.extend(self.labels['segments'][s])
 
-            if overwrite is True:
+            if overwrite:
                 self.csi = self.csi[seg]
                 self.timescale = self.timescale[seg]
                 self.length = len(self.csi)
@@ -611,10 +611,10 @@ class MyCsi:
 
     def view_phase_diff(self, packet1=None, packet2=None, autosave=False, notion='', folder_name=''):
 
-        if packet1 is None:
+        if not packet1:
             packet1 = np.random.randint(self.length)
             print(packet1)
-        if packet2 is None:
+        if not packet2:
             packet2 = np.random.randint(self.length)
             print(packet2)
 
@@ -633,7 +633,7 @@ class MyCsi:
         plt.ylabel('PhaseDiff / $rad$')
         plt.legend()
 
-        if autosave is True:
+        if autosave:
             save_path = "../visualization/" + self.name[:4] + '/' + folder_name + '/'
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
@@ -692,7 +692,7 @@ class MyCsi:
         nrx = self.configs.nrx
         ntx = self.configs.ntx
 
-        if index is None:
+        if not index:
             index = np.random.randint(self.length)
         _csi = self.csi[index].reshape(nsub, ntx * nrx)
         _phs = np.unwrap(np.angle(_csi), axis=0)
@@ -707,7 +707,7 @@ class MyCsi:
 
     def verbose_series(self, start=0, end=None, sub=14, rx=0, tx=0, notion=''):
 
-        if end is None:
+        if not end:
             end = self.length
 
         plt.plot(np.unwrap(np.angle(self.csi[start:end, sub, rx, tx]), axis=0))

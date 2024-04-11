@@ -49,15 +49,15 @@ def my_filter(frame):
 
 class LabelParser:
     def __init__(self, label_path):
-        self.__label_path = label_path
+        self.label_path = label_path
         self.label = None
-        if self.__label_path:
+        if self.label_path:
             self.parse()
 
     def parse(self):
         print('Loading label...', end='')
         label = {'segment': []}
-        with open(self.__label_path) as f:
+        with open(self.label_path) as f:
             for i, line in enumerate(f):
                 if i == 0:
                     # ---Keys of label---
@@ -222,8 +222,9 @@ class BagLoader:
             if not os.path.exists(path):
                 os.makedirs(path)
             _, filename = os.path.split(self.bag_path)
-            np.save(f"{path}{filename}_img.npy", self.images)
-            np.save(f"{path}{filename}_camtime.npy", self.camera_time)
+            file, ext = os.path.splitext(filename)
+            np.save(f"{path}{file}_img.npy", self.images)
+            np.save(f"{path}{file}_camtime.npy", self.camera_time)
         else:
             np.save(f"../{os.path.splitext(os.path.basename(self.bag_path))[0]}_raw.npy", self.images)
             np.save(f"../{os.path.splitext(os.path.basename(self.bag_path))[0]}_camtime.npy", self.camera_time)
@@ -232,13 +233,13 @@ class BagLoader:
 
 class CSILoader:
     def __init__(self, csi_path, csi_configs):
-        self.__csi_path = csi_path
+        self.csi_path = csi_path
         self.csi_configs = csi_configs
         self.csi = self.__load_csi__()
 
     def __load_csi__(self):
         print('Loading CSI...')
-        csi = pycsi.MyCsi(self.csi_configs, 'CSI', self.__csi_path)
+        csi = pycsi.MyCsi(self.csi_configs, 'CSI', self.csi_path)
         csi.load_data(remove_sm=True)
 
         return csi  # Pre-calibrated versus local machine
