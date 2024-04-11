@@ -17,6 +17,7 @@ class ImageGen:
         self.gen_bbx = None
         self.depth = None
         self.patches = []
+        self.bbx_order = 'xywh'
 
     def load_images(self, path):
         print("Loading images...")
@@ -254,22 +255,32 @@ class ImageGen:
         else:
             print("No generated images!")
 
-    def save(self, save_path, save_terms=('raw_bbx', 'gen_img', 'gen_bbx', 'depth')):
+    def convert_bbx(self, w_scale=226, h_scale=128, bbx_order='xyxy'):
+        print('Converting bbx...', end='')
+        if bbx_order == 'xyxy':
+            self.raw_bbx[..., -1] = self.raw_bbx[..., -1] + self.raw_bbx[..., -3]
+            self.raw_bbx[..., -2] = self.raw_bbx[..., -2] + self.raw_bbx[..., -4]
 
+        self.raw_bbx[..., -1] /= float(w_scale)
+        self.raw_bbx[..., -3] /= float(w_scale)
+        self.raw_bbx[..., -2] /= float(h_scale)
+        self.raw_bbx[..., -4] /= float(h_scale)
+
+        self.bbx_order = bbx_order
+        print('Done')
+
+    def save(self, save_path, save_terms=('raw_bbx', 'gen_img', 'gen_bbx', 'depth')):
+        print('Saving...')
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-        if 'raw_bbx' in save_terms and self.raw_bbx is not None:
-            np.save(f"{save_path}{self.name}_raw_bbx.npy", self.raw_bbx)
-            print("Saved raw_bbx")
-        if 'gen_img' in save_terms and self.gen_imgs is not None:
-            np.save(f"{save_path}{self.name}_gen_img.npy", self.gen_imgs)
-            print("Saved gen_img")
-        if 'gen_bbx' in save_terms and self.gen_bbx is not None:
-            np.save(f"{save_path}{self.name}_gen_bbx.npy",  self.gen_bbx)
-            print("Saved gen_bbx")
-        if 'depth' in save_terms and self.depth is not None:
-            np.save(f"{save_path}{self.name}_depth.npy",  self.depth)
-            print("Saved depth")
+        for save_term in save_terms:
+            if eval(f"self.{save_term}" is not None):
+                if save_term == 'raw_bbx':
+                    np.save(f"{save_path}{self.name}_{save_term}_{self.bbx_order}", eval(f"self.{save_term}"))
+                else:
+                    np.save(f"{save_path}{self.name}_{save_term}.npy", eval(f"self.{save_term}"))
+                print(f"Saved {save_term}")
+        print('All saved!')
 
 
 if __name__ == '__main__':
