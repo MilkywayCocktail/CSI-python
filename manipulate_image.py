@@ -34,7 +34,7 @@ class ImageGen:
         try:
             print(f"raw images: {self.raw_img.shape}")
             print(f"raw bbx: {self.raw_bbx.shape}")
-            print(f"gen images: {self.gen_imgs.shape}")
+            print(f"gen images: {self.gen_img.shape}")
             print(f"gen_bbx: {self.gen_bbx.shape}")
             print(f"depth: {self.depth.shape}")
         except Exception:
@@ -165,10 +165,10 @@ class ImageGen:
                 generated_images = np.delete(generated_images, 0, axis=0)
                 generated_bbx = np.delete(generated_bbx, 0, axis=0)
 
-                if not self.gen_imgs:
-                    self.gen_imgs = generated_images
+                if not self.gen_img:
+                    self.gen_img = generated_images
                 else:
-                    self.gen_imgs = np.concatenate((self.gen_imgs, generated_images), axis=0)
+                    self.gen_img = np.concatenate((self.gen_img, generated_images), axis=0)
                 if not self.gen_bbx:
                     self.gen_bbx = generated_bbx
                 else:
@@ -219,10 +219,10 @@ class ImageGen:
         generated_images = np.delete(generated_images, 0, axis=0)
         generated_bbx = np.delete(generated_bbx, 0, axis=0)
 
-        if not self.gen_imgs:
-            self.gen_imgs = generated_images
+        if not self.gen_img:
+            self.gen_img = generated_images
         else:
-            self.gen_imgs = np.concatenate((self.gen_imgs, generated_images), axis=0)
+            self.gen_img = np.concatenate((self.gen_img, generated_images), axis=0)
         if not self.gen_bbx:
             self.gen_bbx = generated_bbx
         else:
@@ -231,14 +231,14 @@ class ImageGen:
         print("Generation complete!")
 
     def view_generation(self, save_path=None):
-        if self.gen_imgs is not None:
-            print(f"Viewing generated {self.gen_imgs.shape[0]} images...\n")
+        if self.gen_img is not None:
+            print(f"Viewing generated {self.gen_img.shape[0]} images...\n")
 
-            for i in range(len(self.gen_imgs)):
-                print(f"\r{i} of {self.gen_imgs.shape[0]}", end='')
+            for i in range(len(self.gen_img)):
+                print(f"\r{i} of {self.gen_img.shape[0]}", end='')
                 x, y, w, h = self.gen_bbx[i]
                 x, y, w, h = int(x), int(y), int(w), int(h)
-                img = np.squeeze(self.gen_imgs[i]) * 255
+                img = np.squeeze(self.gen_img[i]) * 255
 
                 img = cv2.rectangle(cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_GRAY2BGR),
                                     (x, y),
@@ -297,7 +297,7 @@ if __name__ == '__main__':
         plt.subplot(1, 2, 1)
         plt.imshow(gen.patches[0])
         plt.subplot(1, 2, 2)
-        plt.imshow(gen.gen_imgs[0][0])
+        plt.imshow(gen.gen_img[0][0])
         plt.show()
 
         #gen.print_len()
