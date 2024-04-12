@@ -140,7 +140,7 @@ class DataSplitter:
         for key, value in paths:
             self.data[key] = np.load(value)
             self.length = len(self.data[key])
-            print(f"Loaded {key} of len {self.length} as {self.data[key].dtype}")
+            print(f" Loaded {key} of len {self.length} as {self.data[key].dtype}")
 
         self.indices = np.arange(self.length)
         self.train_mask = None
@@ -152,7 +152,7 @@ class DataSplitter:
         train_size = int(self.length * train_ratio)
         valid_size = int(self.length * valid_ratio)
         test_size = int(self.length - train_size - valid_size)
-        print(f"Splitting. Train size = {train_size}, Valid size = {valid_size}, Test size = {test_size}...")
+        print(f"Splitting. Train size = {train_size}, Valid size = {valid_size}, Test size = {test_size}...", end='')
 
         self.train_ind = np.random.choice(np.arange(self.length).astype(int), train_size, replace=False)
         self.train_mask = np.ones(self.length, np.bool)
@@ -161,13 +161,14 @@ class DataSplitter:
         self.valid_ind = np.random.choice(np.arange(self.length - train_size).astype(int), valid_size, replace=False)
         self.valid_mask = np.ones(self.length - train_size, np.bool)
         self.valid_mask[self.valid_ind] = 0
+        print('Done')
 
     def save(self):
         print("Saving...")
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
         for key, value in self.data:
-            print(f"Saving {key}...")
+            print(f" Saving {key}...")
             np.save(f"{self.save_path}{key}_train.npy", value[self.train_ind])
             np.save(f"{self.save_path}{key}_valid.npy", value[self.train_mask][self.valid_ind])
             np.save(f"{self.save_path}{key}_test.npy", value[self.train_mask][self.valid_mask])
