@@ -20,7 +20,7 @@ class ImageGen:
         self.bbx_order = 'xywh'
 
     def load_images(self, path):
-        print("Loading images...")
+        print(f"{self.name} loading images...")
         self.raw_imgs = np.load(path)
         self.raw_imgs = self.raw_imgs.reshape(-1, 1, 128, 226)
         self.raw_bbx = np.zeros((len(self.raw_imgs), self.assemble_number, 4))
