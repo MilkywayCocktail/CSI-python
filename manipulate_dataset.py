@@ -83,7 +83,7 @@ class Regrouper:
                     self.result[key] = self.result[key] - min(self.result[key])
                 elif key == 'img':
                     filename = f"{self.out_path}{img}{key}.npy"
-                elif csi == 'f':
+                elif key == 'csi':
                     filename = f"{self.out_path}{csi}{key}.npy"
                 if number == 0:
                     print(f" Saved {key} of len {len(self.result[key])}")
