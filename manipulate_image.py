@@ -269,6 +269,12 @@ class ImageGen:
         self.bbx_order = bbx_order
         print('Done')
 
+    def convert_depth(self, threshold=3000):
+        print('Converting depth...', end='')
+        self.depth[self.depth > threshold] = threshold
+        self.depth /= float(threshold)
+        print('Done')
+
     def save(self, save_path, save_terms=('raw_bbx', 'gen_img', 'gen_bbx', 'depth')):
         print('Saving...')
         if not os.path.exists(save_path):
@@ -276,7 +282,7 @@ class ImageGen:
         for save_term in save_terms:
             if eval(f"self.{save_term} is not None"):
                 if save_term == 'raw_bbx':
-                    np.save(f"{save_path}{self.name}_{save_term}_{self.bbx_order}", eval(f"self.{save_term}"))
+                    np.save(f"{save_path}{self.name}_{self.bbx_order}_{save_term}.npy", eval(f"self.{save_term}"))
                 else:
                     np.save(f"{save_path}{self.name}_{save_term}.npy", eval(f"self.{save_term}"))
                 print(f"Saved {save_term}")

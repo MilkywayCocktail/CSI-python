@@ -54,7 +54,7 @@ class Regrouper:
             self.result[name] = np.zeros((1, *shape))
             
     def load(self):
-        print("Loading...")
+        print(f"Loading {self.scope}...")
         filenames = os.listdir(self.in_path)
         
         for file in filenames:
@@ -62,16 +62,9 @@ class Regrouper:
                 modality = file.split('_')[-1].split('.')[0]
                 try:
                     if modality in list(self.result.keys()):
-                        if modality == 'img':
-                            data = np.load(self.in_path + file)
-                            data[data > 3000] = 3000
-                            data = data / 3000.
-                            
-                            self.result[modality] = np.concatenate((self.result[modality], data), axis=0)
-                        else:
-                            data = np.load(self.in_path + file, mmap_mode='r')
-                            self.result[modality] = np.concatenate((self.result[modality], data), axis=0)
-                        print(f"Loaded {file} of {data.shape}")
+                        data = np.load(self.in_path + file, mmap_mode='r')
+                        self.result[modality] = np.concatenate((self.result[modality], data), axis=0)
+                        print(f" Loaded {file} of {data.shape}")
                 except Exception as e:
                     print(f"Error at {modality}:", e)
 
@@ -91,10 +84,10 @@ class Regrouper:
                 if key == 'img':
                     filename = f"{self.out_path}{img}{key}.npy"
                 if number == 0:
-                    print(f"Saved {key} of len {len(self.result[key])}")
+                    print(f" Saved {key} of len {len(self.result[key])}")
                     np.save(filename, self.result[key])
                 else:
-                    print(f"Saved {key} of len {number}")
+                    print(f" Saved {key} of len {number}")
                     np.save(filename, self.result[key][:number])
         print("All saved!")
 

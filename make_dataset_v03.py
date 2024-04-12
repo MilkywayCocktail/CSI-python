@@ -48,6 +48,148 @@ def my_filter(frame):
     return result_frame
 
 
+class BagLoader:
+    def __init__(self, total_frames, bag_path, local_time_path, img_shape=(128, 128)):
+        self.total_frames = total_frames
+        self.bag_path = bag_path
+        self.local_time_path = local_time_path
+        self.img_shape = img_shape
+        self.video_stream = self.__setup_video_stream__()
+        self.local_time = self.load_local_timestamps()
+        self.images = None
+        self.camera_time = None
+        self.caliberated = False
+        self.camtime_delta = 0.
+
+    def __setup_video_stream__(self):
+        # timestamps is the local time; works as reference time
+        print('Setting camera stream...', end='')
+        pipeline = rs.pipeline()
+        config = rs.config()
+        config.enable_device_from_file(self.bag_path, False)
+        config.enable_all_streams()
+        profile = pipeline.start(config)
+        profile.get_device().as_playback().set_real_time(False)
+        print('Done')
+
+        return pipeline
+
+    def load_local_timestamps(self):
+        if self.local_time_path:
+            local_tf = open(self.local_time_path, mode='r', encoding='utf-8')
+            local_time = np.array(local_tf.readlines())
+            for i, line in enumerate(local_time):
+                local_time[i] = datetime.timestamp(datetime.strptime(line.strip(), "%Y-%m-%d %H:%M:%S.%f"))
+            local_tf.close()
+            return local_time.astype(np.float64)
+        else:
+            return None
+
+    def __get_image__(self, mode):
+        frame = self.video_stream.wait_for_frames()
+
+        if mode == 'depth':
+            depth_frame = frame.get_depth_frame()
+            frame_timestamp = depth_frame.get_timestamp() / 1.e3
+            if not depth_frame:
+                eval('continue')
+            depth_frame = my_filter(depth_frame)
+            image = np.asanyarray(depth_frame.get_data())
+
+        elif mode == 'color':
+            color_frame = frame.get_color_frame()
+            frame_timestamp = color_frame.get_timestamp() / 1.e3
+            if not color_frame:
+                eval('continue')
+            image = np.asanyarray(color_frame.get_data())
+
+        else:
+            raise Exception('Please specify mode = \'depth\' or \'color\'.')
+
+        return image, frame_timestamp
+
+    def calibrate_camtime(self, camtime, localtime):
+        """
+        Calibrate camera timestamps against local timestamps.\n
+        This is important for fetching CSI packets according to timestamps.\n
+        :return: calibrated timestamps
+        """
+        print('Calibrating camera time against local time file...', end='')
+        cvt = datetime.fromtimestamp
+
+        assert len(camtime) == len(localtime)
+
+        if not self.caliberated:
+            temp_lag = np.zeros(len(camtime))
+            for i in range(len(camtime)):
+                temp_lag[i] = camtime[i] - localtime[i]
+
+            camtime_delta = np.mean(temp_lag)
+
+            for i in range(len(camtime)):
+                camtime[i] -= camtime_delta
+
+            self.caliberated = True
+            self.camtime_delta = camtime_delta
+            print('Done')
+            print('lag={}'.format(camtime_delta))
+            return camtime
+        else:
+            print("Already calibrated")
+
+    def export_images(self, mode='depth'):
+        tqdm.write('Starting exporting image...')
+
+        self.images = np.zeros((self.total_frames, self.img_shape[1], self.img_shape[0]))
+        self.camera_time = np.zeros(self.total_frames)
+
+        try:
+            self.__setup_video_stream__()
+            for i in tqdm(range(self.total_frames)):
+                image, self.camera_time[i, ...] = self.__get_image__(mode=mode)
+                image = cv2.resize(image, self.img_shape, interpolation=cv2.INTER_AREA)
+                self.images[i, ...] = image
+        except RuntimeError:
+            pass
+
+        finally:
+            self.video_stream.stop()
+            if self.local_time is not None:
+                self.camera_time = self.calibrate_camtime(self.camera_time, self.local_time)
+
+    def depth_mask(self, threshold=0.5):
+        tqdm.write("Masking...")
+        median = np.median(np.squeeze(self.images), axis=0)
+        threshold = median * threshold
+        plt.imshow(threshold / np.max(threshold))
+        plt.title("Threshold map")
+        plt.show()
+        for i in tqdm(range(len(self.images))):
+            mask = np.squeeze(self.images[i]) < threshold
+            self.images[i] *= mask
+        tqdm.write("Done")
+
+    def convert_img(self, threshold=3000):
+        print('Converting IMG...', end='')
+        self.images[self.images > threshold] = threshold
+        self.images /= float(threshold)
+        print('Done')
+
+    def save_images(self, path=None):
+        print("Saving...", end='')
+        if path:
+            if not os.path.exists(path):
+                os.makedirs(path)
+            _, filename = os.path.split(self.bag_path)
+            file, ext = os.path.splitext(filename)
+            np.save(f"{path}{file}_img.npy", self.images)
+            np.save(f"{path}{file}_camtime.npy", self.camera_time)
+        else:
+            np.save(f"../{os.path.splitext(os.path.basename(self.bag_path))[0]}_raw.npy", self.images)
+            np.save(f"../{os.path.splitext(os.path.basename(self.bag_path))[0]}_camtime.npy", self.camera_time)
+        print("Done")
+
+
 class LabelParser:
     def __init__(self, label_path, *args, **kwargs):
         self.label_path = label_path
@@ -116,9 +258,9 @@ class ImageLoader:
 
     def load_img(self):
         print('Loading IMG...')
-        img = np.load(self.img_path, mmap_mode='r')
+        img = np.load(self.img_path)
         camera_time = np.load(self.camera_time_path)
-        print(f"Loaded images of {img.shape} as {img.dtype}")
+        print(f" Loaded images of {img.shape} as {img.dtype}")
         return img, camera_time
 
     def depth_mask(self, threshold=0.5):
@@ -132,6 +274,12 @@ class ImageLoader:
             mask = np.squeeze(self.img[i]) < threshold
             self.img[i] *= mask
         tqdm.write("Done")
+
+    def convert_img(self, threshold=3000):
+        print('Converting IMG...', end='')
+        self.img[self.img > threshold] = threshold
+        self.img /= float(threshold)
+        print('Done')
 
 
 class CSILoader:
