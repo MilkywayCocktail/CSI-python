@@ -274,7 +274,7 @@ class ImageGen:
         if not os.path.exists(save_path):
             os.makedirs(save_path)
         for save_term in save_terms:
-            if eval(f"self.{save_term}" is not None):
+            if eval(f"self.{save_term} is not None"):
                 if save_term == 'raw_bbx':
                     np.save(f"{save_path}{self.name}_{save_term}_{self.bbx_order}", eval(f"self.{save_term}"))
                 else:
