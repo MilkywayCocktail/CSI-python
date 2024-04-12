@@ -11,9 +11,9 @@ class ImageGen:
         self.assemble_number = assemble_number
         self.ind = []
         self.img_size = None
-        self.raw_imgs = None
+        self.raw_img = None
         self.raw_bbx = None
-        self.gen_imgs = None
+        self.gen_img = None
         self.gen_bbx = None
         self.depth = None
         self.patches = []
@@ -21,18 +21,18 @@ class ImageGen:
 
     def load_images(self, path):
         print(f"{self.name} loading images...")
-        self.raw_imgs = np.load(path)
-        self.raw_imgs = self.raw_imgs.reshape(-1, 1, 128, 226)
-        self.raw_bbx = np.zeros((len(self.raw_imgs), self.assemble_number, 4))
-        self.depth = np.zeros((len(self.raw_imgs), self.assemble_number, 1))
-        length, channels, *self.img_size = self.raw_imgs.shape
+        self.raw_img = np.load(path)
+        self.raw_img = self.raw_img.reshape(-1, 1, 128, 226)
+        self.raw_bbx = np.zeros((len(self.raw_img), self.assemble_number, 4))
+        self.depth = np.zeros((len(self.raw_img), self.assemble_number, 1))
+        length, channels, *self.img_size = self.raw_img.shape
         if channels != self.assemble_number:
             print(f"Attention: channels {channels} doesn't match assemble number {self.assemble_number}")
-        print(f"Loaded img of {self.raw_imgs.shape} as {self.raw_imgs.dtype}")
+        print(f"Loaded img of {self.raw_img.shape} as {self.raw_img.dtype}")
 
     def print_shape(self):
         try:
-            print(f"raw images: {self.raw_imgs.shape}")
+            print(f"raw images: {self.raw_img.shape}")
             print(f"raw bbx: {self.raw_bbx.shape}")
             print(f"gen images: {self.gen_imgs.shape}")
             print(f"gen_bbx: {self.gen_bbx.shape}")
@@ -47,11 +47,11 @@ class ImageGen:
         :param select_num: specify the number of images to display. Default is 8
         :return: None
         """
-        if self.raw_imgs is not None:
+        if self.raw_img is not None:
             if select_ind:
                 inds = np.array(select_ind)
             else:
-                inds = np.random.choice(list(range(len(self.raw_imgs))), select_num, replace=False)
+                inds = np.random.choice(list(range(len(self.raw_img))), select_num, replace=False)
 
             fig = plt.figure(constrained_layout=True)
             axes = fig.subplots(1, select_num)
@@ -61,7 +61,7 @@ class ImageGen:
             else:
                 inds = np.sort(inds)
             for j in range(len(axes)):
-                img = axes[j].imshow(np.squeeze(self.raw_imgs[inds[j]]), vmin=0, vmax=1)
+                img = axes[j].imshow(np.squeeze(self.raw_img[inds[j]]), vmin=0, vmax=1)
                 axes[j].axis('off')
                 axes[j].set_title(f"#{inds[j]}")
             fig.colorbar(img, ax=axes, shrink=0.8)
@@ -76,9 +76,9 @@ class ImageGen:
     def bounding_box(self, min_area=100, show=False):
         print("Labeling bounding boxes...", end='')
 
-        for i in range(len(self.raw_imgs)):
+        for i in range(len(self.raw_img)):
             for j in range(self.assemble_number):
-                img = np.squeeze(self.raw_imgs[i][j]).astype('float32')
+                img = np.squeeze(self.raw_img[i][j]).astype('float32')
                 (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
                 contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -130,7 +130,7 @@ class ImageGen:
                 print(f"Generating {i} of {ind}...")
                 x, y, w, h = self.raw_bbx[i]
                 x, y, w, h = int(x), int(y), int(w), int(h)
-                subject = np.squeeze(self.raw_imgs[i])[y:y + h, x:x + w]
+                subject = np.squeeze(self.raw_img[i])[y:y + h, x:x + w]
 
                 plt.imshow(subject)
                 plt.show()
@@ -187,13 +187,13 @@ class ImageGen:
         generated_images = np.zeros((1, self.assemble_number, 128, 128))
         generated_bbx = np.zeros((1, self.assemble_number, 4))
         tqdm.write('Starting exporting image...')
-        for i in tqdm(range(len(self.raw_imgs))):
+        for i in tqdm(range(len(self.raw_img))):
             img_anchor = np.zeros((1, 1, 128, 128))
             bbx_anchor = np.zeros((1, 1, 4))
             for j in range(self.assemble_number):
                 x, y, w, h = self.raw_bbx[i][j]
                 x, y, w, h = int(x), int(y), int(w), int(h)
-                subject = np.squeeze(self.raw_imgs[i][j])[y:y + h, x:x + w]
+                subject = np.squeeze(self.raw_img[i][j])[y:y + h, x:x + w]
 
                 image = np.zeros((128, 128))
                 if unified_size:
