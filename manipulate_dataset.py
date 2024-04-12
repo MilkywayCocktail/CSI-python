@@ -72,7 +72,7 @@ class Regrouper:
         for key in list(self.result.keys()):
             self.result[key] = np.delete(self.result[key], 0, axis=0)
 
-    def regroup(self, number=0, img=''):
+    def regroup(self, number=0, img='', csi=''):
         print("Saving...")
         if not os.path.exists(self.out_path):
             os.makedirs(self.out_path)
@@ -81,8 +81,10 @@ class Regrouper:
             if len(self.result[key]) != 0:
                 if key == 'sid':
                     self.result[key] = self.result[key] - min(self.result[key])
-                if key == 'img':
+                elif key == 'img':
                     filename = f"{self.out_path}{img}{key}.npy"
+                elif csi == 'f':
+                    filename = f"{self.out_path}{csi}{key}.npy"
                 if number == 0:
                     print(f" Saved {key} of len {len(self.result[key])}")
                     np.save(filename, self.result[key])
