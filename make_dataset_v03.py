@@ -290,11 +290,19 @@ class CSILoader:
         self.csi_path = csi_path
         self.csi_configs = csi_configs
         self.csi = self.load_csi()
+        self.filtered_csi = None
 
     def load_csi(self):
         csi = pycsi.MyCsi(self.csi_configs, 'CSI', self.csi_path)
         csi.load_data(remove_sm=True)
         return csi
+
+    def filter_csi(self):
+        print('Filtering CSI with savgol filter...', end='')
+        for i in range(self.csi.length):
+            self.filtered_csi[i][0] = signal.savgol_filter(self.csi.csi[i][0], 21, 3, axis=-1)  # denoise for real part
+            self.filtered_csi[i][1] = signal.savgol_filter(self.csi.csi[i][1], 21, 3, axis=-1)  # denoise for imag part
+        print('Done')
 
     @staticmethod
     def windowed_dynamic(in_csi):
@@ -360,7 +368,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.result['csi'] = (self.result['csi'].transpose(
             (0, 1, 4, 3, 2))).reshape(length, channel * 3, self.csi_shape[2], self.csi_shape[1])
 
-    def export_data(self, window_dynamic=False, pick_tx=0, alignment=None):
+    def export_data(self, window_dynamic=False, filter=True, pick_tx=0, alignment=None):
         """
          Find csi packets according to timestamps of images.\n
         :param window_dynamic: whether to subtract static component
@@ -388,6 +396,10 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             if window_dynamic:
                 csi_sample = self.windowed_dynamic(csi_sample)
 
+            if filter:
+                csi_real = signal.savgol_filter(np.real(csi_sample), 21, 3, axis=-1)  # denoise for real part
+                csi_imag = signal.savgol_filter(np.imag(csi_sample), 21, 3, axis=-1)  # denoise for imag part
+                csi_sample = csi_real + 1.j * csi_imag
             # Store in two channels and reshape
             self.result['csi'][i, 0, ...] = np.real(csi_sample)
             self.result['csi'][i, 1, ...] = np.imag(csi_sample)
@@ -443,13 +455,6 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         print('Done')
 
-    def filter_csi(self):
-        print('Filtering CSI with savgol filter...', end='')
-        for i in range(len(self.result['csi'])):
-            self.result['csi'][i][0] = signal.savgol_filter(self.result['csi'][i][0], 21, 3, axis=-1)  # denoise for real part
-            self.result['csi'][i][1] = signal.savgol_filter(self.result['csi'][i][1], 21, 3, axis=-1)  # denoise for imag part
-        print('Done')
-
     def assemble(self):
         """
         Assemble every several samples into 1 sample.\n
@@ -460,10 +465,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         for mod, modality in self.result.items():
             for seg in self.segment.keys():
                 length, channel, *shape = modality[seg].shape
-                if length == 0:
-                    self.segment.pop(seg, None)
-                    self.result[mod].pop(seg, None)
-                else:
+                if length > 0:
                     assemble_length = length // self.assemble_number
                     slice_length = assemble_length * self.assemble_number
                     self.result[mod][seg] = modality[seg][:slice_length].reshape(
