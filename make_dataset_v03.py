@@ -358,7 +358,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         """
         length, channel, *csi_shape = self.result['csi'].shape
         self.result['csi'] = (self.result['csi'].transpose(
-            (0, 1, 4, 3, 2))).reshape(length, channel * 3, 30, 100)
+            (0, 1, 4, 3, 2))).reshape(length, channel * 3, self.csi_shape[2], self.csi_shape[1])
 
     def export_data(self, window_dynamic=False, pick_tx=0, alignment=None):
         """
