@@ -172,6 +172,9 @@ class DataSplitter:
             np.save(f"{self.save_path}{key}_train.npy", value[self.train_ind])
             np.save(f"{self.save_path}{key}_valid.npy", value[self.train_mask][self.valid_ind])
             np.save(f"{self.save_path}{key}_test.npy", value[self.train_mask][self.valid_mask])
+        np.save(f"{self.save_path}ind_train.npy", self.indices[self.train_ind])
+        np.save(f"{self.save_path}ind_valid.npy", self.indices[self.train_mask][self.valid_ind])
+        np.save(f"{self.save_path}ind_test.npy", self.indices[self.train_mask][self.valid_mask])
         print("All saved!")
 
 

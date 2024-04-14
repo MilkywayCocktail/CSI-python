@@ -360,7 +360,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.result['csi'] = (self.result['csi'].transpose(
             (0, 1, 4, 3, 2))).reshape(length, channel * 3, 30, 100)
 
-    def export_data(self, window_dynamic=False, pick_tx=0):
+    def export_data(self, window_dynamic=False, pick_tx=0, alignment=None):
         """
          Find csi packets according to timestamps of images.\n
         :param window_dynamic: whether to subtract static component
@@ -368,6 +368,8 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         :return: Preliminarily assorted CSI
         """
         tqdm.write('Starting exporting data...')
+        if alignment is not None:
+            self.alignment = alignment
 
         for i in tqdm(range(self.frames)):
             self.result['img'][i, ...] = self.img[i]
