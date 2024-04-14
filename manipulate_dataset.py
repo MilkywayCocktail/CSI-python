@@ -137,7 +137,7 @@ class DataSplitter:
         self.save_path = save_path
 
         print("Loading...")
-        for key, value in paths:
+        for key, value in paths.items():
             self.data[key] = np.load(value)
             self.length = len(self.data[key])
             print(f" Loaded {key} of len {self.length} as {self.data[key].dtype}")
