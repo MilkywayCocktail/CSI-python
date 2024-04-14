@@ -460,10 +460,14 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         for mod, modality in self.result.items():
             for seg in self.segment.keys():
                 length, channel, *shape = modality[seg].shape
-                assemble_length = length // self.assemble_number
-                slice_length = assemble_length * self.assemble_number
-                self.result[mod][seg] = modality[seg][:slice_length].reshape(
-                    assemble_length, self.assemble_number * channel, *shape)
+                if length == 0:
+                    self.segment.pop(seg, None)
+                    self.result[mod].pop(seg, None)
+                else:
+                    assemble_length = length // self.assemble_number
+                    slice_length = assemble_length * self.assemble_number
+                    self.result[mod][seg] = modality[seg][:slice_length].reshape(
+                        assemble_length, self.assemble_number * channel, *shape)
         print("Done")
 
     def save_dataset(self, save_name=None, *args):
