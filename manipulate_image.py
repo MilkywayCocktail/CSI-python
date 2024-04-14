@@ -258,13 +258,14 @@ class ImageGen:
     def convert_bbx(self, w_scale=226, h_scale=128, bbx_order='xyxy'):
         print('Converting bbx...', end='')
         if bbx_order == 'xyxy':
-            self.raw_bbx[..., -1] = self.raw_bbx[..., -1] + self.raw_bbx[..., -3]
-            self.raw_bbx[..., -2] = self.raw_bbx[..., -2] + self.raw_bbx[..., -4]
+            # x, y, x+w, y+h
+            self.raw_bbx[:, 0, 2] = self.raw_bbx[:, 0, 0] + self.raw_bbx[:, 0, 2]
+            self.raw_bbx[:, 0, 3] = self.raw_bbx[:, 0, 1] + self.raw_bbx[:, 0, 3]
 
-        self.raw_bbx[..., -1] /= float(w_scale)
-        self.raw_bbx[..., -3] /= float(w_scale)
-        self.raw_bbx[..., -2] /= float(h_scale)
-        self.raw_bbx[..., -4] /= float(h_scale)
+        self.raw_bbx[:, 0, 0] /= float(w_scale)
+        self.raw_bbx[:, 0, 2] /= float(w_scale)
+        self.raw_bbx[:, 0, 1] /= float(h_scale)
+        self.raw_bbx[:, 0, 3] /= float(h_scale)
 
         self.bbx_order = bbx_order
         print('Done')
