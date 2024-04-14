@@ -138,7 +138,7 @@ class DataSplitter:
 
         print("Loading...")
         for key, value in paths.items():
-            self.data[key] = np.load(value)
+            self.data[key] = np.load(value, mmap_mode='r')
             self.length = len(self.data[key])
             print(f" Loaded {key} of len {self.length} as {self.data[key].dtype}")
 
@@ -167,7 +167,7 @@ class DataSplitter:
         print("Saving...")
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        for key, value in self.data:
+        for key, value in self.data.items():
             print(f" Saving {key}...")
             np.save(f"{self.save_path}{key}_train.npy", value[self.train_ind])
             np.save(f"{self.save_path}{key}_valid.npy", value[self.train_mask][self.valid_ind])
