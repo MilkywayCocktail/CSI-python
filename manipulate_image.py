@@ -114,8 +114,6 @@ class ImageGen:
                                 break
         print("Complete!")
 
-    def fetch_bbx(self, index):
-
     def generate_imgs(self, Bx=None, By=None, HW=None, select_ind=None):
         """
         Currently not applicable for assemble_number > 1\n
