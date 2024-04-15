@@ -114,6 +114,8 @@ class ImageGen:
                                 break
         print("Complete!")
 
+    def fetch_bbx(self, index):
+
     def generate_imgs(self, Bx=None, By=None, HW=None, select_ind=None):
         """
         Currently not applicable for assemble_number > 1\n
@@ -194,10 +196,15 @@ class ImageGen:
             img_anchor = np.zeros((1, 1, 128, 128))
             bbx_anchor = np.zeros((1, 1, 4))
             for j in range(self.assemble_number):
-                x, y, w, h = self.raw_bbx[i][j]
-                x, y, w, h = int(x), int(y), int(w), int(h)
-                subject = np.squeeze(self.raw_img[i][j])[y:y + h, x:x + w]
+                if self.bbx_order == 'xywh':
+                    x, y, w, h = self.raw_bbx[i][j]
+                    x, y, w, h = int(x), int(y), int(w), int(h)
 
+                elif self.bbx_order == 'xyxy':
+                    x1, y1, x2, y2 = self.raw_bbx[i][j]
+                    x, y, w, h = int(x1), int(y1), int(x2 - x1), int(y2 - y1)
+
+                subject = np.squeeze(self.raw_img[i][j])[y:y + h, x:x + w]
                 image = np.zeros((128, 128))
                 if unified_size:
                     f1 = 128 / w
