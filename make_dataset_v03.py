@@ -391,7 +391,8 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             if self.alignment == 'head':
                 csi_sample = self.csi.csi[csi_index: csi_index + self.csi_shape[1], :, :, pick_tx]
             elif self.alignment == 'tail':
-                csi_sample = self.csi.csi[csi_index - self.csi_shape[1]: csi_index, :, :, pick_tx]
+                if csi_index > self.csi_shape[1]:
+                    csi_sample = self.csi.csi[csi_index - self.csi_shape[1]: csi_index, :, :, pick_tx]
 
             if window_dynamic:
                 csi_sample = self.windowed_dynamic(csi_sample)
