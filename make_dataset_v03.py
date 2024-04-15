@@ -363,11 +363,11 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
     @staticmethod
     def filter_csi(csi):
-        csi_real = signal.savgol_filter(np.real(csi), 21, 3, axis=-1)  # denoise for real part
-        csi_imag = signal.savgol_filter(np.imag(csi), 21, 3, axis=-1)  # denoise for imag part
+        csi_real = signal.savgol_filter(np.real(csi), 21, 3, axis=0)  # denoise for real part
+        csi_imag = signal.savgol_filter(np.imag(csi), 21, 3, axis=0)  # denoise for imag part
         return csi_real + 1.j * csi_imag
 
-    def export_data(self, window_dynamic=False, pick_tx=0, filter=True, alignment=None):
+    def export_data(self, window_dynamic=False, pick_tx=0, alignment=None):
         """
          Find csi packets according to timestamps of images.\n
         :param window_dynamic: whether to subtract static component
@@ -394,9 +394,6 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
             if window_dynamic:
                 csi_sample = self.windowed_dynamic(csi_sample)
-
-            if filter:
-                csi_sample = self.filter_csi(csi_sample)
 
             # Store in two channels and reshape
             self.result['csi'][i, 0, ...] = np.real(csi_sample)
