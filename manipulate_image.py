@@ -97,7 +97,10 @@ class ImageGen:
                         average_depth = patch.sum() / non_zero.sum()
                         self.patches.append(patch)
                         self.depth[i][j] = average_depth
-                        self.raw_bbx[i][j] = np.array([x, y, w, h])
+                        if self.bbx_order == 'xywh':
+                            self.raw_bbx[i][j] = np.array([x, y, w, h])
+                        elif self.bbx_order == 'xyxy':
+                            self.raw_bbx[i][j] = np.array([x, y, x + w, w + h])
 
                         img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
                                             (x, y),
@@ -255,19 +258,14 @@ class ImageGen:
         else:
             print("No generated images!")
 
-    def convert_bbx(self, w_scale=226, h_scale=128, bbx_order='xyxy'):
+    def convert_bbx(self, w_scale=226, h_scale=128):
         print('Converting bbx...', end='')
-        if bbx_order == 'xyxy':
-            # x, y, x+w, y+h
-            self.raw_bbx[:, 0, 2] = self.raw_bbx[:, 0, 0] + self.raw_bbx[:, 0, 2]
-            self.raw_bbx[:, 0, 3] = self.raw_bbx[:, 0, 1] + self.raw_bbx[:, 0, 3]
 
         self.raw_bbx[:, 0, 0] /= float(w_scale)
         self.raw_bbx[:, 0, 2] /= float(w_scale)
         self.raw_bbx[:, 0, 1] /= float(h_scale)
         self.raw_bbx[:, 0, 3] /= float(h_scale)
 
-        self.bbx_order = bbx_order
         print('Done')
 
     def convert_depth(self, threshold=3000):
