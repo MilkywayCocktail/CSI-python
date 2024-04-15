@@ -367,7 +367,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         csi_imag = signal.savgol_filter(np.imag(csi), 21, 3, axis=-1)  # denoise for imag part
         return csi_real + 1.j * csi_imag
 
-    def export_data(self, window_dynamic=False, pick_tx=0, alignment=None):
+    def export_data(self, window_dynamic=False, pick_tx=0, filter=True, alignment=None):
         """
          Find csi packets according to timestamps of images.\n
         :param window_dynamic: whether to subtract static component
