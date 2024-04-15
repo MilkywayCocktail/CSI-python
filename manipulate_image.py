@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 
 class ImageGen:
-    def __init__(self, name, assemble_number=1):
+    def __init__(self, name, assemble_number=1, bbx_order='xywh'):
         self.name = name
         self.assemble_number = assemble_number
         self.ind = []
@@ -17,7 +17,7 @@ class ImageGen:
         self.gen_bbx = None
         self.depth = None
         self.patches = []
-        self.bbx_order = 'xywh'
+        self.bbx_order = bbx_order
 
     def load_images(self, path):
         print(f"{self.name} loading images...")
