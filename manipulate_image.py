@@ -100,7 +100,7 @@ class ImageGen:
                         if self.bbx_order == 'xywh':
                             self.raw_bbx[i][j] = np.array([x, y, w, h])
                         elif self.bbx_order == 'xyxy':
-                            self.raw_bbx[i][j] = np.array([x, y, x + w, w + h])
+                            self.raw_bbx[i][j] = np.array([x, y, x + w, y + h])
 
                         img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
                                             (x, y),
