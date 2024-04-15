@@ -297,13 +297,6 @@ class CSILoader:
         csi.load_data(remove_sm=True)
         return csi
 
-    def filter_csi(self):
-        print('Filtering CSI with savgol filter...', end='')
-        for i in range(self.csi.length):
-            self.filtered_csi[i][0] = signal.savgol_filter(self.csi.csi[i][0], 21, 3, axis=-1)  # denoise for real part
-            self.filtered_csi[i][1] = signal.savgol_filter(self.csi.csi[i][1], 21, 3, axis=-1)  # denoise for imag part
-        print('Done')
-
     @staticmethod
     def windowed_dynamic(in_csi):
         # in_csi: pkt * sub * rx
@@ -368,7 +361,13 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.result['csi'] = (self.result['csi'].transpose(
             (0, 1, 4, 3, 2))).reshape(length, channel * 3, self.csi_shape[2], self.csi_shape[1])
 
-    def export_data(self, window_dynamic=False, filter=True, pick_tx=0, alignment=None):
+    @staticmethod
+    def filter_csi(csi):
+        csi_real = signal.savgol_filter(np.real(csi), 21, 3, axis=-1)  # denoise for real part
+        csi_imag = signal.savgol_filter(np.imag(csi), 21, 3, axis=-1)  # denoise for imag part
+        return csi_real + 1.j * csi_imag
+
+    def export_data(self, window_dynamic=False, pick_tx=0, alignment=None):
         """
          Find csi packets according to timestamps of images.\n
         :param window_dynamic: whether to subtract static component
@@ -391,16 +390,14 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             if self.alignment == 'head':
                 csi_sample = self.csi.csi[csi_index: csi_index + self.csi_shape[1], :, :, pick_tx]
             elif self.alignment == 'tail':
-                if csi_index > self.csi_shape[1]:
-                    csi_sample = self.csi.csi[csi_index - self.csi_shape[1]: csi_index, :, :, pick_tx]
+                csi_sample = self.csi.csi[csi_index - self.csi_shape[1]: csi_index, :, :, pick_tx]
 
             if window_dynamic:
                 csi_sample = self.windowed_dynamic(csi_sample)
 
             if filter:
-                csi_real = signal.savgol_filter(np.real(csi_sample), 21, 3, axis=-1)  # denoise for real part
-                csi_imag = signal.savgol_filter(np.imag(csi_sample), 21, 3, axis=-1)  # denoise for imag part
-                csi_sample = csi_real + 1.j * csi_imag
+                csi_sample = self.filter_csi(csi_sample)
+
             # Store in two channels and reshape
             self.result['csi'][i, 0, ...] = np.real(csi_sample)
             self.result['csi'][i, 1, ...] = np.imag(csi_sample)
