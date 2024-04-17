@@ -193,58 +193,55 @@ class BagLoader:
 
 class LabelParser:
     def __init__(self, label_path, *args, **kwargs):
-        self.label_path = label_path
-        self.label = None
-        self.segment = None
+        self.label_path: str = label_path
+        self.labels: dict = {}
         if self.label_path:
             self.parse()
+        self.headers = None
 
     def parse(self):
         """
         Label Structure:\n
-        --segment (0, 1, 2, ...)\n
-        --start (all start timestamps)\n
-        --end (all end timestamps)\n
-        --other keys\n
+        |-group (0, 1, 2, ...)\n
+            |-segment (0, 1, 2, ...)\n
+                |-start\n
+                |-end\n
+                |-other attributes\n
         :return: Parsed label
         """
         print('Loading label...', end='')
-        label = {'segment': []}
+        label: dict = {}
         with open(self.label_path) as f:
             for i, line in enumerate(f):
                 if i == 0:
                     # ---Headers of label---
+                    # group, segment, start, end, x0, y0, x1, y1
                     key_list = line.strip().split(',')
+                    self.headers = key_list
                     for key in key_list:
                         label[key] = []
                 else:
+                    sample: dict = {}
                     # ---Values of label---
                     line_list = line.split(',')
-                    label['segment'].append(i - 1)
-                    for ii, key in enumerate(key_list):
-                        if key != 'segment':
-                            label[key].append(eval(line_list[ii]))
+                    for header, value in zip(self.headers, line_list):
+                        sample[header] = eval(value)
 
-        for key in label.keys():
-            label[key] = np.array(label[key])
+                    sample['start'] *= 1.e-3
+                    sample['end'] *= 1.e-3
 
-        label['start'] *= 1.e-3
-        label['end'] *= 1.e-3
-        label['indices'] = {}
-        self.label = label
+                    if sample['group'] not in self.labels.keys():
+                        self.labels[sample['group']]: dict = {}
+                    if sample['segment'] not in self.labels[sample['group']].keys():
+                        self.labels[sample['group']][sample['segment']]: dict = {}
+
+                    self.labels[sample['group']][sample['segment']] = {key: value for key, value in sample.items()}
+
         print('Done')
 
-    def add_condition(self):
-        self.label['direction'] = []
-        for i in range(len(self.label['start'])):
-            if self.label['x0'][i] == self.label['x1'][i]:
-                self.label['direction'].append('y')
-            elif self.label['y0'][i] == self.label['y1'][i]:
-                self.label['direction'].append('x')
-
-    def save_raw_labels(self):
+    def save_labels(self):
         print("Saving labels...", end='')
-        np.save(f"../{os.path.splitext(os.path.basename(self.label_path))[0]}_labels.npy", self.label)
+        np.save(f"{os.path.split(self.label_path)[0]}/{os.path.split(self.label_path)[1]}.npy", self.labels)
         print("Done")
 
 
@@ -343,7 +340,9 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         ImageLoader.__init__(self, *args, **kwargs)
         CSILoader.__init__(self, *args, **kwargs)
         LabelParser.__init__(self, *args, **kwargs)
-        self.result: dict = {}
+        self.data: dict = {}
+        self.train_pick = None
+        self.test_pick = None
         self.init_data()
 
     def init_data(self):
@@ -351,15 +350,15 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         images = np.zeros((self.frames, 1, self.img_shape[1], self.img_shape[0]))
         timestamps = np.zeros((self.frames, 1, 1))
         indices = np.zeros((self.frames, 1, 1), dtype=int)
-        self.result = {'csi': csi, 'img': images, 'time': timestamps, 'csi_ind': indices}
+        self.data = {'csi': csi, 'img': images, 'time': timestamps, 'csi_ind': indices}
 
     def reshape_csi(self):
         """
         Reshape CSI into expected size. (Excluding assemble).\n
         :return: reshaped CSI
         """
-        length, channel, *csi_shape = self.result['csi'].shape
-        self.result['csi'] = (self.result['csi'].transpose(
+        length, channel, *csi_shape = self.data['csi'].shape
+        self.data['csi'] = (self.data['csi'].transpose(
             (0, 1, 4, 3, 2))).reshape(length, channel * 3, self.csi_shape[2], self.csi_shape[1])
 
     @staticmethod
@@ -368,7 +367,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         csi_imag = signal.savgol_filter(np.imag(csi), 21, 3, axis=0)  # denoise for imag part
         return csi_real + 1.j * csi_imag
 
-    def export_data(self, window_dynamic=False, pick_tx=0, filter=True, alignment=None):
+    def export_csi(self, window_dynamic=False, pick_tx=0, filter=True, alignment=None):
         """
          Find csi packets according to timestamps of images.\n
         :param window_dynamic: whether to subtract static component
@@ -382,11 +381,11 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             self.alignment = alignment
 
         for i in tqdm(range(self.frames)):
-            self.result['img'][i, ...] = self.img[i]
-            self.result['time'][i, ...] = self.camera_time[i]
+            self.data['img'][i, ...] = self.img[i]
+            self.data['time'][i, ...] = self.camera_time[i]
 
             csi_index = np.searchsorted(self.csi.timestamps, self.camera_time[i])
-            self.result['csi_ind'][i, ...] = csi_index
+            self.data['csi_ind'][i, ...] = csi_index
 
             csi_sample = np.zeros((*self.csi_shape[1:], 1))  # (pkt, sub, rx, 1)
 
@@ -402,74 +401,71 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                 csi_sample = self.filter_csi(csi_sample)
 
             # Store in two channels and reshape
-            self.result['csi'][i, 0, ...] = np.real(csi_sample)
-            self.result['csi'][i, 1, ...] = np.imag(csi_sample)
+            self.data['csi'][i, 0, ...] = np.real(csi_sample)
+            self.data['csi'][i, 1, ...] = np.imag(csi_sample)
 
         self.reshape_csi()
 
-    def deoverlap(self):
+    def pick_samples(self):
         """
-        Remove overlapping CSI samples.\n
-        :return: Deoverlapped CSI and all other metadata
+        Pick samples according to labels.\n
+        :return: id of picked samples
         """
-        print("Deopverlapping...", end='')
-        de_flag = np.zeros(self.frames, dtype=bool)
-        boundary = -1
+        print(f"Picking samples...")
+        ids = []
 
-        for i in range(len(self.result['time'])):
-            if self.result['time'][i, 0, 0] > boundary:
-                de_flag[i] = True
-                boundary = self.result['time'][i, 0, 0] + self.csi_shape[1] * 1.e-3  # CSI sampling rate
-            else:
-                continue
+        for gr in self.labels.keys():
+            for seg in self.labels[gr].keys():
+                start_id, end_id = np.searchsorted(self.data['time'][:, 0, 0],
+                                                   [self.labels[gr][seg]['start'],
+                                                    self.labels[gr][seg]['end']])
+                print(f" Group {gr} Segment {seg} start_img={start_id}, end_img={end_id}")
+                # Indices in raw CSI and IMG
+                self.labels[gr][seg]['img_id'] = np.arange(start_id, end_id)
+                self.labels[gr][seg]['csi_id'] = self.data['csi_ind'][start_id: end_id, ...]
+                ids.extend(list(range(start_id, end_id)))
 
-        for modality, value in self.result.items():
-            self.result[modality] = value[de_flag]
+        # for mod, modality in self.data.items():
+        #    self.data[mod] = modality[ids]
+
         print('Done')
 
-    def slice_by_label(self):
+    def divide_train_test(self, mode='normal'):
         """
-        Segmentation according to image annotation.\n
-        :return: sliced metadata
+        Divide train and test samples at segment level to avoid leakage.\n
+        :param mode: 'normal' or 'few'
+        :return:
         """
-        print(f"Slicing {len(self.label['segment'])} segments...")
-        self.segment = {seg: None for seg in range(len(self.label['segment']))}
-        self.result['label'] = {}
+        picks: dict = {}
+        for gr in self.labels.keys():
+            # Select 2 segments
+            pick1 = np.random.choice(self.labels[gr].keys(), 1, replace=False).astype(int)
+            pick2 = self.labels[gr].keys()[-1] if pick1 == 0 else pick1 + 1
 
-        # Divide segments
-        for seg in range(len(self.label['start'])):
-            start_id, end_id = np.searchsorted(self.result['time'][:, 0, 0],
-                                               [self.label['start'][seg],
-                                                self.label['end'][seg]])
-            print(f" Segment {seg} start={start_id}, end={end_id}")
-            # Locate images in each segment
-            self.segment[seg] = np.arange(start_id, end_id)
-            # For saving labels
-            self.result['label'][seg] = seg * np.ones((len(self.segment[seg]), 1, 1))
+            picks[gr] = {'img': self.labels[gr][pick1]['img_ind'] + self.labels[gr][pick2]['img_ind'],
+                         'csi': self.labels[gr][pick1]['csi_ind'] + self.labels[gr][pick2]['csi_ind']}
 
-        for mod, modality in self.result.items():
-            if mod != 'label':
-                self.result[mod] = {seg: None for seg in self.segment.keys()}
-                for seg, segment in self.segment.items():
-                    self.result[mod][seg] = modality[segment]
-
-        print('Done')
+        if mode == 'normal':
+            self.test_pick = picks
+        elif mode == 'few':
+            self.train_pick = picks
 
     def assemble(self):
         """
-        Assemble every several samples into 1 sample.\n
+        !!!UNFINISHED!!!
         :return: Assembled metadata
         """
-        assert self.result
+        assert self.data
         print("Aligning...", end='')
-        for mod, modality in self.result.items():
-            for seg in self.segment.keys():
-                length, channel, *shape = modality[seg].shape
-                if length > 0:
-                    assemble_length = length // self.assemble_number
-                    slice_length = assemble_length * self.assemble_number
-                    self.result[mod][seg] = modality[seg][:slice_length].reshape(
-                        assemble_length, self.assemble_number * channel, *shape)
+        for mod, modality in self.data.items():
+            for gr in self.labels['group'].keys():
+                for seg in self.labels[gr]['segment'].keys():
+                    length, channel, *shape = modality.shape
+                    if length > 0:
+                        assemble_length = length // self.assemble_number
+                        slice_length = assemble_length * self.assemble_number
+                        self.data[mod] = modality[:slice_length].reshape(
+                            assemble_length, self.assemble_number * channel, *shape)
         print("Done")
 
     def save_dataset(self, save_name=None, *args):
@@ -478,12 +474,48 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             os.makedirs(self.save_path)
 
         for modality in args:
-            if modality in self.result.keys():
+            if modality in self.data.keys():
                 # if modality in ('time', 'label'):
                 #   np.save(os.path.join(self.paths['save'], f"{save_name}_{modality}.npy"),
-                #   self.result[data][modality])
+                #   self.data[data][modality])
                 # else:
                 np.save(os.path.join(
                     self.save_path, f"{save_name}_asmb{self.assemble_number}_len{self.csi_shape[1]}_{modality}.npy"),
-                    np.concatenate(list(self.result[modality].values())))
+                    np.concatenate(list(self.data[modality].values())))
         print("Done")
+
+
+class DatasetMaker:
+    version = 'V04'
+
+    def __init__(self, subs, configs,):
+        self.subs = subs
+        subs = [
+            ('01', 5400),
+            ('02', 5000),
+            ('03', 5100),
+            ('04', 5100)
+        ]
+
+        configs = pycsi.MyConfigs()
+        configs.tx_rate = 0x1c113
+        configs.ntx = 3
+
+        for (name, length) in subs:
+            mkdata = MyDataMaker(csi_configs=configs, img_shape=(226, 128), csi_shape=(2, 900, 30, 3),
+                                 total_frames=length, assemble_number=1,
+                                 img_path=f"../sense/0509/raw226_128/{name}_img.npy",
+                                 camera_time_path=f"../sense/0509/raw226_128/{name}_camtime.npy",
+                                 csi_path=f"../npsave/0509/0509A{name}-csio.npy",
+                                 label_path=f"../sense/0509/{name}_labels.csv",
+                                 save_path=f"../dataset/0509/make16_900/")
+            mkdata.jupyter = True
+            mkdata.csi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1)
+            mkdata.csi.extract_dynamic(mode='highpass')
+            mkdata.convert_img()
+            mkdata.export_data(filter=True, alignment='tail')
+            mkdata.deoverlap()
+            mkdata.slice_by_label()
+            mkdata.assemble()
+            mkdata.save_dataset(name + '_rimg', 'img')
+            mkdata.save_dataset(name + '_dyn', 'csi', 'time', 'csi_ind', 'label')
