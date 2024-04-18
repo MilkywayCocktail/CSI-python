@@ -22,175 +22,6 @@ from IPython.display import display, clear_output
 # -------------------------------------------------------------------------- #
 ##############################################################################
 
-
-def my_filter(frame):
-    """
-    Filter used for depth images.\n
-    """
-    hole_filling = rs.hole_filling_filter()
-
-    decimate = rs.decimation_filter()
-    decimate.set_option(rs.option.filter_magnitude, 1)
-
-    spatial = rs.spatial_filter()
-    spatial.set_option(rs.option.filter_magnitude, 1)
-    spatial.set_option(rs.option.filter_smooth_alpha, 0.25)
-    spatial.set_option(rs.option.filter_smooth_delta, 50)
-
-    depth_to_disparity = rs.disparity_transform(True)
-    disparity_to_depth = rs.disparity_transform(False)
-
-    filter_frame = decimate.process(frame)
-    filter_frame = depth_to_disparity.process(filter_frame)
-    filter_frame = spatial.process(filter_frame)
-    filter_frame = disparity_to_depth.process(filter_frame)
-    filter_frame = hole_filling.process(filter_frame)
-    result_frame = filter_frame.as_depth_frame()
-    return result_frame
-
-
-class BagLoader:
-    def __init__(self, total_frames, bag_path, local_time_path, img_shape=(128, 128)):
-        self.total_frames = total_frames
-        self.bag_path = bag_path
-        self.local_time_path = local_time_path
-        self.img_shape = img_shape
-        self.video_stream = self.__setup_video_stream__()
-        self.local_time = self.load_local_timestamps()
-        self.images = None
-        self.camera_time = None
-        self.caliberated = False
-        self.camtime_delta = 0.
-
-    def __setup_video_stream__(self):
-        # timestamps is the local time; works as reference time
-        print('Setting camera stream...', end='')
-        pipeline = rs.pipeline()
-        config = rs.config()
-        config.enable_device_from_file(self.bag_path, False)
-        config.enable_all_streams()
-        profile = pipeline.start(config)
-        profile.get_device().as_playback().set_real_time(False)
-        print('Done')
-
-        return pipeline
-
-    def load_local_timestamps(self):
-        if self.local_time_path:
-            local_tf = open(self.local_time_path, mode='r', encoding='utf-8')
-            local_time = np.array(local_tf.readlines())
-            for i, line in enumerate(local_time):
-                local_time[i] = datetime.timestamp(datetime.strptime(line.strip(), "%Y-%m-%d %H:%M:%S.%f"))
-            local_tf.close()
-            return local_time.astype(np.float64)
-        else:
-            return None
-
-    def __get_image__(self, mode):
-        frame = self.video_stream.wait_for_frames()
-
-        if mode == 'depth':
-            depth_frame = frame.get_depth_frame()
-            frame_timestamp = depth_frame.get_timestamp() / 1.e3
-            if not depth_frame:
-                eval('continue')
-            depth_frame = my_filter(depth_frame)
-            image = np.asanyarray(depth_frame.get_data())
-
-        elif mode == 'color':
-            color_frame = frame.get_color_frame()
-            frame_timestamp = color_frame.get_timestamp() / 1.e3
-            if not color_frame:
-                eval('continue')
-            image = np.asanyarray(color_frame.get_data())
-
-        else:
-            raise Exception('Please specify mode = \'depth\' or \'color\'.')
-
-        return image, frame_timestamp
-
-    def calibrate_camtime(self, camtime, localtime):
-        """
-        Calibrate camera timestamps against local timestamps.\n
-        This is important for fetching CSI packets according to timestamps.\n
-        :return: calibrated timestamps
-        """
-        print('Calibrating camera time against local time file...', end='')
-        cvt = datetime.fromtimestamp
-
-        assert len(camtime) == len(localtime)
-
-        if not self.caliberated:
-            temp_lag = np.zeros(len(camtime))
-            for i in range(len(camtime)):
-                temp_lag[i] = camtime[i] - localtime[i]
-
-            camtime_delta = np.mean(temp_lag)
-
-            for i in range(len(camtime)):
-                camtime[i] -= camtime_delta
-
-            self.caliberated = True
-            self.camtime_delta = camtime_delta
-            print('Done')
-            print('lag={}'.format(camtime_delta))
-            return camtime
-        else:
-            print("Already calibrated")
-
-    def export_images(self, mode='depth'):
-        tqdm.write('Starting exporting image...')
-
-        self.images = np.zeros((self.total_frames, self.img_shape[1], self.img_shape[0]))
-        self.camera_time = np.zeros(self.total_frames)
-
-        try:
-            self.__setup_video_stream__()
-            for i in tqdm(range(self.total_frames)):
-                image, self.camera_time[i, ...] = self.__get_image__(mode=mode)
-                image = cv2.resize(image, self.img_shape, interpolation=cv2.INTER_AREA)
-                self.images[i, ...] = image
-        except RuntimeError:
-            pass
-
-        finally:
-            self.video_stream.stop()
-            if self.local_time is not None:
-                self.camera_time = self.calibrate_camtime(self.camera_time, self.local_time)
-
-    def depth_mask(self, threshold=0.5):
-        tqdm.write("Masking...")
-        median = np.median(np.squeeze(self.images), axis=0)
-        threshold = median * threshold
-        plt.imshow(threshold / np.max(threshold))
-        plt.title("Threshold map")
-        plt.show()
-        for i in tqdm(range(len(self.images))):
-            mask = np.squeeze(self.images[i]) < threshold
-            self.images[i] *= mask
-        tqdm.write("Done")
-
-    def convert_img(self, threshold=3000):
-        print('Converting IMG...', end='')
-        self.images[self.images > threshold] = threshold
-        self.images /= float(threshold)
-        print('Done')
-
-    def save_images(self, path=None):
-        print("Saving...", end='')
-        if path:
-            if not os.path.exists(path):
-                os.makedirs(path)
-            _, filename = os.path.split(self.bag_path)
-            file, ext = os.path.splitext(filename)
-            np.save(f"{path}{file}_img.npy", self.images)
-            np.save(f"{path}{file}_camtime.npy", self.camera_time)
-        else:
-            np.save(f"../{os.path.splitext(os.path.basename(self.bag_path))[0]}_raw.npy", self.images)
-            np.save(f"../{os.path.splitext(os.path.basename(self.bag_path))[0]}_camtime.npy", self.camera_time)
-        print("Done")
-
-
 class LabelParser:
     def __init__(self, label_path, *args, **kwargs):
         self.label_path: str = label_path
@@ -253,6 +84,10 @@ class ImageLoader:
         self.camera_time_path = camera_time_path
         self.img, self.camera_time = self.load_img()
         self.img_shape = img_shape
+        self.bbx = None
+        self.center = None
+        self.depth = None
+        self.c_img = None
 
     def load_img(self):
         print('Loading IMG...')
@@ -278,6 +113,58 @@ class ImageLoader:
         self.img[self.img > threshold] = threshold
         self.img /= float(threshold)
         print('Done')
+
+    def crop(self, min_area=0, show=False):
+        """
+        Calculete cropped images, bounding boxes, center coordinates, depth.\n
+        :param min_area: 0
+        :param show: whether show images with bounding boxes
+        :return: bbx, center, depth, c_img
+        """
+        self.bbx = np.zeros((len(self.img), 4))
+        self.center = np.zeros(len(self.img))
+        self.depth = np.zeros((len(self.img), 2))
+        self.c_img = np.zeros((len(self.img), 1, 128, 128))
+
+        tqdm.write("Calculating center coordinates and depth...")
+
+        for i in tqdm(range(len(self.img))):
+            img = np.squeeze(self.img[i]).astype('float32')
+            (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
+            contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+            if len(contours) != 0:
+                contour = max(contours, key=lambda x: cv2.contourArea(x))
+                area = cv2.contourArea(contour)
+
+                if area < min_area:
+                    # print(area)
+                    pass
+
+                else:
+                    x, y, w, h = cv2.boundingRect(contour)
+                    patch = img[y:y + h, x:x + w]
+                    non_zero = (patch != 0)
+                    average_depth = patch.sum() / non_zero.sum()
+                    self.bbx[i] = x, y, w, h
+                    self.center[i] = int(x + w/2), int(y + h/2)
+                    self.depth[i] = average_depth
+
+                    subject = np.squeeze(self.img[i])[y:y + h, x:x + w]
+                    image = np.zeros((128, 128))
+                    image[int(64 - h/2):int(64 + h/2), int(64 -  w/2):int(64 + w/2)] = subject
+                    self.c_img[i, 0] = image
+
+                    if show:
+                        img = cv2.rectangle(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR),
+                                            (x, y),
+                                            (x + w, y + h),
+                                            (0, 255, 0), 1)
+                        cv2.namedWindow('Raw Image', cv2.WINDOW_AUTOSIZE)
+                        cv2.imshow('Raw Image', img)
+                        key = cv2.waitKey(33) & 0xFF
+                        if key == ord('q'):
+                            break
 
 
 class CSILoader:
@@ -306,9 +193,9 @@ class CSILoader:
 
 
 class MyDataMaker(ImageLoader, CSILoader, LabelParser):
-    def __init__(self, total_frames: int,
+    def __init__(self,
+                 name = None,
                  csi_shape: tuple = (2, 100, 30, 3),
-                 assemble_number: int = 1,
                  alignment: str = 'tail',
                  jupyter_mode=False,
                  save_path: str = '../saved/',
@@ -320,168 +207,187 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         :param csi_configs: configs for loading CSI
         :param csi_shape: (channel, packet, subcarrier, rx)
         :param img_shape: (width, height)
-        :param assemble_number: how many img-csi pairs in one sample
         :param alignment: how to align image and CSI
         :param jupyter_mode: whether to run on jupyter notebook
         :param save_path: save path
         """
 
         assert alignment in {'head', 'tail'}
-
+        self.name = name
         self.save_path = save_path
-        self.frames = total_frames
-        self.samples = total_frames // assemble_number
         self.csi_shape = csi_shape
-        self.assemble_number = assemble_number
         self.alignment = alignment
-
         self.jupyter_mode = jupyter_mode
 
         ImageLoader.__init__(self, *args, **kwargs)
         CSILoader.__init__(self, *args, **kwargs)
         LabelParser.__init__(self, *args, **kwargs)
-        self.data: dict = {}
+
+        self.train_data: dict = {}
+        self.test_data: dict = {}
         self.train_pick = None
         self.test_pick = None
-        self.init_data()
-
-    def init_data(self):
-        csi = np.zeros((self.frames, *self.csi_shape))
-        images = np.zeros((self.frames, 1, self.img_shape[1], self.img_shape[0]))
-        timestamps = np.zeros((self.frames, 1, 1))
-        indices = np.zeros((self.frames, 1, 1), dtype=int)
-        self.data = {'csi': csi, 'img': images, 'time': timestamps, 'csi_ind': indices}
-
-    def reshape_csi(self):
-        """
-        Reshape CSI into expected size. (Excluding assemble).\n
-        :return: reshaped CSI
-        """
-        length, channel, *csi_shape = self.data['csi'].shape
-        self.data['csi'] = (self.data['csi'].transpose(
-            (0, 1, 4, 3, 2))).reshape(length, channel * 3, self.csi_shape[2], self.csi_shape[1])
 
     @staticmethod
-    def filter_csi(csi):
-        csi_real = signal.savgol_filter(np.real(csi), 21, 3, axis=0)  # denoise for real part
-        csi_imag = signal.savgol_filter(np.imag(csi), 21, 3, axis=0)  # denoise for imag part
-        return csi_real + 1.j * csi_imag
-
-    def export_csi(self, window_dynamic=False, pick_tx=0, filter=True, alignment=None):
+    def reshape_csi(csi, filter=True, pd=True):
         """
-         Find csi packets according to timestamps of images.\n
-        :param window_dynamic: whether to subtract static component
-        :param pick_tx: select one of the tx
-        :param filter: whether apply savgol filter on each CSI sample
-        :param alignment: 'head' or 'tail'
-        :return: Preliminarily assorted CSI
+        Reshape CSI into channel * sub * packet.\n
+        :return: reshaped (+ filtered) CSI
         """
-        tqdm.write('Starting exporting data...')
-        if alignment is not None:
-            self.alignment = alignment
+        # packet * sub * rx * 1
+        if filter:
+            csi_real = signal.savgol_filter(np.real(csi), 21, 3, axis=0)  # denoise for real part
+            csi_imag = signal.savgol_filter(np.imag(csi), 21, 3, axis=0)  # denoise for imag part
+        else:
+            csi_real = np.real(csi)
+            csi_imag = np.imag(csi)
 
-        for i in tqdm(range(self.frames)):
-            self.data['img'][i, ...] = self.img[i]
-            self.data['time'][i, ...] = self.camera_time[i]
+        # packet * sub * rx * 2
+        csi = np.concatenate((csi_real, csi_imag), axis=-1)
 
-            csi_index = np.searchsorted(self.csi.timestamps, self.camera_time[i])
-            self.data['csi_ind'][i, ...] = csi_index
+        # (2 * rx) * sub * packet
+        length, sub, rx, ch = csi.shape
+        csi = csi.reshape((length, sub, rx * ch)).transpose((2, 1, 0))
 
-            csi_sample = np.zeros((*self.csi_shape[1:], 1))  # (pkt, sub, rx, 1)
+        if pd:
+            # aoa shape = 3, tof shape = 30,  total shape = 33
+            # match phasediff shape with convoluted CSI!
+            csi = csi_real + 1.j * csi_imag
+            u1, s1, v1 = np.linalg.svd(csi.transpose(3, 2, 1, 0).reshape(-1, 3, 30 * 100), full_matrices=False)
+            aoa = np.angle(np.squeeze(u1[:, 0, 0]).conj() * np.squeeze(u1[:, 1, 0]))
+            u2, s2, v2 = np.linalg.svd(csi.transpose(3, 1, 2, 0).reshape(-1, 30, 3 * 100), full_matrices=False)
+            tof = np.angle(np.squeeze(u2[:, :-1, 0])).conj() * np.squeeze(u2[:, 1:, 0])
+            return csi, np.concatenate((aoa, tof), axis=None)
+        else:
+            return csi
 
-            if self.alignment == 'head':
-                csi_sample = self.csi.csi[csi_index: csi_index + self.csi_shape[1], :, :, pick_tx]
-            elif self.alignment == 'tail':
-                csi_sample = self.csi.csi[csi_index - self.csi_shape[1]: csi_index, :, :, pick_tx]
-
-            if window_dynamic:
-                csi_sample = self.windowed_dynamic(csi_sample)
-
-            if filter:
-                csi_sample = self.filter_csi(csi_sample)
-
-            # Store in two channels and reshape
-            self.data['csi'][i, 0, ...] = np.real(csi_sample)
-            self.data['csi'][i, 1, ...] = np.imag(csi_sample)
-
-        self.reshape_csi()
-
-    def pick_samples(self):
+    def pick_samples(self, alignment=None):
         """
         Pick samples according to labels.\n
         :return: id of picked samples
         """
-        print(f"Picking samples...")
-        ids = []
+        print(f"Picking samples...\n")
+        if alignment is not None:
+            self.alignment = alignment
 
-        for gr in self.labels.keys():
-            for seg in self.labels[gr].keys():
-                start_id, end_id = np.searchsorted(self.data['time'][:, 0, 0],
-                                                   [self.labels[gr][seg]['start'],
-                                                    self.labels[gr][seg]['end']])
-                print(f" Group {gr} Segment {seg} start_img={start_id}, end_img={end_id}")
-                # Indices in raw CSI and IMG
-                self.labels[gr][seg]['img_id'] = np.arange(start_id, end_id)
-                self.labels[gr][seg]['csi_id'] = self.data['csi_ind'][start_id: end_id, ...]
-                ids.extend(list(range(start_id, end_id)))
+        for gr in tqdm(self.labels.keys()):
+            for seg in tqdm(self.labels[gr].keys(), leave=False):
+                start_img_id, end_img_id = np.searchsorted(self.camera_time[:, 0, 0],
+                                                           [self.labels[gr][seg]['start'],
+                                                            self.labels[gr][seg]['end']])
+                start_csi_id, end_csi_id = np.searchsorted(self.csi.timestamps,
+                                                           [self.labels[gr][seg]['start'],
+                                                            self.labels[gr][seg]['end']])
+                # Indices of raw IMG-CSI pair
+                img_id = np.arange(start_img_id, end_img_id, dtype=int)
+                csi_id = np.arange(start_csi_id, end_csi_id, dtype=int)
 
-        # for mod, modality in self.data.items():
-        #    self.data[mod] = modality[ids]
+                # Remove out-of-segment CSI
+                for i in tqdm(range(len(img_id)), leave=False):
+                    if self.alignment == 'head':
+                        sample_csi_id = np.arange(csi_id[i], csi_id[i] + self.csi_shape[1], dtype=int)
+                    elif self.alignment == 'tail':
+                        sample_csi_id = np.arange(csi_id[i] - self.csi_shape[1], csi_id[i], dtype=int)
 
-        print('Done')
+                    if sample_csi_id[0] < start_csi_id or sample_csi_id[-1] > end_csi_id:
+                        self.labels[gr][seg][i]: dict = {}
+                    else:
+                        # Sample-level ids
+                        self.labels[gr][seg][i] = {'img': img_id[i],
+                                                   'csi': sample_csi_id}
+                # Segment-level ids
+                self.labels[gr][seg]['img_id'] = img_id
+                self.labels[gr][seg]['csi_id'] = csi_id
+
+                print(f"\r Group {gr} Segment {seg}: IMG = {start_img_id} ~ {end_img_id}, "
+                      f"CSI = {start_csi_id} ~ {end_csi_id}."
+                      f" In segment: IMG = {img_id[0]} ~ {img_id[-1]},"
+                      f"CSI = {csi_id[0]} ~ {csi_id[-1]}", end='')
+
+        print('\nDone')
 
     def divide_train_test(self, mode='normal'):
         """
-        Divide train and test samples at segment level to avoid leakage.\n
+        Divide train and test samples at segment level, avoiding leakage.\n
         :param mode: 'normal' or 'few'
-        :return:
+        :return: train_pick and test_pick
         """
-        picks: dict = {}
+        print('Dividing train and test...', end='')
+        picks = []
+        de_picks = []
+
         for gr in self.labels.keys():
             # Select 2 segments
             pick1 = np.random.choice(self.labels[gr].keys(), 1, replace=False).astype(int)
-            pick2 = self.labels[gr].keys()[-1] if pick1 == 0 else pick1 + 1
+            pick2 = self.labels[gr].keys()[-1] if pick1 == 0 else pick1 - 1
 
-            picks[gr] = {'img': self.labels[gr][pick1]['img_ind'] + self.labels[gr][pick2]['img_ind'],
-                         'csi': self.labels[gr][pick1]['csi_ind'] + self.labels[gr][pick2]['csi_ind']}
+            for seg in self.labels[gr].keys():
+                for sample, sampledata in self.labels[gr][seg].items():
+                    if isinstance(sample, int) and sampledata:
+                        if seg in (pick1, pick2):
+                            picks.append({'group': gr,
+                                          'segment': seg,
+                                          'sample': sample})
+                        else:
+                            de_picks.append({'group': gr,
+                                             'segment': seg,
+                                             'sample': sample})
 
+        # Many train, few test
         if mode == 'normal':
             self.test_pick = picks
+            self.train_pick = de_picks
+
+        # Few train, many test
         elif mode == 'few':
             self.train_pick = picks
+            self.test_pick = de_picks
+        print('Done')
 
-    def assemble(self):
+    def export_data(self, filter=True):
         """
-        !!!UNFINISHED!!!
-        :return: Assembled metadata
+         Find csi, image and timestamps according to label.\n
+        :param filter: whether apply savgol filter on each CSI sample
+        :return: Sorted dataset
         """
-        assert self.data
-        print("Aligning...", end='')
-        for mod, modality in self.data.items():
-            for gr in self.labels['group'].keys():
-                for seg in self.labels[gr]['segment'].keys():
-                    length, channel, *shape = modality.shape
-                    if length > 0:
-                        assemble_length = length // self.assemble_number
-                        slice_length = assemble_length * self.assemble_number
-                        self.data[mod] = modality[:slice_length].reshape(
-                            assemble_length, self.assemble_number * channel, *shape)
-        print("Done")
+        modalities = {'rimg': (len(self.train_pick), 1, self.img_shape[1], self.img_shape[0]),
+                      'csi': (len(self.train_pick), *self.csi_shape),
+                      'time': (len(self.train_pick), 1, 1),
+                      'cimg': (len(self.train_pick), 1, 128, 128),
+                      'center': (len(self.train_pick), 1, 1),
+                      'depth': (len(self.train_pick), 1, 1),
+                      'pd': (len(self.train_pick), 1, 33)
+        }
 
-    def save_dataset(self, save_name=None, *args):
+        for mod, shape in modalities.items():
+            self.train_data[mod] = np.zeros(shape)
+            self.test_data[mod] = np.zeros(shape)
+
+        tqdm.write('Exporting train data...')
+        for i in tqdm(range(len(self.train_pick))):
+            gr, seg, sample = self.train_pick[i].items()
+            self.train_data['img'][i] = self.img[self.labels[gr][seg][sample]['img']]
+            self.train_data['csi'][i], self.train_data['pd'][i]= self.reshape_csi(self.img[self.labels[gr][seg][sample]['csi']], filter=filter)
+            self.train_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
+
+        tqdm.write('Exporting test data...')
+        for i in tqdm(range(len(self.test_pick))):
+            gr, seg, sample = self.test_pick[i].items()
+            self.train_data['img'][i] = self.img[self.labels[gr][seg][sample]['img']]
+            self.train_data['csi'][i] = self.reshape_csi(self.img[self.labels[gr][seg][sample]['csi']], filter=filter)
+            self.train_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
+
+    def save_dataset(self):
         print("Saving...", end='')
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
 
-        for modality in args:
-            if modality in self.data.keys():
-                # if modality in ('time', 'label'):
-                #   np.save(os.path.join(self.paths['save'], f"{save_name}_{modality}.npy"),
-                #   self.data[data][modality])
-                # else:
-                np.save(os.path.join(
-                    self.save_path, f"{save_name}_asmb{self.assemble_number}_len{self.csi_shape[1]}_{modality}.npy"),
-                    np.concatenate(list(self.data[modality].values())))
+        for modality in self.train_data.keys():
+            np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_train.npy"),
+                    self.train_data)
+            np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_test.npy"),
+                    self.test_data)
+
         print("Done")
 
 
