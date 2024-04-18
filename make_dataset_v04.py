@@ -228,8 +228,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.train_pick = None
         self.test_pick = None
 
-    @staticmethod
-    def reshape_csi(csi, filter=True, pd=True):
+    def reshape_csi(self, csi, filter=True, pd=True):
         """
         Reshape CSI into channel * sub * packet.\n
         :return: reshaped (+ filtered) CSI
@@ -250,14 +249,19 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         csi = csi.reshape((length, sub, rx * ch)).transpose((2, 1, 0))
 
         if pd:
-            # aoa shape = 3, tof shape = 30,  total shape = 33
-            # match phasediff shape with convoluted CSI!
+            # aoa vector = 3, tof vector = 30,  total len = 33
+            # match phasediff shape with convoluted CSI (by factor of 4)
             csi = csi_real + 1.j * csi_imag
-            u1, s1, v1 = np.linalg.svd(csi.transpose(3, 2, 1, 0).reshape(-1, 3, 30 * 100), full_matrices=False)
-            aoa = np.angle(np.squeeze(u1[:, 0, 0]).conj() * np.squeeze(u1[:, 1, 0]))
-            u2, s2, v2 = np.linalg.svd(csi.transpose(3, 1, 2, 0).reshape(-1, 30, 3 * 100), full_matrices=False)
-            tof = np.angle(np.squeeze(u2[:, :-1, 0])).conj() * np.squeeze(u2[:, 1:, 0])
-            return csi, np.concatenate((aoa, tof), axis=None)
+            aoatof = np.zeros((self.csi_shape[1] / 4, 33))
+            for win in range(0, self.csi_shape[1], 4):
+                u1, s1, v1 = np.linalg.svd(csi[win:win+4].transpose(3, 2, 1, 0).
+                                           reshape(-1, 3, 30 * self.csi_shape[1] / 4), full_matrices=False)
+                aoa = np.angle(np.squeeze(u1[:, 0, 0]).conj() * np.squeeze(u1[:, 1, 0]))
+                u2, s2, v2 = np.linalg.svd(csi[win:win+4].transpose(3, 1, 2, 0).
+                                           reshape(-1, 30, 3 * self.csi_shape[1] / 4), full_matrices=False)
+                tof = np.angle(np.squeeze(u2[:, :-1, 0])).conj() * np.squeeze(u2[:, 1:, 0])
+                aoatof[win / 4] = np.concatenate((aoa, tof), axis=None)
+            return csi, aoatof
         else:
             return csi
 
