@@ -452,7 +452,13 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 class DatasetMaker:
     version = 'V04'
 
-    def __init__(self, subs=None, jupyter=True, mode='normal', dataset_name='None'):
+    def __init__(self, subs=None, jupyter=True, mode='normal', dataset_name=None,
+                 img_path='../sense/0509/raw226_128/',
+                 camera_time_path='../sense/0509/raw226_128/',
+                 csi_path='../npsave/0509/0509A',
+                 label_path='../sense/0509/',
+                 save_path='../dataset/0509/'
+                 ):
         if subs is None:
             subs = ['01', '02', '03', '04']
 
@@ -460,6 +466,12 @@ class DatasetMaker:
         configs = pycsi.MyConfigs()
         configs.tx_rate = 0x1c113
         configs.ntx = 3
+
+        self.img_path = img_path
+        self.camera_time_path = camera_time_path
+        self.csi_path = csi_path
+        self.label_path = label_path
+        self.save_path = save_path
 
         self.configs = configs
         self.jupyter = jupyter
@@ -484,11 +496,11 @@ class DatasetMaker:
     def make_data(self):
         for sub in self.subs:
             mkdata = MyDataMaker(csi_configs=self.configs, img_shape=(226, 128), csi_shape=(2, 900, 30, 3),
-                                 img_path=f"../sense/0509/raw226_128/{sub}_img.npy",
-                                 camera_time_path=f"../sense/0509/raw226_128/{sub}_camtime.npy",
-                                 csi_path=f"../npsave/0509/0509A{sub}-csio.npy",
-                                 label_path=f"../sense/0509/{sub}_labels.csv",
-                                 save_path=f"../dataset/0509/{self.dataset_name}_{self.mode}/")
+                                 img_path=f"{self.img_path}{sub}_img.npy",
+                                 camera_time_path=f"{self.camera_time_path}{sub}_camtime.npy",
+                                 csi_path=f"{self.csi_path}{sub}-csio.npy",
+                                 label_path=f"{self.label_path}{sub}_labels.csv",
+                                 save_path=f"{self.save_path}{self.dataset_name}_{self.mode}/")
             mkdata.jupyter = self.jupyter
             mkdata.csi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1)
             mkdata.csi.extract_dynamic(mode='highpass')
@@ -543,4 +555,3 @@ class DatasetMaker:
         np.save(f"{save_path}ind_valid.npy", self.valid_ind)
 
         print("All saved!")
-        
