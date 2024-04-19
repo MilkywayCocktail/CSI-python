@@ -250,17 +250,20 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         if pd:
             # aoa vector = 3, tof vector = 30,  total len = 33
-            # match phasediff shape with convoluted CSI (by factor of 4)
-            csi = csi_real + 1.j * csi_imag
-            aoatof = np.zeros((self.csi_shape[1] / 4, 33))
-            for win in range(0, self.csi_shape[1], 4):
-                u1, s1, v1 = np.linalg.svd(csi[win:win+4].transpose(3, 2, 1, 0).
-                                           reshape(-1, 3, 30 * self.csi_shape[1] / 4), full_matrices=False)
-                aoa = np.angle(np.squeeze(u1[:, 0, 0]).conj() * np.squeeze(u1[:, 1, 0]))
-                u2, s2, v2 = np.linalg.svd(csi[win:win+4].transpose(3, 1, 2, 0).
-                                           reshape(-1, 30, 3 * self.csi_shape[1] / 4), full_matrices=False)
-                tof = np.angle(np.squeeze(u2[:, :-1, 0])).conj() * np.squeeze(u2[:, 1:, 0])
-                aoatof[win / 4] = np.concatenate((aoa, tof), axis=None)
+            # match phasediff shape with CSI
+            csi_ = csi_real + 1.j * csi_imag
+            length, sub, rx, tx = csi_.shape
+
+            aoatof = np.zeros((length, 33))
+            for i, packet in enumerate(csi_):
+
+                u1, s1, v1 = np.linalg.svd(packet.transpose(3, 2, 1, 0).
+                                           reshape(-1, rx, sub * length), full_matrices=False)
+                aoa = np.angle(u1[:, 0, 0].conj() * u1[:, 1, 0]).squeeze()
+                u2, s2, v2 = np.linalg.svd(packet.transpose(3, 1, 2, 0).
+                                           reshape(-1, sub, rx * length), full_matrices=False)
+                tof = np.angle(u2[:, :-1, 0].conj() * u2[:, 1:, 0]).squeeze()
+                aoatof[i] = np.concatenate((aoa, tof), axis=None)
             return csi, aoatof
         else:
             return csi
