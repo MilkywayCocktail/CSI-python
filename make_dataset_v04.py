@@ -477,19 +477,16 @@ class DatasetMaker:
         self.jupyter = jupyter
         self.mode = mode
         self.dataset_name = dataset_name
-        self.train_data = []
-        self.test_data = []
-        self.train_data_final: dict = {}
-        self.valid_data_final: dict = {}
-        self.test_data_final: dict = {}
 
-        self.train_length = 0
-        self.valid_length = 0
+        self.many_data = []
+        self.few_data = []
+        self.many_data_final: dict = {}
+        self.few_data_final: dict = {}
+
+        self.many_length = 0
+        self.few_length = 0
+        self.tv_length = 0
         self.test_length = 0
-
-        self.valid_mask = None
-        self.valid_ind = None
-        self.tv_ind = None
 
         self.modalities = ('rimg', 'csi', 'time', 'cimg', 'center', 'depth', 'pd')
 
@@ -511,36 +508,25 @@ class DatasetMaker:
             mkdata.pick_samples(alignment='tail')
             mkdata.divide_train_test(mode=self.mode)
             mkdata.export_data(filter=True)
-            self.train_data.append(mkdata.train_data)
-            self.test_data.append(mkdata.test_data)
+            if self.mode == 'normal':
+                self.many_data.append(mkdata.train_data)
+                self.few_data.append(mkdata.test_data)
+            elif self.mode == 'few':
+                self.many_data.append(mkdata.test_data)
+                self.few_data.append(mkdata.train_data)
             mkdata.save_data()
 
     def regroup_data(self):
         print("Regrouping...")
         for modality in self.modalities:
-            self.train_data_final[modality] = np.concatenate([train[modality] for train in self.train_data])
-            self.test_data_final[modality] = np.concatenate([test[modality] for test in self.test_data])
-            print(f"{modality} total train length = {len(self.train_data_final[modality])}, "
-                  f"total test length = {len(self.test_data_final[modality])}")
-            self.train_length = len(self.train_data_final[modality])
-            self.test_length = len(self.test_data_final[modality])
+            self.many_data_final[modality] = np.concatenate([data[modality] for data in self.many_data])
+            self.few_data_final[modality] = np.concatenate([data[modality] for data in self.few_data])
+            print(f"{modality} total many length = {len(self.many_data_final[modality])}, "
+                  f"total few length = {len(self.few_data_final[modality])}")
+            self.many_length = len(self.many_data_final[modality])
+            self.few_length = len(self.few_data_final[modality])
 
-    def divide_valid(self):
-        """
-        Divide validation set from training set by ratio of 0.2.\n
-        :return: Finalized train, valid, test sets
-        """
-        print("Dividing valid...")
-        self.tv_ind = np.arange(self.train_length).astype(int)
-        valid_size = int(self.train_length * 0.2)
-        self.valid_ind = np.random.choice(self.tv_ind, valid_size, replace=False)
-        self.valid_mask = np.ones(self.train_length, np.bool)
-        self.valid_mask[self.valid_ind] = 0
-
-        print(f"Divided train length = {self.train_length - valid_size}, "
-              f"valid length = {valid_size}, test length = {self.test_length}")
-
-    def save(self):
+    def save_data(self):
         tqdm.write("Saving...")
         save_path = f"../dataset/0509/{self.dataset_name}_{self.mode}_split/"
         if not os.path.exists(save_path):
@@ -548,10 +534,36 @@ class DatasetMaker:
 
         for mod in self.modalities:
             print(f" Saving {mod}...")
-            np.save(f"{save_path}{mod}_train.npy", self.train_data_final[mod][self.valid_mask])
-            np.save(f"{save_path}{mod}_valid.npy", self.train_data_final[mod][self.valid_ind])
-            np.save(f"{save_path}{mod}_test.npy", self.test_data_final[mod])
-        np.save(f"{save_path}ind_train.npy", self.tv_ind[self.valid_mask])
-        np.save(f"{save_path}ind_valid.npy", self.valid_ind)
+            np.save(f"{save_path}{mod}_many.npy", self.many_data_final[mod])
+            np.save(f"{save_path}{mod}_few.npy", self.few_data_final[mod])
 
         print("All saved!")
+
+    def divide_valid(self):
+        """
+        Divide validation set from training set by ratio of 0.2.\n
+        :return: Finalized train, valid, test sets
+        """
+        print("Dividing valid...", end='')
+        save_path = f"../dataset/0509/{self.dataset_name}_{self.mode}_split/"
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        for mode, tv_length, test_length in (('many', self.many_length, self.few_length),
+                                             ('few', self.few_length, self.many_length)):
+
+            tv_ind = np.arange(tv_length).astype(int)
+            valid_size = int(self.many_length * 0.2)
+            valid_ind = np.random.choice(tv_ind, valid_size, replace=False)
+            valid_mask = np.ones(self.tv_length, np.bool)
+            valid_mask[valid_ind] = 0
+            train_ind = tv_ind[valid_mask]
+
+            print(f"Divided train length = {tv_length - valid_size}, "
+                  f"valid length = {valid_size}, test length = {test_length}")
+
+            np.save(f"{save_path}ind_{mode}_train.npy", train_ind)
+            np.save(f"{save_path}ind_{mode}_valid.npy", valid_ind)
+
+        print('Done')
+        
