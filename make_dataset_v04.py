@@ -453,6 +453,7 @@ class DatasetMaker:
     version = 'V04'
 
     def __init__(self, subs=None, jupyter=True, mode='normal', dataset_name=None,
+                 csi_shape=(2, 100, 30, 3),
                  img_path='../sense/0509/raw226_128/',
                  camera_time_path='../sense/0509/raw226_128/',
                  csi_path='../npsave/0509/0509A',
@@ -477,6 +478,7 @@ class DatasetMaker:
         self.jupyter = jupyter
         self.mode = mode
         self.dataset_name = dataset_name
+        self.csi_shape = csi_shape
 
         self.many_data = []
         self.few_data = []
@@ -492,7 +494,7 @@ class DatasetMaker:
 
     def make_data(self):
         for sub in self.subs:
-            mkdata = MyDataMaker(csi_configs=self.configs, img_shape=(226, 128), csi_shape=(2, 900, 30, 3),
+            mkdata = MyDataMaker(csi_configs=self.configs, img_shape=(226, 128), csi_shape=self.csi_shape,
                                  img_path=f"{self.img_path}{sub}_img.npy",
                                  camera_time_path=f"{self.camera_time_path}{sub}_camtime.npy",
                                  csi_path=f"{self.csi_path}{sub}-csio.npy",
@@ -566,4 +568,3 @@ class DatasetMaker:
             np.save(f"{save_path}ind_{mode}_valid.npy", valid_ind)
 
         print('Done')
-        
