@@ -483,8 +483,6 @@ class DatasetMaker:
 
         self.many_length = 0
         self.few_length = 0
-        self.tv_length = 0
-        self.test_length = 0
 
         self.modalities = ('rimg', 'csi', 'time', 'cimg', 'center', 'depth', 'pd')
 
@@ -510,7 +508,7 @@ class DatasetMaker:
             self.many_data.append(mkdata.de_pick_data)
             self.few_data.append(mkdata.pick_data)
 
-            mkdata.save_data()
+            #mkdata.save_data()
 
     def regroup_data(self):
         print("Regrouping...")
@@ -548,9 +546,9 @@ class DatasetMaker:
         for mode, tv_length, test_length in (('many', self.many_length, self.few_length),
                                              ('few', self.few_length, self.many_length)):
             tv_ind = np.arange(tv_length).astype(int)
-            valid_size = int(self.many_length * 0.2)
+            valid_size = int(tv_length * 0.2)
             valid_ind = np.random.choice(tv_ind, valid_size, replace=False)
-            valid_mask = np.ones(self.tv_length, np.bool)
+            valid_mask = np.ones(tv_length, np.bool)
             valid_mask[valid_ind] = 0
             train_ind = tv_ind[valid_mask]
 
