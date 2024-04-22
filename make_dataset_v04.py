@@ -105,7 +105,8 @@ class ImageLoader:
 
     def load_img(self):
         print(f'{self.name} loading IMG...')
-        img = np.load(self.img_path)
+        # img = np.load(self.img_path)
+        img = np.zeros((5400, 128, 226))
         camera_time = np.load(self.camera_time_path)
         print(f" Loaded images of {img.shape} as {img.dtype}")
         return img, camera_time
@@ -135,8 +136,8 @@ class ImageLoader:
         :return: bbx, center, depth, c_img
         """
         self.bbx = np.zeros((len(self.img), 4))
-        self.center = np.zeros(len(self.img))
-        self.depth = np.zeros((len(self.img), 2))
+        self.center = np.zeros((len(self.img), 2), dtype=int)
+        self.depth = np.zeros((len(self.img), 1))
         self.c_img = np.zeros((len(self.img), 1, 128, 128))
 
         tqdm.write("Calculating center coordinates and depth...")
@@ -160,7 +161,7 @@ class ImageLoader:
                     non_zero = (patch != 0)
                     average_depth = patch.sum() / non_zero.sum()
                     self.bbx[i] = x, y, w, h
-                    self.center[i] = int(x + w / 2), int(y + h / 2)
+                    self.center[i][0], self.center[i][1] = int(x + w / 2), int(y + h / 2)
                     self.depth[i] = average_depth
 
                     subject = np.squeeze(self.img[i])[y:y + h, x:x + w]
@@ -182,10 +183,10 @@ class ImageLoader:
     def convert_bbx(self, w_scale=226, h_scale=128):
         print('Converting bbx...', end='')
 
-        self.bbx[:, 0, 0] /= float(w_scale)
-        self.bbx[:, 0, 2] /= float(w_scale)
-        self.bbx[:, 0, 1] /= float(h_scale)
-        self.bbx[:, 0, 3] /= float(h_scale)
+        self.bbx[..., 0] /= float(w_scale)
+        self.bbx[..., 2] /= float(w_scale)
+        self.bbx[..., 1] /= float(h_scale)
+        self.bbx[..., 3] /= float(h_scale)
 
         print('Done')
 
@@ -249,9 +250,9 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.alignment = alignment
         self.jupyter_mode = jupyter_mode
 
-        ImageLoader.__init__(self, *args, **kwargs)
-        CSILoader.__init__(self, *args, **kwargs)
-        LabelParser.__init__(self, *args, **kwargs)
+        ImageLoader.__init__(self, name, *args, **kwargs)
+        CSILoader.__init__(self, name, *args, **kwargs)
+        LabelParser.__init__(self, name, *args, **kwargs)
 
         self.train_data: dict = {}
         self.test_data: dict = {}
@@ -265,6 +266,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         :return: reshaped (+ filtered) CSI
         """
         # packet * sub * rx * 1
+        csi = csi[..., np.newaxis]
         if filter:
             csi_real = signal.savgol_filter(np.real(csi), 21, 3, axis=0)  # denoise for real part
             csi_imag = signal.savgol_filter(np.imag(csi), 21, 3, axis=0)  # denoise for imag part
@@ -277,23 +279,25 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         # (2 * rx) * sub * packet
         length, sub, rx, ch = csi.shape
-        csi = csi.reshape((length, sub, rx * ch)).transpose((2, 1, 0))
+        csi = csi.reshape((length, sub, rx * ch)).transpose(2, 1, 0)
 
         if pd:
             # aoa vector = 3, tof vector = 30,  total len = 33
             # match phasediff shape with CSI
             csi_ = csi_real + 1.j * csi_imag
-            length, sub, rx, tx = csi_.shape
-
+            length, sub, rx, ch = csi_.shape
             aoatof = np.zeros((length, 33))
             for i, packet in enumerate(csi_):
-                u1, s1, v1 = np.linalg.svd(packet.transpose(3, 2, 1, 0).
-                                           reshape(-1, rx, sub * length), full_matrices=False)
+                print(csi_.shape)
+                u1, s1, v1 = np.linalg.svd(packet.transpose(2, 1, 0).
+                                           reshape(-1, rx, sub), full_matrices=False)
                 aoa = np.angle(u1[:, 0, 0].conj() * u1[:, 1, 0]).squeeze()
-                u2, s2, v2 = np.linalg.svd(packet.transpose(3, 1, 2, 0).
-                                           reshape(-1, sub, rx * length), full_matrices=False)
+                u2, s2, v2 = np.linalg.svd(packet.transpose(2, 0, 1).
+                                           reshape(-1, sub, rx), full_matrices=False)
                 tof = np.angle(u2[:, :-1, 0].conj() * u2[:, 1:, 0]).squeeze()
+                print(aoa.shape, tof.shape)
                 aoatof[i] = np.concatenate((aoa, tof), axis=None)
+                print(aoatof[i])
             return csi, aoatof
         else:
             return csi
@@ -309,39 +313,36 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         for gr in tqdm(self.labels.keys()):
             for seg in tqdm(self.labels[gr].keys(), leave=False):
-                start_img_id, end_img_id = np.searchsorted(self.camera_time[:, 0, 0],
+                start_img_id, end_img_id = np.searchsorted(self.camera_time,
                                                            [self.labels[gr][seg]['start'],
                                                             self.labels[gr][seg]['end']])
+                img_id = np.arange(start_img_id, end_img_id, dtype=int)
+
                 start_csi_id, end_csi_id = np.searchsorted(self.csi.timestamps,
                                                            [self.labels[gr][seg]['start'],
                                                             self.labels[gr][seg]['end']])
                 # Indices of raw IMG-CSI pair
-                img_id = np.arange(start_img_id, end_img_id, dtype=int)
-                csi_id = np.arange(start_csi_id, end_csi_id, dtype=int)
+
+                csi_id = np.searchsorted(self.csi.timestamps, self.camera_time[img_id])
 
                 # Remove out-of-segment CSI
-                for i in tqdm(range(len(img_id)), leave=False):
+                for i, (img_id_, csi_id_) in enumerate(zip(img_id, csi_id)):
                     if self.alignment == 'head':
-                        sample_csi_id = np.arange(csi_id[i], csi_id[i] + self.csi_shape[1], dtype=int)
+                        sample_csi_id = np.arange(csi_id_, csi_id_ + self.csi_shape[1], dtype=int)
                     elif self.alignment == 'tail':
-                        sample_csi_id = np.arange(csi_id[i] - self.csi_shape[1], csi_id[i], dtype=int)
-
+                        sample_csi_id = np.arange(csi_id_ - self.csi_shape[1], csi_id_, dtype=int)
                     if sample_csi_id[0] < start_csi_id or sample_csi_id[-1] > end_csi_id:
                         self.labels[gr][seg][i]: dict = {}
                     else:
+
                         # Sample-level ids
                         # img: 1 index
                         # CSI: list of indices
-                        self.labels[gr][seg][i] = {'img': img_id[i],
+                        self.labels[gr][seg][i] = {'img': img_id_,
                                                    'csi': sample_csi_id}
-                # Segment-level ids
-                self.labels[gr][seg]['img_id'] = img_id
-                self.labels[gr][seg]['csi_id'] = csi_id
 
                 print(f"\r Group {gr} Segment {seg}: IMG = {start_img_id} ~ {end_img_id}, "
-                      f"CSI = {start_csi_id} ~ {end_csi_id}."
-                      f" In segment: IMG = {img_id[0]} ~ {img_id[-1]},"
-                      f"CSI = {csi_id[0]} ~ {csi_id[-1]}", end='')
+                      f"CSI = {start_csi_id} ~ {end_csi_id}.")
 
         print('\nDone')
 
@@ -357,13 +358,14 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         for gr in self.labels.keys():
             # Select 2 segments
-            pick1 = np.random.choice(self.labels[gr].keys(), 1, replace=False).astype(int)
-            pick2 = self.labels[gr].keys()[-1] if pick1 == 0 else pick1 - 1
-
+            pick1 = np.random.choice(list(self.labels[gr].keys()), 1, replace=False).astype(int)
+            pick2 = [list(self.labels[gr].keys())[-1]] if pick1 == 0 else pick1 - 1
+            print(pick1, pick2)
             for seg in self.labels[gr].keys():
                 for sample, sampledata in self.labels[gr][seg].items():
-                    if isinstance(sample, int) and sampledata:
-                        if seg in (pick1, pick2):
+
+                    if not isinstance(sample, str) and sampledata:
+                        if seg in pick1 + pick2:
                             picks.append({'group': gr,
                                           'segment': seg,
                                           'sample': sample})
@@ -404,7 +406,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         tqdm.write('Exporting train data...')
         for i in tqdm(range(len(self.train_pick))):
-            gr, seg, sample = self.train_pick[i].items()
+            gr, seg, sample = self.train_pick[i].values()
             self.train_data['rimg'][i] = self.img[self.labels[gr][seg][sample]['img']]
             self.train_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
             self.train_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
@@ -412,7 +414,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             self.train_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
 
             (self.train_data['csi'][i],
-             self.train_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi']],
+             self.train_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
                                                           filter=filter, pd=pd)
         for mod, value in self.train_data.items():
             tqdm.write(f"Exproted train: {mod} of {value.shape} as {value.dtype}")
@@ -427,7 +429,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             self.test_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
 
             (self.test_data['csi'][i],
-             self.test_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi']],
+             self.test_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
                                                          filter=filter, pd=pd)
         for mod, value in self.test_data.items():
             tqdm.write(f"Exproted test: {mod} of {value.shape} as {value.dtype}")
@@ -553,7 +555,6 @@ class DatasetMaker:
 
         for mode, tv_length, test_length in (('many', self.many_length, self.few_length),
                                              ('few', self.few_length, self.many_length)):
-
             tv_ind = np.arange(tv_length).astype(int)
             valid_size = int(self.many_length * 0.2)
             valid_ind = np.random.choice(tv_ind, valid_size, replace=False)
