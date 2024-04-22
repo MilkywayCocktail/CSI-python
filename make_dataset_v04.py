@@ -123,7 +123,7 @@ class ImageLoader:
             self.img[i] *= mask
 
     def convert_img(self, threshold=3000):
-        print(f'Converting IMG...', end='')
+        print(f'{self.name} converting IMG...', end='')
         self.img[self.img > threshold] = threshold
         self.img /= float(threshold)
         print('Done')
@@ -140,7 +140,7 @@ class ImageLoader:
         self.depth = np.zeros((len(self.img), 1))
         self.c_img = np.zeros((len(self.img), 1, 128, 128))
 
-        tqdm.write("Calculating center coordinates and depth...")
+        tqdm.write(f"{self.name} calculating center coordinates and depth...")
 
         for i in tqdm(range(len(self.img))):
             img = np.squeeze(self.img[i]).astype('float32')
@@ -181,7 +181,7 @@ class ImageLoader:
                             break
 
     def convert_bbx(self, w_scale=226, h_scale=128):
-        print('Converting bbx...', end='')
+        print(f'{self.name} converting bbx...', end='')
 
         self.bbx[..., 0] /= float(w_scale)
         self.bbx[..., 2] /= float(w_scale)
@@ -191,7 +191,7 @@ class ImageLoader:
         print('Done')
 
     def convert_depth(self, threshold=3000):
-        print('Converting depth...', end='')
+        print(f'{self.name} converting depth...', end='')
         self.depth[self.depth > threshold] = threshold
         self.depth /= float(threshold)
         print('Done')
@@ -254,10 +254,10 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         CSILoader.__init__(self, name, *args, **kwargs)
         LabelParser.__init__(self, name, *args, **kwargs)
 
-        self.train_data: dict = {}
-        self.test_data: dict = {}
-        self.train_pick = None
-        self.test_pick = None
+        self.pick_data: dict = {}
+        self.de_pick_data: dict = {}
+        self.pick = None
+        self.de_pick = None
 
     @staticmethod
     def reshape_csi(csi, filter=True, pd=True):
@@ -265,8 +265,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         Reshape CSI into channel * sub * packet.\n
         :return: reshaped (+ filtered) CSI
         """
-        # packet * sub * rx * 1
-        csi = csi[..., np.newaxis]
+        # packet * sub * rx
         if filter:
             csi_real = signal.savgol_filter(np.real(csi), 21, 3, axis=0)  # denoise for real part
             csi_imag = signal.savgol_filter(np.imag(csi), 21, 3, axis=0)  # denoise for imag part
@@ -274,30 +273,32 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             csi_real = np.real(csi)
             csi_imag = np.imag(csi)
 
-        # packet * sub * rx * 2
+        # packet * sub * (rx * 2)
         csi = np.concatenate((csi_real, csi_imag), axis=-1)
 
         # (2 * rx) * sub * packet
-        length, sub, rx, ch = csi.shape
-        csi = csi.reshape((length, sub, rx * ch)).transpose(2, 1, 0)
+        csi = csi.transpose(2, 1, 0)
 
         if pd:
+            win_len = 10
             # aoa vector = 3, tof vector = 30,  total len = 33
             # match phasediff shape with CSI
             csi_ = csi_real + 1.j * csi_imag
-            length, sub, rx, ch = csi_.shape
+
+            length, sub, rx = csi_.shape
             aoatof = np.zeros((length, 33))
-            for i, packet in enumerate(csi_):
-                print(csi_.shape)
-                u1, s1, v1 = np.linalg.svd(packet.transpose(2, 1, 0).
-                                           reshape(-1, rx, sub), full_matrices=False)
-                aoa = np.angle(u1[:, 0, 0].conj() * u1[:, 1, 0]).squeeze()
-                u2, s2, v2 = np.linalg.svd(packet.transpose(2, 0, 1).
-                                           reshape(-1, sub, rx), full_matrices=False)
-                tof = np.angle(u2[:, :-1, 0].conj() * u2[:, 1:, 0]).squeeze()
-                print(aoa.shape, tof.shape)
+            csi_ = np.pad(csi_, ((4, 5), (0, 0), (0, 0)), 'edge')
+
+            for i in range(length):
+                u1, s1, v1 = np.linalg.svd(csi_[i:i + 10].transpose(2, 1, 0).
+                                           reshape(-1, rx, sub * win_len), full_matrices=False)
+                # aoa = np.angle(u1[:, 0, 0].conj() * u1[:, 1, 0]).squeeze()
+                aoa = np.angle(u1[:, 0])
+                u2, s2, v2 = np.linalg.svd(csi_[i:i + 10].transpose(1, 2, 0).
+                                           reshape(-1, sub, rx * win_len), full_matrices=False)
+                # tof = np.angle(u2[:, :-1, 0].conj() * u2[:, 1:, 0]).squeeze()
+                tof = np.angle(u2[:, :, 0])
                 aoatof[i] = np.concatenate((aoa, tof), axis=None)
-                print(aoatof[i])
             return csi, aoatof
         else:
             return csi
@@ -307,7 +308,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         Pick samples according to labels.\n
         :return: id of picked samples
         """
-        print(f"Picking samples...\n")
+        print(f"{self.name} picking samples...\n")
         if alignment is not None:
             self.alignment = alignment
 
@@ -341,10 +342,10 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                         self.labels[gr][seg][i] = {'img': img_id_,
                                                    'csi': sample_csi_id}
 
-                print(f"\r Group {gr} Segment {seg}: IMG = {start_img_id} ~ {end_img_id}, "
+                print(f" Group {gr} Segment {seg}: IMG = {start_img_id} ~ {end_img_id}, "
                       f"CSI = {start_csi_id} ~ {end_csi_id}.")
 
-        print('\nDone')
+        print(' Done picking')
 
     def divide_train_test(self, mode='normal'):
         """
@@ -352,7 +353,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         :param mode: 'normal' or 'few'
         :return: train_pick and test_pick
         """
-        print('Dividing train and test...', end='')
+        print(f'{self.name} dividing train and test...', end='')
         picks = []
         de_picks = []
 
@@ -374,15 +375,8 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                                              'segment': seg,
                                              'sample': sample})
 
-        # Many train, few test
-        if mode == 'normal':
-            self.test_pick = picks
-            self.train_pick = de_picks
-
-        # Few train, many test
-        elif mode == 'few':
-            self.train_pick = picks
-            self.test_pick = de_picks
+        self.pick = picks
+        self.de_pick = de_picks
         print('Done')
 
     def export_data(self, filter=True, pd=True):
@@ -391,63 +385,63 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         :param filter: whether apply savgol filter on each CSI sample
         :return: Sorted dataset
         """
-        modalities = {'rimg': (len(self.train_pick), 1, self.img_shape[1], self.img_shape[0]),
-                      'csi': (len(self.train_pick), *self.csi_shape),
-                      'time': (len(self.train_pick), 1, 1),
-                      'cimg': (len(self.train_pick), 1, 128, 128),
-                      'center': (len(self.train_pick), 1, 2),
-                      'depth': (len(self.train_pick), 1, 1),
-                      'pd': (len(self.train_pick), 100, 33)
+        modalities = {'rimg': (1, 128, 226),
+                      'csi': (6, 30, self.csi_shape[1]),
+                      'time': (1, 1),
+                      'cimg': (1, 128, 128),
+                      'center': (1, 2),
+                      'depth': (1, 1),
+                      'pd': (100, 33)
                       }
 
         for mod, shape in modalities.items():
-            self.train_data[mod] = np.zeros(shape)
-            self.test_data[mod] = np.zeros(shape)
+            self.pick_data[mod] = np.zeros((len(self.pick), *shape))
+            self.de_pick_data[mod] = np.zeros((len(self.de_pick), *shape))
 
-        tqdm.write('Exporting train data...')
-        for i in tqdm(range(len(self.train_pick))):
-            gr, seg, sample = self.train_pick[i].values()
-            self.train_data['rimg'][i] = self.img[self.labels[gr][seg][sample]['img']]
-            self.train_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
-            self.train_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
-            self.train_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
-            self.train_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
+        tqdm.write(f'{self.name} exporting train data...')
+        for i in tqdm(range(len(self.pick))):
+            gr, seg, sample = self.pick[i].values()
+            self.pick_data['rimg'][i] = self.img[self.labels[gr][seg][sample]['img']]
+            # self.pick_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
+            # self.pick_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
+            # self.pick_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
+            self.pick_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
 
-            (self.train_data['csi'][i],
-             self.train_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
-                                                          filter=filter, pd=pd)
-        for mod, value in self.train_data.items():
-            tqdm.write(f"Exproted train: {mod} of {value.shape} as {value.dtype}")
-
-        tqdm.write('Exporting test data...')
-        for i in tqdm(range(len(self.test_pick))):
-            gr, seg, sample = self.test_pick[i].items()
-            self.test_data['rimg'][i] = self.img[self.labels[gr][seg][sample]['img']]
-            self.test_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
-            self.test_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
-            self.test_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
-            self.test_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
-
-            (self.test_data['csi'][i],
-             self.test_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
+            (self.pick_data['csi'][i],
+             self.pick_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
                                                          filter=filter, pd=pd)
-        for mod, value in self.test_data.items():
-            tqdm.write(f"Exproted test: {mod} of {value.shape} as {value.dtype}")
+        for mod, value in self.pick_data.items():
+            tqdm.write(f" Exproted picked data: {mod} of {value.shape} as {value.dtype}")
+
+        tqdm.write(f'{self.name} exporting test data...')
+        for i in tqdm(range(len(self.de_pick))):
+            gr, seg, sample = self.de_pick[i].values()
+            self.de_pick_data['rimg'][i] = self.img[self.labels[gr][seg][sample]['img']]
+            # self.de_pick_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
+            # self.de_pick_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
+            # self.de_pick_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
+            self.de_pick_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
+
+            (self.de_pick_data['csi'][i],
+             self.de_pick_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
+                                                            filter=filter, pd=pd)
+        for mod, value in self.de_pick_data.items():
+            tqdm.write(f" Exproted de_picked data: {mod} of {value.shape} as {value.dtype}")
 
     def save_data(self):
-        print("Saving...", end='')
+        print(f"{self.name} saving...", end='')
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
 
         for modality in self.train_data.keys():
-            np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_train.npy"),
-                    self.train_data)
-            np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_test.npy"),
-                    self.test_data)
-        np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_label_train.npy"),
-                self.train_pick)
-        np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_label_test.npy"),
-                self.test_pick)
+            np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_pick.npy"),
+                    self.pick_data)
+            np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_depick.npy"),
+                    self.de_pick_data)
+        np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_label_pick.npy"),
+                self.pick_data)
+        np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_label_depick.npy"),
+                self.de_pick_data)
         print("Done")
 
 
@@ -512,12 +506,10 @@ class DatasetMaker:
             mkdata.pick_samples(alignment='tail')
             mkdata.divide_train_test(mode=self.mode)
             mkdata.export_data(filter=True)
-            if self.mode == 'normal':
-                self.many_data.append(mkdata.train_data)
-                self.few_data.append(mkdata.test_data)
-            elif self.mode == 'few':
-                self.many_data.append(mkdata.test_data)
-                self.few_data.append(mkdata.train_data)
+
+            self.many_data.append(mkdata.de_pick_data)
+            self.few_data.append(mkdata.pick_data)
+
             mkdata.save_data()
 
     def regroup_data(self):
@@ -549,7 +541,7 @@ class DatasetMaker:
         :return: Finalized train, valid, test sets
         """
         print("Dividing valid...", end='')
-        save_path = f"../dataset/0509/{self.dataset_name}_{self.mode}_split/"
+        save_path = f"../dataset/0509/{self.dataset_name}_split/"
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
