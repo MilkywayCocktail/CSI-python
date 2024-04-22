@@ -433,7 +433,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
 
-        for modality in self.train_data.keys():
+        for modality in self.pick_data.keys():
             np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_pick.npy"),
                     self.pick_data)
             np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_depick.npy"),
@@ -490,7 +490,7 @@ class DatasetMaker:
 
     def make_data(self):
         for sub in self.subs:
-            mkdata = MyDataMaker(csi_configs=self.configs, img_shape=(226, 128), csi_shape=self.csi_shape,
+            mkdata = MyDataMaker(name=sub, csi_configs=self.configs, img_shape=(226, 128), csi_shape=self.csi_shape,
                                  img_path=f"{self.img_path}{sub}_img.npy",
                                  camera_time_path=f"{self.camera_time_path}{sub}_camtime.npy",
                                  csi_path=f"{self.csi_path}{sub}-csio.npy",
