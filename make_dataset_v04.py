@@ -258,6 +258,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.de_pick_data: dict = {}
         self.pick = None
         self.de_pick = None
+        self.pick_log = []
 
     @staticmethod
     def reshape_csi(csi, filter=True, pd=True):
@@ -347,10 +348,10 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         print(' Done picking')
 
-    def divide_train_test(self, mode='normal'):
+    def divide_train_test(self, pick=None):
         """
         Divide train and test samples at segment level, avoiding leakage.\n
-        :param mode: 'normal' or 'few'
+        :param pick: specified segment
         :return: train_pick and test_pick
         """
         print(f'{self.name} dividing train and test...', end='')
@@ -359,12 +360,14 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         for gr in self.labels.keys():
             # Select 2 segments
-            pick1 = np.random.choice(list(self.labels[gr].keys()), 1, replace=False).astype(int)
-            pick2 = [list(self.labels[gr].keys())[-1]] if pick1 == 0 else pick1 - 1
-            print(pick1, pick2)
+            if not pick:
+                pick1 = np.random.choice(list(self.labels[gr].keys()), 1, replace=False).astype(int)
+                pick2 = [list(self.labels[gr].keys())[-1]] if pick1 == 0 else pick1 - 1
+            else:
+                pick1, pick2 = pick
+            self.pick_log.append(f"group {gr}, segment {pick1} + {pick2}")
             for seg in self.labels[gr].keys():
                 for sample, sampledata in self.labels[gr][seg].items():
-
                     if not isinstance(sample, str) and sampledata:
                         if seg in pick1 + pick2:
                             picks.append({'group': gr,
@@ -378,6 +381,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.pick = picks
         self.de_pick = de_picks
         print('Done')
+        return pick1, pick2
 
     def export_data(self, filter=True, pd=True):
         """
@@ -442,6 +446,18 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                 self.pick_data)
         np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_label_depick.npy"),
                 self.de_pick_data)
+
+        with open(f"{self.save_path}{self.name}_csilen{self.csi_shape[1]}_log.txt", 'w') as logfile:
+            logfile.write(f"{self.name}\n"
+                          f"Raw paths:\n"
+                          f"IMG: {self.img_path}\n"
+                          f"CSI: {self.csi_path}\n"
+                          f"TIME: {self.camera_time_path}\n"
+                          f"LABEL: {self.label_path}\n"
+                          f"Picked segments:\n"
+                          f"{self.pick_log}\n")
+
+        logfile.close()
         print("Done")
 
 
@@ -476,6 +492,7 @@ class DatasetMaker:
         self.dataset_name = dataset_name
         self.csi_shape = csi_shape
 
+        self.picks = {sub: None for sub in self.subs}
         self.many_data = []
         self.few_data = []
         self.many_data_final: dict = {}
@@ -502,7 +519,7 @@ class DatasetMaker:
             mkdata.convert_bbx()
             mkdata.convert_depth()
             mkdata.pick_samples(alignment='tail')
-            mkdata.divide_train_test(mode=self.mode)
+            self.picks[sub] = mkdata.divide_train_test(pick=self.picks[sub])
             mkdata.export_data(filter=True)
 
             self.many_data.append(mkdata.de_pick_data)
@@ -543,19 +560,34 @@ class DatasetMaker:
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        for mode, tv_length, test_length in (('many', self.many_length, self.few_length),
-                                             ('few', self.few_length, self.many_length)):
-            tv_ind = np.arange(tv_length).astype(int)
-            valid_size = int(tv_length * 0.2)
-            valid_ind = np.random.choice(tv_ind, valid_size, replace=False)
-            valid_mask = np.ones(tv_length, np.bool)
-            valid_mask[valid_ind] = 0
-            train_ind = tv_ind[valid_mask]
+        with open(f"{self.save_path}{self.dataset_name}_log.txt", 'w') as logfile:
+            logfile.write(f"{self.dataset_name}\n"
+                          f"Raw paths:\n"
+                          f"IMG: {self.img_path}\n"
+                          f"CSI: {self.csi_path}\n"
+                          f"TIME: {self.camera_time_path}\n"
+                          f"LABEL: {self.label_path}\n"
+                          f"Sources:\n"
+                          f"{self.subs}\n"
+                          f"Number of samples:\n"
+                          f"Many = {self.many_length}, Few = {self.few_length}\n"
+                          f"Train-Valid split:\n")
 
-            print(f"Divided train length = {tv_length - valid_size}, "
-                  f"valid length = {valid_size}, test length = {test_length}")
+            for mode, tv_length, test_length in (('many', self.many_length, self.few_length),
+                                                 ('few', self.few_length, self.many_length)):
+                tv_ind = np.arange(tv_length).astype(int)
+                valid_size = int(tv_length * 0.2)
+                valid_ind = np.random.choice(tv_ind, valid_size, replace=False)
+                valid_mask = np.ones(tv_length, np.bool)
+                valid_mask[valid_ind] = 0
+                train_ind = tv_ind[valid_mask]
 
-            np.save(f"{save_path}ind_{mode}_train.npy", train_ind)
-            np.save(f"{save_path}ind_{mode}_valid.npy", valid_ind)
+                print(f"Divided train length = {tv_length - valid_size}, "
+                      f"valid length = {valid_size}, test length = {test_length}")
+
+                logfile.write(f"{mode}: train = {tv_length - valid_size}, valid = {valid_size}\n")
+
+        np.save(f"{save_path}ind_{mode}_train.npy", train_ind)
+        np.save(f"{save_path}ind_{mode}_valid.npy", valid_ind)
 
         print('Done')
