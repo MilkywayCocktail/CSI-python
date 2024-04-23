@@ -105,8 +105,7 @@ class ImageLoader:
 
     def load_img(self):
         print(f'{self.name} loading IMG...')
-        # img = np.load(self.img_path)
-        img = np.zeros((5400, 128, 226))
+        img = np.load(self.img_path)
         camera_time = np.load(self.camera_time_path)
         print(f" Loaded images of {img.shape} as {img.dtype}")
         return img, camera_time
