@@ -180,14 +180,17 @@ class ImageLoader:
                         if key == ord('q'):
                             break
 
-    def convert_bbx(self, w_scale=226, h_scale=128):
-        print(f'{self.name} converting bbx...', end='')
-
-        self.bbx[..., 0] /= float(w_scale)
-        self.bbx[..., 2] /= float(w_scale)
-        self.bbx[..., 1] /= float(h_scale)
-        self.bbx[..., 3] /= float(h_scale)
-
+    def convert_bbx_ctr(self, w_scale=226, h_scale=128):
+        if self.bbx:
+            print(f'{self.name} converting bbx...', end='')
+            self.bbx[..., 0] /= float(w_scale)
+            self.bbx[..., 2] /= float(w_scale)
+            self.bbx[..., 1] /= float(h_scale)
+            self.bbx[..., 3] /= float(h_scale)
+        if self.center:
+            print(f'{self.name} converting center...', end='')
+            self.center[..., 0] /= float(w_scale)
+            self.center[..., 1] /= float(w_scale)
         print('Done')
 
     def convert_depth(self, threshold=3000):
@@ -292,12 +295,15 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             for i in range(length):
                 u1, s1, v1 = np.linalg.svd(csi_[i:i + 10].transpose(2, 1, 0).
                                            reshape(-1, rx, sub * win_len), full_matrices=False)
-                aoa = np.unwrap(np.angle(u1[:, 0, 0].conj() * u1[:, 1, 0]).squeeze())
+                aoa = np.angle(u1[:, 0, 0].conj() * u1[:, 1, 0]).squeeze()
                 u2, s2, v2 = np.linalg.svd(csi_[i:i + 10].transpose(1, 2, 0).
                                            reshape(-1, sub, rx * win_len), full_matrices=False)
-                tof = np.unwrap(np.angle(u2[:, :-1, 0].conj() * u2[:, 1:, 0]).squeeze())
+                tof = np.angle(u2[:, :-1, 0].conj() * u2[:, 1:, 0]).squeeze()
                 aoatof[0, i] = aoa
                 aoatof[1:, i] = tof
+
+            aoatof[0, :] = np.unwrap(aoatof[0, :])
+            aoatof[1:, :] = np.unwrap(aoatof[1:, :], axis=-1)
             return csi, aoatof
         else:
             return csi
@@ -514,7 +520,7 @@ class DatasetMaker:
             mkdata.csi.extract_dynamic(mode='highpass')
             mkdata.convert_img()
             mkdata.crop()
-            mkdata.convert_bbx()
+            mkdata.convert_bbx_ctr()
             mkdata.convert_depth()
             mkdata.pick_samples(alignment='tail')
             self.picks[sub] = mkdata.divide_train_test(pick=self.picks[sub])
