@@ -590,7 +590,7 @@ class DatasetMaker:
 
                 logfile.write(f"{mode}: train = {tv_length - valid_size}, valid = {valid_size}\n")
 
-        np.save(f"{save_path}ind_{mode}_train.npy", train_ind)
-        np.save(f"{save_path}ind_{mode}_valid.npy", valid_ind)
+                np.save(f"{save_path}ind_{mode}_train.npy", train_ind)
+                np.save(f"{save_path}ind_{mode}_valid.npy", valid_ind)
 
         print('Done')
