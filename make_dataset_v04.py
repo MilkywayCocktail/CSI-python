@@ -135,7 +135,7 @@ class ImageLoader:
         :return: bbx, center, depth, c_img
         """
         self.bbx = np.zeros((len(self.img), 4))
-        self.center = np.zeros((len(self.img), 2), dtype=int)
+        self.center = np.zeros((len(self.img), 2), dtype=float)
         self.depth = np.zeros((len(self.img), 1))
         self.c_img = np.zeros((len(self.img), 1, 128, 128))
 
