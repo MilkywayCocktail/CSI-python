@@ -398,7 +398,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                       'cimg': (1, 128, 128),
                       'center': (1, 2),
                       'depth': (1, 1),
-                      'pd': (2, 30, self.csi_shape[1])
+                      'pd': (1, 30, self.csi_shape[1])
                       }
 
         for mod, shape in modalities.items():
@@ -409,9 +409,9 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         for i in tqdm(range(len(self.pick))):
             gr, seg, sample = self.pick[i].values()
             self.pick_data['rimg'][i] = self.img[self.labels[gr][seg][sample]['img']]
-            # self.pick_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
-            # self.pick_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
-            # self.pick_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
+            self.pick_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
+            self.pick_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
+            self.pick_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
             self.pick_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
 
             (self.pick_data['csi'][i],
@@ -424,9 +424,9 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         for i in tqdm(range(len(self.de_pick))):
             gr, seg, sample = self.de_pick[i].values()
             self.de_pick_data['rimg'][i] = self.img[self.labels[gr][seg][sample]['img']]
-            # self.de_pick_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
-            # self.de_pick_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
-            # self.de_pick_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
+            self.de_pick_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
+            self.de_pick_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
+            self.de_pick_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
             self.de_pick_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
 
             (self.de_pick_data['csi'][i],
@@ -442,13 +442,13 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
         for modality in self.pick_data.keys():
             np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_pick.npy"),
-                    self.pick_data)
+                    self.pick_data[modality])
             np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_{modality}_depick.npy"),
-                    self.de_pick_data)
+                    self.de_pick_data[modality])
         np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_label_pick.npy"),
-                self.pick_data)
+                self.pick)
         np.save(os.path.join(self.save_path, f"{self.name}_csilen{self.csi_shape[1]}_label_depick.npy"),
-                self.de_pick_data)
+                self.de_pick)
 
         with open(f"{self.save_path}{self.name}_csilen{self.csi_shape[1]}_log.txt", 'w') as logfile:
             logfile.write(f"{self.name}\n"
