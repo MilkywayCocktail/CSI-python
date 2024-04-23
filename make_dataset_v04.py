@@ -180,13 +180,17 @@ class ImageLoader:
                             break
 
     def convert_bbx_ctr(self, w_scale=226, h_scale=128):
-        if self.bbx:
+        if not self.bbx:
+            pass
+        else:
             print(f'{self.name} converting bbx...', end='')
             self.bbx[..., 0] /= float(w_scale)
             self.bbx[..., 2] /= float(w_scale)
             self.bbx[..., 1] /= float(h_scale)
             self.bbx[..., 3] /= float(h_scale)
-        if self.center:
+        if not self.center:
+            pass
+        else:
             print(f'{self.name} converting center...', end='')
             self.center[..., 0] /= float(w_scale)
             self.center[..., 1] /= float(w_scale)
