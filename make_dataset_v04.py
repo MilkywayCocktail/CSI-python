@@ -277,29 +277,27 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         # packet * sub * (rx * 2)
         csi = np.concatenate((csi_real, csi_imag), axis=-1)
 
-        # (2 * rx) * sub * packet
+        # (rx * 2) * sub * packet
         csi = csi.transpose(2, 1, 0)
 
         if pd:
             win_len = 10
-            # aoa vector = 3, tof vector = 30,  total len = 33
-            # match phasediff shape with CSI
+            # aoa vector = 1, tof vector = 29,  total len = 30
+            # match CSI length by padding
             csi_ = csi_real + 1.j * csi_imag
-
             length, sub, rx = csi_.shape
-            aoatof = np.zeros((length, 33))
+            aoatof = np.zeros((30, length))
             csi_ = np.pad(csi_, ((4, 5), (0, 0), (0, 0)), 'edge')
 
             for i in range(length):
                 u1, s1, v1 = np.linalg.svd(csi_[i:i + 10].transpose(2, 1, 0).
                                            reshape(-1, rx, sub * win_len), full_matrices=False)
-                # aoa = np.angle(u1[:, 0, 0].conj() * u1[:, 1, 0]).squeeze()
-                aoa = np.angle(u1[:, 0])
+                aoa = np.unwrap(np.angle(u1[:, 0, 0].conj() * u1[:, 1, 0]).squeeze())
                 u2, s2, v2 = np.linalg.svd(csi_[i:i + 10].transpose(1, 2, 0).
                                            reshape(-1, sub, rx * win_len), full_matrices=False)
-                # tof = np.angle(u2[:, :-1, 0].conj() * u2[:, 1:, 0]).squeeze()
-                tof = np.angle(u2[:, :, 0])
-                aoatof[i] = np.concatenate((aoa, tof), axis=None)
+                tof = np.unwrap(np.angle(u2[:, :-1, 0].conj() * u2[:, 1:, 0]).squeeze())
+                aoatof[0, i] = aoa
+                aoatof[1:, i] = tof
             return csi, aoatof
         else:
             return csi
@@ -395,7 +393,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                       'cimg': (1, 128, 128),
                       'center': (1, 2),
                       'depth': (1, 1),
-                      'pd': (100, 33)
+                      'pd': (2, 30, self.csi_shape[1])
                       }
 
         for mod, shape in modalities.items():
@@ -510,7 +508,7 @@ class DatasetMaker:
                                  camera_time_path=f"{self.camera_time_path}{sub}_camtime.npy",
                                  csi_path=f"{self.csi_path}{sub}-csio.npy",
                                  label_path=f"{self.label_path}{sub}_labels.csv",
-                                 save_path=f"{self.save_path}{self.dataset_name}_{self.mode}/")
+                                 save_path=f"{self.save_path}{self.dataset_name}/")
             mkdata.jupyter = self.jupyter
             mkdata.csi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1)
             mkdata.csi.extract_dynamic(mode='highpass')
@@ -525,7 +523,7 @@ class DatasetMaker:
             self.many_data.append(mkdata.de_pick_data)
             self.few_data.append(mkdata.pick_data)
 
-            #mkdata.save_data()
+            mkdata.save_data()
 
     def regroup_data(self):
         print("Regrouping...")
@@ -539,7 +537,7 @@ class DatasetMaker:
 
     def save_data(self):
         tqdm.write("Saving...")
-        save_path = f"../dataset/0509/{self.dataset_name}_{self.mode}_split/"
+        save_path = f"../dataset/0509/{self.dataset_name}_split/"
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
@@ -560,13 +558,13 @@ class DatasetMaker:
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        with open(f"{self.save_path}{self.dataset_name}_log.txt", 'w') as logfile:
+        with open(f"{save_path}{self.dataset_name}_log.txt", 'w') as logfile:
             logfile.write(f"{self.dataset_name}\n"
                           f"Raw paths:\n"
-                          f"IMG: {self.img_path}\n"
-                          f"CSI: {self.csi_path}\n"
-                          f"TIME: {self.camera_time_path}\n"
-                          f"LABEL: {self.label_path}\n"
+                          f"IMG: {self.img_path}xx_img.npy\n"
+                          f"CSI: {self.csi_path}xx-csio.npy\n"
+                          f"TIME: {self.camera_time_path}xx_camtime.npy\n"
+                          f"LABEL: {self.label_path}xx_labels.csv\n"
                           f"Sources:\n"
                           f"{self.subs}\n"
                           f"Number of samples:\n"
