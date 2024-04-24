@@ -412,7 +412,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                 pick2 = [list(self.labels[gr].keys())[-1]] if pick1 == 0 else pick1 - 1
             else:
                 pick1, pick2 = pick[gr]
-            self.pick_log.append(f"group {gr}, segment {pick1} + {pick2}")
+            self.pick_log.append(f"group {gr}: segment {pick1} + {pick2}")
             for seg in self.labels[gr].keys():
                 for sample, sampledata in self.labels[gr][seg].items():
                     if not isinstance(sample, str) and sampledata:
@@ -428,7 +428,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.pick = picks
         self.de_pick = de_picks
         print('Done')
-        return pick
+        return pick, len(picks), len(de_picks)
 
     def export_data(self, filter=True, pd=True):
         """
@@ -507,9 +507,8 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                           f"TIME: {self.camera_time_path}\n"
                           f"LABEL: {self.label_path}\n"
                           f"Picked segments:\n"
-                          f"{self.pick_log}\n")
-
-        logfile.close()
+                          f"{'; '.join(self.pick_log)}\n"
+                          f"Picked length = {len(self.pick)}, De_picked length = {len(self.de_pick)}")
         print("Done")
 
 
@@ -545,6 +544,7 @@ class DatasetMaker:
         self.csi_shape = csi_shape
 
         self.picks = {sub: {} for sub in self.subs}
+        self.picked_lengths = {sub: [] for sub in self.subs}
         self.many_data = []
         self.few_data = []
         self.many_data_final: dict = {}
@@ -579,7 +579,7 @@ class DatasetMaker:
             # mkdata.convert_bbx_ctr()
             # mkdata.convert_depth()
             mkdata.pick_samples(alignment='tail')
-            self.picks[sub] = mkdata.divide_train_test(pick=self.picks[sub])
+            self.picks[sub], *self.picked_lengths[sub] = mkdata.divide_train_test(pick=self.picks[sub])
             mkdata.export_data(filter=True)
 
             self.many_data.append(mkdata.de_pick_data)
@@ -631,7 +631,12 @@ class DatasetMaker:
                           f"{self.subs}\n"
                           f"Number of samples:\n"
                           f"Many = {self.many_length}, Few = {self.few_length}\n"
-                          f"Train-Valid split:\n")
+                          f"Picked segments:\n")
+            for sub, group in self.picks.items():
+                for gr, pick in group.items():
+                    logfile.write(f"Source {sub} Group {gr} Pick {pick}\n")
+
+            logfile.write(f"Train-Valid split:\n")
 
             for mode, tv_length, test_length in (('many', self.many_length, self.few_length),
                                                  ('few', self.few_length, self.many_length)):
