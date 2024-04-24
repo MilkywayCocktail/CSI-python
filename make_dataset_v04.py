@@ -399,6 +399,8 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         :param pick: specified segment
         :return: train_pick and test_pick
         """
+        if pick is None:
+            pick = {}
         print(f'{self.name} dividing train and test...', end='')
         picks = []
         de_picks = []
@@ -409,7 +411,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                 pick1 = np.random.choice(list(self.labels[gr].keys()), 1, replace=False).astype(int)
                 pick2 = [list(self.labels[gr].keys())[-1]] if pick1 == 0 else pick1 - 1
             else:
-                pick1, pick2 = pick
+                pick1, pick2 = pick[gr]
             self.pick_log.append(f"group {gr}, segment {pick1} + {pick2}")
             for seg in self.labels[gr].keys():
                 for sample, sampledata in self.labels[gr][seg].items():
@@ -422,11 +424,11 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                             de_picks.append({'group': gr,
                                              'segment': seg,
                                              'sample': sample})
-
+            pick[gr] = [pick1, pick2]
         self.pick = picks
         self.de_pick = de_picks
         print('Done')
-        return pick1, pick2
+        return pick
 
     def export_data(self, filter=True, pd=True):
         """
@@ -550,7 +552,7 @@ class DatasetMaker:
         self.many_length = 0
         self.few_length = 0
 
-        self.modalities = ('rimg', 'csi', 'time', 'cimg', 'center', 'depth', 'pd')
+        self.modalities = ('rimg', 'csi', 'time', 'cimg', 'center', 'depth', 'pd', 'bbx')
 
     def reset_data(self):
         self.many_data = []
