@@ -303,9 +303,9 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
             aoatof[0, :] = np.unwrap(aoatof[0, :])
             aoatof[1:, :] = np.unwrap(aoatof[1:, :], axis=-1)
-            return csi, aoatof
+            return {'csi': csi, 'pd': aoatof}
         else:
-            return csi
+            return {'csi': csi}
 
     @staticmethod
     def reshape_image(img, min_area=0,
@@ -313,6 +313,8 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                       w_scale=226, h_scale=128):
         r_img = np.squeeze(img).astype('float32')
         c_img = np.zeros((128, 128))
+        average_depth = 0
+        x, y, w, h = 0, 0, 0, 0
         (T, timg) = cv2.threshold((r_img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
         contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -345,7 +347,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                     center[0] /= float(w_scale)
                     center[1] /= float(h_scale)
 
-        return r_img, c_img, average_depth, bbx, center
+        return {'rimg': r_img, 'cimg': c_img, 'depth': average_depth, 'bbx': bbx, 'center': center}
 
     def pick_samples(self, alignment=None):
         """
@@ -437,6 +439,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                       'time': (1, 1),
                       'cimg': (1, 128, 128),
                       'center': (1, 2),
+                      'bbx': (1, 4),
                       'depth': (1, 1),
                       'pd': (1, 30, self.csi_shape[1])
                       }
@@ -448,30 +451,34 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         tqdm.write(f'{self.name} exporting train data...')
         for i in tqdm(range(len(self.pick))):
             gr, seg, sample = self.pick[i].values()
-            self.pick_data['rimg'][i] = self.img[self.labels[gr][seg][sample]['img']]
-            self.pick_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
-            self.pick_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
-            self.pick_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
+            img_ret = self.reshape_image(self.img[self.labels[gr][seg][sample]['img']])
+            for key, value in img_ret.items():
+                self.pick_data[key][i] = value
+
+            csi_ret = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
+                                       filter=filter, pd=pd)
+            for key, value in csi_ret.items():
+                self.pick_data[key][i] = value
+
             self.pick_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
 
-            (self.pick_data['csi'][i],
-             self.pick_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
-                                                         filter=filter, pd=pd)
         for mod, value in self.pick_data.items():
             tqdm.write(f" Exproted picked data: {mod} of {value.shape} as {value.dtype}")
 
         tqdm.write(f'{self.name} exporting test data...')
         for i in tqdm(range(len(self.de_pick))):
             gr, seg, sample = self.de_pick[i].values()
-            self.de_pick_data['rimg'][i] = self.img[self.labels[gr][seg][sample]['img']]
-            self.de_pick_data['cimg'][i] = self.c_img[self.labels[gr][seg][sample]['img']]
-            self.de_pick_data['center'][i] = self.center[self.labels[gr][seg][sample]['img']]
-            self.de_pick_data['depth'][i] = self.depth[self.labels[gr][seg][sample]['img']]
-            self.de_pick_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
+            img_ret = self.reshape_image(self.img[self.labels[gr][seg][sample]['img']])
+            for key, value in img_ret.items():
+                self.de_pick_data[key][i] = value
 
-            (self.de_pick_data['csi'][i],
-             self.de_pick_data['pd'][i]) = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
-                                                            filter=filter, pd=pd)
+            csi_ret = self.reshape_csi(self.csi.csi[self.labels[gr][seg][sample]['csi'], ..., 0],
+                                       filter=filter, pd=pd)
+            for key, value in csi_ret.items():
+                self.de_pick_data[key][i] = value
+
+            self.de_pick_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
+            
         for mod, value in self.de_pick_data.items():
             tqdm.write(f" Exproted de_picked data: {mod} of {value.shape} as {value.dtype}")
 
