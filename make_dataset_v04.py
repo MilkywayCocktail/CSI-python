@@ -399,15 +399,15 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         :param pick: specified segment
         :return: train_pick and test_pick
         """
-        if pick is None:
-            pick = {}
+        if not pick:
+            pick: dict = {gr: [] for gr in self.labels.keys()}
         print(f'{self.name} dividing train and test...', end='')
         picks = []
         de_picks = []
 
         for gr in self.labels.keys():
             # Select 2 segments
-            if not pick:
+            if not pick[gr]:
                 pick1 = np.random.choice(list(self.labels[gr].keys()), 1, replace=False).astype(int)
                 pick2 = [list(self.labels[gr].keys())[-1]] if pick1 == 0 else pick1 - 1
             else:
@@ -544,7 +544,7 @@ class DatasetMaker:
         self.dataset_name = dataset_name
         self.csi_shape = csi_shape
 
-        self.picks = {sub: None for sub in self.subs}
+        self.picks = {sub: {} for sub in self.subs}
         self.many_data = []
         self.few_data = []
         self.many_data_final: dict = {}
