@@ -334,13 +334,13 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                 c_img[int(64 - h / 2):int(64 + h / 2), int(64 - w / 2):int(64 + w / 2)] = subject
 
                 if cvt_bbx:
-                    bbx = x, y, x + w, y + h
+                    bbx = [x, y, x + w, y + h]
                     bbx[0] /= float(w_scale)
                     bbx[2] /= float(w_scale)
                     bbx[1] /= float(h_scale)
                     bbx[3] /= float(h_scale)
                 else:
-                    bbx = x, y, w, h
+                    bbx = [x, y, w, h]
 
                 center = [int(x + w / 2), int(y + h / 2)]
                 if cvt_center:
