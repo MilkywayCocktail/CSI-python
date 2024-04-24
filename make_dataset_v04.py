@@ -478,7 +478,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                 self.de_pick_data[key][i] = value
 
             self.de_pick_data['time'][i] = self.camera_time[self.labels[gr][seg][sample]['img']]
-            
+
         for mod, value in self.de_pick_data.items():
             tqdm.write(f" Exproted de_picked data: {mod} of {value.shape} as {value.dtype}")
 
@@ -573,7 +573,7 @@ class DatasetMaker:
             mkdata.csi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1)
             mkdata.csi.extract_dynamic(mode='highpass')
             mkdata.convert_img()
-            mkdata.crop()
+            # mkdata.crop()
             mkdata.convert_bbx_ctr()
             mkdata.convert_depth()
             mkdata.pick_samples(alignment='tail')
