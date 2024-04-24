@@ -189,7 +189,7 @@ class ImageLoader:
         if self.center is not None:
             print(f'{self.name} converting center...', end='')
             self.center[..., 0] /= float(w_scale)
-            self.center[..., 1] /= float(w_scale)
+            self.center[..., 1] /= float(h_scale)
         print('Done')
 
     def convert_depth(self, threshold=3000):
@@ -306,6 +306,46 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             return csi, aoatof
         else:
             return csi
+
+    @staticmethod
+    def reshape_image(img, min_area=0,
+                      cvt_bbx=True, cvt_center=True,
+                      w_scale=226, h_scale=128):
+        r_img = np.squeeze(img).astype('float32')
+        c_img = np.zeros((128, 128))
+        (T, timg) = cv2.threshold((r_img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
+        contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        if len(contours) != 0:
+            contour = max(contours, key=lambda x: cv2.contourArea(x))
+            area = cv2.contourArea(contour)
+
+            if area < min_area:
+                # print(area)
+                pass
+            else:
+                x, y, w, h = cv2.boundingRect(contour)
+                patch = r_img[y:y + h, x:x + w]
+                non_zero = (patch != 0)
+                average_depth = patch.sum() / non_zero.sum()
+                subject = np.squeeze(r_img)[y:y + h, x:x + w]
+                c_img[int(64 - h / 2):int(64 + h / 2), int(64 - w / 2):int(64 + w / 2)] = subject
+
+                if cvt_bbx:
+                    bbx = x, y, x + w, y + h
+                    bbx[0] /= float(w_scale)
+                    bbx[2] /= float(w_scale)
+                    bbx[1] /= float(h_scale)
+                    bbx[3] /= float(h_scale)
+                else:
+                    bbx = x, y, w, h
+
+                center = [int(x + w / 2), int(y + h / 2)]
+                if cvt_center:
+                    center[0] /= float(w_scale)
+                    center[1] /= float(h_scale)
+
+        return r_img, c_img, average_depth, bbx, center
 
     def pick_samples(self, alignment=None):
         """
@@ -500,11 +540,19 @@ class DatasetMaker:
         self.few_data = []
         self.many_data_final: dict = {}
         self.few_data_final: dict = {}
-
         self.many_length = 0
         self.few_length = 0
 
         self.modalities = ('rimg', 'csi', 'time', 'cimg', 'center', 'depth', 'pd')
+
+    def reset_data(self):
+        self.many_data = []
+        self.few_data = []
+        self.many_data_final: dict = {}
+        self.few_data_final: dict = {}
+
+        self.many_length = 0
+        self.few_length = 0
 
     def make_data(self):
         for sub in self.subs:
