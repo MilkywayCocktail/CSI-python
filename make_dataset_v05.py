@@ -410,6 +410,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                         # img: 1 index
                         # CSI: list of indices
                         self.labels[gr][seg]['samples'][img_id_] = sample_csi_id
+
                 seglen = len(img_id[selected])
                 for mod, shape in modalities.items():
                     self.data[gr][seg][mod] = np.zeros((seglen, *shape))
@@ -417,7 +418,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
                 for i, ind in enumerate(img_id[selected]):
                     img_ret = self.reshape_image(self.img[ind])
-                    csi_ret = self.reshape_csi(self.csi.csi[self.labels[gr][seg][ind], ..., 0], filter=filter, pd=pd)
+                    csi_ret = self.reshape_csi(self.csi.csi[self.labels[gr][seg]['samples'][ind], ..., 0], filter=filter, pd=pd)
                     for mod, value in (*img_ret.items(), *csi_ret.items()):
                         self.data[gr][seg][mod][i] = value
                     self.data[gr][seg]['ind'][i] = ind
@@ -444,7 +445,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             for gr in tqdm(self.labels.keys()):
                 for seg in tqdm(self.labels[gr].keys(), leave=False):
                     logfile.write(f"G{gr:0>2}_S{seg:0>2}: {self.data[gr][seg]['ind']}\n")
-                    for mod in tqdm(self.labels[gr][seg].keys(), leave=False):
+                    for mod in tqdm(self.labels[gr][seg]['samples'].keys(), leave=False):
                         np.save(os.path.join(self.save_path, f"T{self.name:0>2}_G{gr:0>2}_S{seg:0>2}.npy"),
                                 self.data[gr][seg][mod])
 
