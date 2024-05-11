@@ -29,5 +29,6 @@ def timestamp2time(timestamp):
 #timestamp2time(1683623879351 / 1e3)
 
 aa = np.array([11,41,51,41,11,45,14])
-b = np.argwhere(aa>40)
-print(aa[np.squeeze(b)])
+b = np.array([True, True, False, False, True, True, False])
+
+print(', '.join(aa.astype(str)))
