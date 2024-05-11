@@ -445,7 +445,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             for gr in tqdm(self.labels.keys()):
                 for seg in tqdm(self.labels[gr].keys(), leave=False):
                     logfile.write(f"G{gr:0>2}_S{seg:0>2}: "
-                                  f"{', '.join(np.squeeze(self.data[gr][seg]['ind']).astype(str))}\n")
+                                  f"{np.squeeze(self.data[gr][seg]['ind']).astype(str)}\n")
                     for mod in tqdm(modalities.keys(), leave=False):
                         np.save(os.path.join(self.save_path, f"T{self.name:0>2}_G{gr:0>2}_S{seg:0>2}.npy"),
                                 self.data[gr][seg][mod])
