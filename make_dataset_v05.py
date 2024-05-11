@@ -444,7 +444,8 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 
             for gr in tqdm(self.labels.keys()):
                 for seg in tqdm(self.labels[gr].keys(), leave=False):
-                    logfile.write(f"G{gr:0>2}_S{seg:0>2}: {self.data[gr][seg]['ind']}\n")
+                    logfile.write(f"G{gr:0>2}_S{seg:0>2}: "
+                                  f"{', '.join(np.squeeze(self.data[gr][seg]['ind']).astype(str))}\n")
                     for mod in tqdm(modalities.keys(), leave=False):
                         np.save(os.path.join(self.save_path, f"T{self.name:0>2}_G{gr:0>2}_S{seg:0>2}.npy"),
                                 self.data[gr][seg][mod])
@@ -487,19 +488,21 @@ class DatasetMaker:
 
     def make_data(self):
         for sub in self.subs:
-            for csi_len, csi_shape in self.csi_shapes.items():
-                mkdata = MyDataMaker(name=sub, csi_configs=self.configs, img_shape=(226, 128), csi_shape=csi_shape,
-                                     img_path=f"{self.img_path}{sub}_img.npy",
-                                     camera_time_path=f"{self.camera_time_path}{sub}_camtime.npy",
-                                     csi_path=f"{self.csi_path}{sub}-csio.npy",
-                                     label_path=f"{self.label_path}{sub}_labels.csv",
-                                     save_path=f"{self.save_path}{self.dataset_name}_{csi_len}/")
-                mkdata.jupyter = self.jupyter
-                mkdata.csi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1)
-                mkdata.csi.extract_dynamic(mode='highpass')
-                mkdata.convert_img()
+            mkdata = MyDataMaker(name=sub, csi_configs=self.configs, img_shape=(226, 128), csi_shape=(2, 30, 30, 3),
+                                 img_path=f"{self.img_path}{sub}_img.npy",
+                                 camera_time_path=f"{self.camera_time_path}{sub}_camtime.npy",
+                                 csi_path=f"{self.csi_path}{sub}-csio.npy",
+                                 label_path=f"{self.label_path}{sub}_labels.csv",
+                                 save_path=f"{self.save_path}{self.dataset_name}/")
+            mkdata.jupyter = self.jupyter
+            mkdata.csi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1)
+            mkdata.csi.extract_dynamic(mode='highpass')
+            mkdata.convert_img()
                 # mkdata.crop()
                 # mkdata.convert_bbx_ctr()
                 # mkdata.convert_depth()
+            for csi_len, csi_shape in self.csi_shapes.items():
+                mkdata.save_path = f"{self.save_path}{self.dataset_name}_{csi_len}/"
+                mkdata.csi_shape = csi_shape
                 mkdata.export_data(filter=True)
                 mkdata.save_data()

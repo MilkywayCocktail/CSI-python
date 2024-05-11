@@ -31,5 +31,4 @@ def timestamp2time(timestamp):
 aa = np.array([11,41,51,41,11,45,14])
 b = np.array([True, True, False, False, True, True, False])
 
-inti = (5)
-print(*inti)
+print(', '.join(aa.astype(str)))
