@@ -411,9 +411,9 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                         # img: 1 index
                         # CSI: list of indices
                         self.labels[gr][seg]['samples'][img_id_] = sample_csi_id
-
+                seglen = len(img_id[selected])
                 for mod, shape in modalities.items():
-                    self.data[gr][seg][mod] = np.zeros((len(img_id[selected]), *shape))
+                    self.data[gr][seg][mod] = np.zeros((seglen, *shape))
 
                 for i, ind in enumerate(img_id[selected]):
                     img_ret = self.reshape_image(self.img[ind])
@@ -486,7 +486,7 @@ class DatasetMaker:
 
     def make_data(self):
         for sub in self.subs:
-            for csi_len, csi_shape in self.csi_shapes:
+            for csi_len, csi_shape in self.csi_shapes.items():
                 mkdata = MyDataMaker(name=sub, csi_configs=self.configs, img_shape=(226, 128), csi_shape=csi_shape,
                                      img_path=f"{self.img_path}{sub}_img.npy",
                                      camera_time_path=f"{self.camera_time_path}{sub}_camtime.npy",
