@@ -414,7 +414,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                 seglen = len(img_id[selected])
                 for mod, shape in modalities.items():
                     self.data[gr][seg][mod] = np.zeros((seglen, *shape))
-                self.data[gr][seg]['ind'] = np.zeros((seglen, 1))
+                self.data[gr][seg]['ind'] = np.zeros((seglen, 1), dtype=int)
 
                 for i, ind in enumerate(img_id[selected]):
                     img_ret = self.reshape_image(self.img[ind])
