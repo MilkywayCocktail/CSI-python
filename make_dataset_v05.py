@@ -29,7 +29,8 @@ modalities = {'rimg': (1, 128, 226),
               'center': (1, 2),
               'bbx': (1, 4),
               'depth': (1, 1),
-              'pd': (1, 30, 'csi_len')
+              'pd': (1, 30, 'csi_len'),
+              'ind': (1, 1)
               }
 
 ver = 'V05'
@@ -414,7 +415,6 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                 seglen = len(img_id[selected])
                 for mod, shape in modalities.items():
                     self.data[gr][seg][mod] = np.zeros((seglen, *shape))
-                self.data[gr][seg]['ind'] = np.zeros((seglen, 1), dtype=int)
 
                 for i, ind in enumerate(img_id[selected]):
                     img_ret = self.reshape_image(self.img[ind])
@@ -484,7 +484,7 @@ class DatasetMaker:
         self.dataset_name = dataset_name
         self.csi_shape = csi_shape
 
-        self.modalities = ('rimg', 'csi', 'time', 'cimg', 'center', 'depth', 'pd', 'bbx')
+        self.modalities = list(modalities.keys())
 
     def make_data(self):
         for sub in self.subs:
