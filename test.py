@@ -31,4 +31,16 @@ def timestamp2time(timestamp):
 aa = np.array([11,41,51,41,11,45,14])
 b = np.array([True, True, False, False, True, True, False])
 
-print(', '.join(aa.astype(str)))
+class foo:
+    def __init__(self):
+        self.name = 'foo'
+
+class bar:
+    def __init__(self):
+        self.name = 'bar'
+
+mycl = foo
+a = mycl()
+mycl = bar
+b = mycl()
+print(a.name, b.name)
