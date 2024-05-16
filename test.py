@@ -31,16 +31,8 @@ def timestamp2time(timestamp):
 aa = np.array([11,41,51,41,11,45,14])
 b = np.array([True, True, False, False, True, True, False])
 
-class foo:
-    def __init__(self):
-        self.name = 'foo'
+foo = np.array([[0, 1, 2], [0, 1, 2]])
 
-class bar:
-    def __init__(self):
-        self.name = 'bar'
+bar = np.array([[[1]], [[2]]])
 
-mycl = foo
-a = mycl()
-mycl = bar
-b = mycl()
-print(a.name, b.name)
+print(np.hstack((foo, bar.squeeze(axis=1))))
