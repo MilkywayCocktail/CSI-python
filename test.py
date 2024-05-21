@@ -31,4 +31,8 @@ def timestamp2time(timestamp):
 aa = np.array([11,41,51,41,11,45,14])
 b = np.array([True, True, False, False, True, True, False])
 
-print(', '.join(aa.astype(str)))
+foo = np.array([[0, 1, 2], [0, 1, 2]])
+
+bar = np.array([[[1]], [[2]]])
+
+print(np.hstack((foo, bar.squeeze(axis=1))))

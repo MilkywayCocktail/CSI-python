@@ -413,18 +413,21 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
                         self.labels[gr][seg]['samples'][img_id_] = sample_csi_id
 
                 seglen = len(img_id[selected])
-                for mod, shape in modalities.items():
-                    self.data[gr][seg][mod] = np.zeros((seglen, *shape))
+                if seglen > 0:
+                    for mod, shape in modalities.items():
+                        self.data[gr][seg][mod] = np.zeros((seglen, *shape))
 
-                for i, ind in enumerate(img_id[selected]):
-                    img_ret = self.reshape_image(self.img[ind])
-                    csi_ret = self.reshape_csi(self.csi.csi[self.labels[gr][seg]['samples'][ind], ..., 0], filter=filter, pd=pd)
-                    for mod, value in (*img_ret.items(), *csi_ret.items()):
-                        self.data[gr][seg][mod][i] = value
-                    self.data[gr][seg]['ind'][i] = ind
+                    for i, ind in enumerate(img_id[selected]):
+                        img_ret = self.reshape_image(self.img[ind])
+                        csi_ret = self.reshape_csi(self.csi.csi[self.labels[gr][seg]['samples'][ind], ..., 0], filter=filter, pd=pd)
+                        for mod, value in (*img_ret.items(), *csi_ret.items()):
+                            self.data[gr][seg][mod][i] = value
+                        self.data[gr][seg]['ind'][i] = ind
 
-                print(f" Group {gr} Segment {seg}: IMG = {start_img_id} ~ {end_img_id}, "
-                      f"CSI = {start_csi_id} ~ {end_csi_id}.")
+                    print(f" Group {gr} Segment {seg}: IMG = {start_img_id} ~ {end_img_id}, "
+                          f"CSI = {start_csi_id} ~ {end_csi_id}.")
+                else:
+                    print(f" Group {gr} Segment {seg}: No sample selected.")
 
         tqdm.write(' Done exporting')
 
