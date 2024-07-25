@@ -1,17 +1,16 @@
 import cv2
 import pyrealsense2 as rs
 import numpy as np
-import datetime
+from datetime import datetime
 import os
 import keyboard
 
 
 class MySense:
 
-    def __init__(self, savepath):
+    def __init__(self, savepath='../sense'):
         self.length = 72000  # (4min)
         self.savepath = savepath
-        self.name = 0
         self.fps = 0
         self.height = 480
         self.width = 848
@@ -28,6 +27,11 @@ class MySense:
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
+        current_date = datetime.now()
+        formatted_date = current_date.strftime('%Y%m%d')
+
+        self.savepath = os.path.join(self.savepath, formatted_date)
+
         if not os.path.exists(self.savepath):
             os.makedirs(self.savepath)
 
@@ -43,6 +47,7 @@ class MySense:
 
         while True:
             print("Press P to start recording\n"
+                  "Press Q to stop recording\n"
                   "Enter exit to exit")
 
             accept_string = input()
@@ -50,10 +55,9 @@ class MySense:
             if accept_string == 'exit':
                 print("\033[32mExiting...\033[0m")
                 return
-            else:
+            elif accept_string == 'p':
                 with self._Recorder(self.pipeline, self.config, self.savepath, self.visual_output) as r_session:
-                    r_session.record(str(self.name), self.length, self.height, self.width)
-                self.name += 1
+                    r_session.record()
 
     class _Recorder:
 
@@ -62,31 +66,35 @@ class MySense:
             self.config = config
             self.savepath = savepath
             self.localtime = localtime
+            current_time = datetime.now()
+            formatted_time = current_time.strftime('%H%M%S')
+            self.name = formatted_time
 
         def __enter__(self):
             print("\033[32mRecording in process...\033[0m")
             return self
 
-        def record(self, name, length, height, width):
+        def record(self):
 
             timefile = None
 
-            self.config.enable_record_to_file(f"{self.savepath}{name.zfill(2)}.bag")
+            self.config.enable_record_to_file(os.path.join(self.savepath, f"{self.name}.bag"))
             profile = self.pipeline.start(self.config)
 
             if self.localtime:
-                timefile = open(path + name.zfill(2) + '_timestamps.txt', mode='w', encoding='utf-8')
+                timefile = open(os.path.join(self.savepath, f"{self.name}_timestamps.txt"),
+                                mode='w', encoding='utf-8')
 
             i = 0
             while True:
 
                 frames = self.pipeline.wait_for_frames()
-                timestamp = datetime.datetime.now()
+                timestamp = datetime.now()
 
                 if self.localtime is True:
                     timefile.write(str(timestamp) + '\n')
 
-                print(f"\r{i + 1} frames recorded", end='')
+                print(f"\r{self.name}: {i + 1} frames recorded", end='')
                 i += 1
 
                 if keyboard.is_pressed('q'):
@@ -107,9 +115,7 @@ class MySense:
 
 if __name__ == '__main__':
 
-    path = '../sense/0724/'
-
-    sense = MySense(path)
+    sense = MySense()
     sense.setup()
     sense.run()
 
