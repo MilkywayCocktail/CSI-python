@@ -270,6 +270,7 @@ def unwrap_clocktime(timelist, clock_maxval=2. ** 32):
 
 def dat2npy(filename, save_path, autosave=True):
     now = datetime.datetime.now()
+    print(f'Now loading {filename}')
     if csi_parser_numba is not None:
         timelist, csilist, rssilist, permlist, bfee_countlist, noiselist, agclist, fake_rate_n_flagslist, skip_list = \
             csi_parser_numba.read_bf_file_multi(filename)

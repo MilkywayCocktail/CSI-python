@@ -280,7 +280,7 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
         self.data: dict = {}
 
     @staticmethod
-    def reshape_csi(csi, filter=True, pd=True):
+    def reshape_csi(csi, filter=True, pd=False):
         """
         Reshape CSI into channel * sub * packet.\n
         :return: reshaped (+ filtered) CSI
@@ -309,10 +309,10 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             csi_ = np.pad(csi_, ((4, 5), (0, 0), (0, 0)), 'edge')
 
             for i in range(length):
-                u1, s1, v1 = np.linalg.svd(csi_[i:i + 10].transpose(2, 1, 0).
+                u1, s1, v1 = np.linalg.svd(csi_[i:i + win_len].transpose(2, 1, 0).
                                            reshape(-1, rx, sub * win_len), full_matrices=False)
                 aoa = np.angle(u1[:, 0, 0].conj() * u1[:, 1, 0]).squeeze()
-                u2, s2, v2 = np.linalg.svd(csi_[i:i + 10].transpose(1, 2, 0).
+                u2, s2, v2 = np.linalg.svd(csi_[i:i + win_len].transpose(1, 2, 0).
                                            reshape(-1, sub, rx * win_len), full_matrices=False)
                 tof = np.angle(u2[:, :-1, 0].conj() * u2[:, 1:, 0]).squeeze()
                 aoatof[0, i] = aoa
@@ -321,6 +321,16 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
             aoatof[0, :] = np.unwrap(aoatof[0, :])
             aoatof[1:, :] = np.unwrap(aoatof[1:, :], axis=-1)
             return {'csi': csi, 'pd': aoatof}
+        # elif pd == 'filter_aoa':
+        #     k = 21
+        #     csi_ = csi_real + 1.j * csi_imag
+        #     length, sub, rx = csi_.shape
+            
+        #     u1, s1, v1 = np.linalg.svd(csi_.transpose(0, 2, 1), full_matrices=False)
+        #     aoa = np.angle(u1[:, 1:, 0] * u1[:, :-1, 0].conj()).squeeze()
+        #     aoa_md = np.zeros_like(aoa)
+        #     for i in range(aoa.shape[1]):
+        #         aoa_md[:, i] = signal.medfilt(aoa[:, i].real, k) + 1.j * signal.medfilt(tmp[:, i].imag, k)
         else:
             return {'csi': csi}
 
@@ -459,16 +469,14 @@ class MyDataMaker(ImageLoader, CSILoader, LabelParser):
 class DatasetMaker:
     version = ver
 
-    def __init__(self, subs=None, jupyter=True, dataset_name=None,
-                 csi_shape=(2, 100, 30, 3),
-                 img_path='../sense/0509/raw226_128/',
-                 camera_time_path='../sense/0509/raw226_128/',
-                 csi_path='../npsave/0509/0509A',
-                 label_path='../sense/0509/',
-                 save_path='../dataset/0509/'
+    def __init__(self,                  
+                 img_path,
+                 camera_time_path,
+                 csi_path,
+                 label_path,
+                 save_pathsubs=None, jupyter=True, dataset_name=None,
+                 csi_shape=(2, 100, 30, 3)
                  ):
-        if subs is None:
-            subs = ['01', '02', '03', '04']
 
         self.subs = subs
         self.csi_shapes = {key: (2, key, 30, 3) for key in (30, 100, 300, 900)}
@@ -501,11 +509,67 @@ class DatasetMaker:
             mkdata.csi.extract_dynamic(mode='overall-divide', ref='tx', ref_antenna=1)
             mkdata.csi.extract_dynamic(mode='highpass')
             mkdata.convert_img()
-                # mkdata.crop()
-                # mkdata.convert_bbx_ctr()
-                # mkdata.convert_depth()
+            mkdata.crop()
+            mkdata.convert_bbx_ctr()
+            mkdata.convert_depth()
             for csi_len, csi_shape in self.csi_shapes.items():
                 mkdata.save_path = f"{self.save_path}{self.dataset_name}_{csi_len}/"
                 mkdata.csi_shape = csi_shape
                 mkdata.export_data(filter=True)
                 mkdata.save_data()
+
+
+class FilterPD:
+    versio = ver
+    
+    def __init__(self, datadir, save_path):
+        self.datadir = datadir
+        self.save_path = save_path
+        self.data: dict = {}
+        self.pd: dict = {}
+        print('Loading...', end='')
+        paths = os.walk(datadir)
+        for path, _, file_lst in paths:
+            for file_name in file_lst:
+                file_name_, ext = os.path.splitext(file_name)
+                if ext == '.npy':
+                    Take, Group, Segment, modality = file_name_.split('_')
+                    if modality == 'csi':
+                        self.data[file_name.replace('csi', 'pd')] = np.load(os.path.join(path, file_name))
+        print('Done')
+        
+    def filter_pd(self, k=21):
+        print('Calculating & filtering PD...', end='')
+        def cal_pd(u):
+            pd = u[:, 1:, 0] * u[:, :-1, 0].conj()
+            md = np.zeros_like(pd)
+            for i in range(md.shape[1]):
+                md[:, i] = signal.medfilt(pd[:, i].real, k) + 1.j * signal.medfilt(pd[:, i].imag, k)
+            
+            return np.concatenate((md.real, md.imag), axis=-1).astype(np.float32)
+        
+        for key, csi in self.data.items():
+            try:
+                csi = csi[:, :3] + 1.j * csi[:, 3:]
+                u, *_ =np.linalg.svd(csi.reshape(csi.shape[0], 3, -1), 
+                             full_matrices=False)
+                aoa = cal_pd(u)
+                
+                # ToF = segment_len * 58 (real & imag of 29)
+                u, *_ =np.linalg.svd(csi.transpose(0, 2, 1, 3).reshape(csi.shape[0], 30, -1), 
+                                    full_matrices=False)
+                tof = cal_pd(u)
+                
+                self.pd[key] = np.concatenate((aoa, tof), axis=-1)
+            except Exception:
+                pass
+        print('Done')
+        
+    def save(self):
+        # Change filename to pd
+        if not os.path.exists(self.save_path):
+            os.makedirs(self.save_path)
+        print('Saving PD...', end='')
+        for key, pd in self.pd.items():
+            np.save(os.path.join(self.save_path, key), pd)
+        print('Done')
