@@ -11,14 +11,32 @@ import pycsi
 import pyrealsense2 as rs
 import yaml
 from rosbag.bag import Bag
+import rosbag
 from scipy import signal
 import cupy as cp
 from joblib import Parallel, delayed
+import multiprocessing
+from multiprocessing import Process, Queue, Manager
+from multiprocessing import Value
+#multiprocessing.set_start_method('spawn', force=True)
 
 from tqdm.notebook import tqdm
 from IPython.display import display, clear_output
 from ipywidgets import interact
 import subprocess
+
+def timer(func):
+    from functools import wraps
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print("f\n{func.__name__} total time:", end - start, "sec")
+        return result
+
+    return wrapper
 
 
 ##############################################################################
@@ -56,8 +74,10 @@ def timer(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         start = time.time()
+        print(f"Start time for {func.__name__}: {time.ctime(start)}")
         result = func(*args, **kwargs)
         end = time.time()
+        print(f"End time for {func.__name__}: {time.ctime(end)}")
         print("Total time:", end - start, "sec")
         return result
 
@@ -144,13 +164,24 @@ class Crop:
         :return: bbx, center, depth, c_img
         """
         self.bbx = np.zeros((len(images), 4), dtype=float)
-        self.center = np.zeros((len(images), 2), dtype=float)
+        self.center = np.zeros((len(images), 3), dtype=float)
         self.depth = np.zeros((len(images), 1), dtype=float)
-        self.cimg = np.zeros((len(images), 1, 128, 128), dtype=float)
+        self.cimg = np.zeros((len(images), 1, 128, 128), dtype=np.uint8)
+        
+        
+        # Handle different data types
+        if images.dtype == np.float32:
+            img_normalized = (images * 255).astype(np.uint8)
+        elif images.dtype == np.uint16:
+            img_normalized = (images / 256).astype(np.uint8)
+        else:
+            raise ValueError(f"Only float32 and uint16 are supported, got {img.dtype}")
 
         for i in tqdm(range(len(images))):
-            img = np.squeeze(images[i]).astype('float32')
-            (T, timg) = cv2.threshold((img * 255).astype(np.uint8), 1, 255, cv2.THRESH_BINARY)
+            img = np.squeeze(img_normalized[i])
+
+            # Threshold the normalized image
+            (T, timg) = cv2.threshold(img, 1, 255, cv2.THRESH_BINARY)
             contours, hierarchy = cv2.findContours(timg, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
             if len(contours) != 0:
@@ -173,7 +204,8 @@ class Crop:
                         self.bbx[i, 2] += self.bbx[i, 0]
                         self.bbx[i, 3] += self.bbx[i, 1]
                         
-                    self.center[i] = (x + w / 2) / 226, (y + h / 2) / 128
+                    # (x, y, d)
+                    self.center[i] = (x + w / 2) / 226, (y + h / 2) / 128, self.depth[i]
                     
                     image = np.pad(cropped, pad_width=((64 - h // 2,
                                                         64 - h + h //2), 
@@ -209,15 +241,29 @@ class BagLoader:
         self.depthmask = DepthMask()
         
         # Get total frames
-        print(f'{os.path.basename(self.bag_path)} retrieving bag infomation...', end='')
-        info_dict = yaml.load(Bag(bag_path, 'r')._get_yaml_info(), Loader=yaml.SafeLoader)
-        self.duration = info_dict['duration']
-        # self.num_frames = np.ceil(self.duration * 30).astype(int) # Not equal to actual number of frames
-        print(f' duration = {self.duration} seconds')
+        print(f'{os.path.basename(self.bag_path)} retrieving bag information...')
+        with Bag(bag_path, 'r') as bag:
+            info_dict = yaml.load(bag._get_yaml_info(), Loader=yaml.SafeLoader)
+            self.duration = info_dict['duration']
+            
+            # Hard-coded topic names
+            rgb_topic = '/device_0/sensor_1/Color_0/image/data'
+            depth_topic = '/device_0/sensor_0/Depth_0/image/data'
+            
+            # Extract message counts for the hard-coded topics
+            rgb_count = next((topic['messages'] for topic in info_dict['topics'] if topic['topic'] == rgb_topic), 0)
+            depth_count = next((topic['messages'] for topic in info_dict['topics'] if topic['topic'] == depth_topic), 0)
+        
+        print(f' bag duration = {self.duration} seconds\n'
+              f' bag depth frames = {depth_count}\n'
+              f' bag rgb frames = {rgb_count}')
                 
-        self.num_frames = 40000
-        self.images = np.zeros((self.num_frames, *self.img_shape[::-1]))
-        self.camera_time = np.zeros(self.num_frames)
+        # Assume num_depth = num_rgb; if not, base on depth
+        self.num_frames = depth_count
+
+        self.depth_images = np.zeros((10000, *self.img_shape[::-1]))
+        self.rgb_images = np.zeros((10000, *self.img_shape[::-1], 3))
+        self.camera_time = np.zeros(10000)
         self.camtime_delta = 0.
                 
         if local_time_path:
@@ -230,76 +276,204 @@ class BagLoader:
             
         self.config = rs.config()
         self.config.enable_device_from_file(self.bag_path, False)
+        # self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.rgb8, 30)
+        # self.config.enable_stream(rs.stream.depth, 848, 480, rs.format.z16, 30)
         self.config.enable_all_streams()
         
     def reset_images(self):
-        self.images = self.raw_images.value
+        self.depth_images = self.raw_depth_images.value
         print('Data reset!')
 
-    def export_images(self, mode='depth', depth_filter=True, show=False):
-        
-        # Pipeline
-        pipeline = rs.pipeline()
-        profile = pipeline.start(self.config)
-        playback = profile.get_device().as_playback()
-        playback.set_real_time(False)
-        
-        #self.num_frames = int(30 * playback.get_duration().total_seconds())
-        bar_format = '{desc}{percentage:3.0f}%|{bar}|[{elapsed}<{remaining}{postfix}]'
-        last_timestamp = 0
-        num_frames = 0
-        
-        with tqdm(total=self.duration, bar_format=bar_format) as _tqdm:
-            _tqdm.set_description(f'{os.path.splitext(os.path.split(self.bag_path)[1])[0]} exporting')
+    @timer
+    def export_images(self, depth_filter=True, multiprocess=True, show=False):
 
+        def capture_frames(progress_bar=None, queue=None):
+            print(f'Entering capture')
             try:
-                for i in (range(self.num_frames)):
-                    frame = pipeline.wait_for_frames(10000)
-
-                    if mode == 'depth':
-                        _frame = frame.get_depth_frame()
-                        _frame = self.filter(_frame) if depth_filter else _frame
-                    elif mode == 'color':
-                        _frame = frame.get_color_frame()
+                # Start playback        
+                pipeline = rs.pipeline()
+                profile = pipeline.start(self.config)
+                playback = profile.get_device().as_playback()
+                playback.set_real_time(False)
+                print("Pipeline started successfully.")
                         
-                    if not _frame:
+                frame_count = 0  # Counter for frames
+                tmp_timestamp = []
+                tmp_depth_image = []
+                tmp_rgb_image = []
+                
+                while frame_count < self.num_frames:
+                    # if frame_count % 30 == 0:
+                    #     print(f'Waiting for frames, count={frame_count}...')
+                    
+                    # Capture frames with increased timeout
+                    try:
+                        frame = pipeline.wait_for_frames(timeout_ms=30000)  # Increase timeout
+                    except Exception as e:
+                        print(f"Error waiting for frames: {e}")
+                        break
+
+                    depth_frame = frame.get_depth_frame()
+                    depth_frame = self.filter(depth_frame) if depth_filter else depth_frame
+
+                    rgb_frame = frame.get_color_frame()
+                        
+                    if not depth_frame or not rgb_frame:
+                        print('Skipped frame!')
                         continue
                     
-                    image = np.asanyarray(_frame.get_data())
-                    image = cv2.resize(image, self.img_shape, interpolation=cv2.INTER_AREA)
-                    
-                    self.images[i] = image
-                    self.camera_time[i] = _frame.get_timestamp() * 1.e-3
-                    
-                    if last_timestamp == 0:
-                        last_timestamp = self.camera_time[i]
+                    depth_image = np.asanyarray(depth_frame.get_data())
+                    depth_image = cv2.resize(depth_image, self.img_shape, interpolation=cv2.INTER_AREA)
 
-                    _tqdm.set_postfix({'Got frame': num_frames})
-                    _tqdm.update(self.camera_time[i] - last_timestamp)
-                    last_timestamp = self.camera_time[i]
-                    num_frames += 1
+                    # CAMERA TIMESTAMP GOES WITH DEPTH IMAGE
+                    timestamp = depth_frame.get_timestamp() * 1.e-3
                     
+                    rgb_image = np.asanyarray(rgb_frame.get_data())
+                    rgb_image = cv2.resize(rgb_image, self.img_shape, interpolation=cv2.INTER_AREA)
+                    
+                    # rgb_image = np.zeros(10)
+                    # depth_image = np.zeros(10)
+                    # timestamp = 0
+                    if queue is not None:
+                        queue.put((timestamp, depth_image, rgb_image))
+                    else:
+                        tmp_timestamp.append(timestamp)
+                        tmp_depth_image.append(depth_image)
+                        tmp_rgb_image.append(rgb_image)
+                        
+                    frame_count += 1  # Increment the frame count
+                    if progress_bar is not None:
+                        progress_bar.n = frame_count
+                        progress_bar.set_postfix({'Got frame': frame_count})
+                        progress_bar.refresh()
+                        
+                    # Show live playback if required       
                     if show:
-                        self.playback(image=image, i=i, in_iter=True)
+                        depth_display = cv2.cvtColor(depth_image, cv2.COLOR_GRAY2BGR)
+                        image = np.hstack((depth_displa, rgb_image))
+                        self.playback(image=image, in_iter=True)
                     
-            except RuntimeError as e:
-                tqdm.write(f'Done exporting {i-1} frames')
-                if str(e) != "Frame didn't arrive within 10000":
-                    tqdm.write(e)
+            except Exception as e:
+                #if str(e) != "Frame didn't arrive within 10000":
+                tqdm.write(f"Error in capture: {e}")
         
             finally:
+                print('Capture finished!')
+                if queue is not None:
+                    queue.put(None)
+                else:
+                    return tmp_timestamp, tmp_depth_image, tmp_rgb_image, frame_count
                 pipeline.stop()
-                
-        redundancy = len(set(np.where(np.all(self.images==0, axis=-1))[0]))
+            
 
-        if redundancy > 0:
-            self.images = self.images[:-redundancy]
-            self.camera_time = self.camera_time[:-redundancy]
-            self.num_frames -= redundancy
-        self.raw_images = Raw(self.images)
+        def process_frames(queue, counter, rgb_list, depth_list, timestamp_list):
+            while True:
+                data = queue.get()
+                if data is None:  # End signal
+                    print('Got none queue!')
+                    break
+                
+                timestamp, depth_image, rgb_image = data
         
-        if self.local_time_path:
-            self.calibrate_camtime()
+                # Increment the counter safely
+                with counter.get_lock():
+                    counter.value += 1
+
+                # Append to shared lists
+                timestamp_list.append(timestamp)
+                depth_list.append(depth_image)
+                rgb_list.append(rgb_image)
+                # print(f"Processed frame {counter.value}")
+            
+        # Main Process
+        bar_format = '{desc}{percentage:3.0f}%|{bar}|[{elapsed}<{remaining}{postfix}]'
+        with tqdm(total=self.num_frames, bar_format=bar_format) as progress_bar:
+            progress_bar.set_description(f'{os.path.splitext(os.path.split(self.bag_path)[1])[0]} exporting')
+            
+            if multiprocess:
+                
+                # Shared lists (multiprocessing-safe)
+                manager = multiprocessing.Manager()
+                rgb_images = manager.list()
+                depth_images = manager.list()
+                timestamps = manager.list()
+                frame_counter = Value('i', 0)
+                
+                # Shared queue for inter-process communication
+                queue = Queue(maxsize=500)
+            
+                # Start capturing process
+                capture_process = Process(target=capture_frames, args=(None, queue))
+                capture_process.start()
+            
+                # Start processing workers
+                num_workers = 4  # Number of parallel processes for processing
+                workers = []
+                for _ in range(num_workers):
+                    p = Process(target=process_frames, args=(queue, frame_counter, rgb_images, depth_images, timestamps))
+                    p.start()
+                    workers.append(p)
+                    
+                # Monitor progress from the main process
+                capture_finished = False
+                process_finished = False
+                while capture_process.is_alive() or any(p.is_alive() for p in workers):
+                    with frame_counter.get_lock():
+                        progress_bar.n = frame_counter.value  # Update progress bar with frame count
+                        progress_bar.set_postfix({'Got frame': frame_counter.value})
+                        progress_bar.refresh()
+
+                    if not capture_process.is_alive() and not capture_finished:
+                        print('Capture process finished!')
+                        capture_finished = True
+                        for _ in workers:
+                            queue.put(None)
+
+                    # Check if all worker processes have finished
+                    if not any(p.is_alive() for p in workers) and not process_finished:
+                        print('All processing workers finished!')
+                        process_finished = True
+
+                    time.sleep(0.01)  # Small delay to avoid excessive CPU usage
+                
+                # Send termination signals to worker processes
+                for _ in workers:
+                    queue.put(None)
+                    
+                # Wait for all processes to complete
+                capture_process.join()
+                for p in workers:
+                    p.join()
+                        
+            else:                   
+                # Single process
+                timestamps, depth_images, rgb_images, frame_count = capture_frames(progress_bar, None)
+                
+        
+        # Combine the data into a single structure for sorting
+        data = list(zip(timestamps, depth_images, rgb_images))
+
+        # Sort by timestamps
+        data.sort(key=lambda x: x[0])  # Sort by the first element (timestamp)
+
+        # Unpack the sorted data
+        sorted_timestamps, sorted_depth_images, sorted_rgb_images = zip(*data)
+
+        # Convert to numpy arrays
+        timestamps_array = np.array(sorted_timestamps)
+        depth_images_array = np.array(sorted_depth_images).astype(np.uint16)  # Shape: (N, H, W)
+        rgb_images_array = np.array(sorted_rgb_images).astype(np.uint8)  # Shape: (N, H, W, 3)
+        
+        self.raw_depth_images = Raw(depth_images_array)
+        
+        self.rgb_images = rgb_images_array
+        self.depth_images = depth_images_array
+        self.camera_time = timestamps_array
+        self.num_frames = frame_counter.value if multiprocess else frame_count
+        
+        #if self.local_time_path:
+        #    self.calibrate_camtime()
+    
                 
     def calibrate_camtime(self):
         print('Calibrating camera time against local time file...', end='')
@@ -314,7 +488,12 @@ class BagLoader:
         self.rawdata.set_frame_time(self.camera_time)
         print(f'Done\nlag={self.camtime_delta}')
                 
-    def playback(self, image=None, i='', in_iter=False):
+    def playback(self, image=None, mode='depth', i='', in_iter=False):
+        if mode == 'depth':
+            image = self.depth_image
+        elif mode == 'rgb':
+            image = self.rgb_image
+
         def play(img):
             plt.clf()
             plt.title(f"Image {i} of {self.num_frames}")
@@ -331,47 +510,39 @@ class BagLoader:
             play(image)
         else:
             i = 0
-            for _image in self.images:
+            for _image in image:
                 play(_image)
                 i += 1
                 
-    def browse_images(self):
-        n = len(self.images)
+    def browse_images(self, mode='depth'):
+        if mode == 'depth':
+            img = self.depth_images * 255 / 65535
+            img = np.clip(img, 0, 255).astype(np.uint8)
+        if mode == 'rgb':
+            img = self.rgb_images
+            
         def view_image(i):
-            plt.imshow(self.images[i], cmap=plt.get_cmap('Blues'))
-            plt.title(f"Image {i} of {self.num_frames}")
+            plt.imshow(img[i], cmap=plt.get_cmap('Blues'))
+            plt.title(f"{mode} image {i} of {self.num_frames}")
             plt.axis('off')
             plt.show()
-        interact(view_image, i=(0, n-1))
-                
-    def depth_mask(self, threshold=0.5, tmap=None):
-        self.images = self.depthmask(self.images, threshold, tmap)
-        
-    def threshold_depth(self, threshold=3000):
-        print(f'Thresholding IMG within {threshold}...', end='')
-        self.images[self.images > threshold] = threshold
-        print('Done')
-        
-    def clear_excessive_depth(self, threshold=3000):
-        print(f'Clearing depth > {threshold}...', end='')
-        self.images[self.images > threshold] = 0
-        print('Done')
-        
-    def normalize_depth(self, threshold=3000):
-        print(f'Normalizing depth by {threshold}...', end='')
-        self.images /= float(threshold)
-        print('Done')
+        interact(view_image, i=(0, self.num_frames-1))
 
     def save_images(self, save_path=None):
-        print("Saving...", end='')
+        
+        print(f"Saving timestamps of len {len(self.camera_time)}\n"
+              f"Saving depth images of {self.depth_images.shape}\n"
+              f"Saving rgb images of {self.rgb_images.shape}...", end='')
         if save_path:
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
             file, _ = os.path.splitext(os.path.split(self.bag_path)[1])
-            np.save(f"{save_path}{file}-rimg.npy", self.images)
+            np.save(f"{save_path}{file}-rimg.npy", self.depth_images.astype(np.uint16))
+            np.save(f"{save_path}{file}-rgbimg.npy", self.rgb_images.astype(np.uint8))
             np.save(f"{save_path}{file}-camtime.npy", self.camera_time)
         else:
-            np.save(f"{self.bag_path[:-4]}-rimg.npy", self.images)
+            np.save(f"{self.bag_path[:-4]}-rimg.npy", self.depth_images.astype(np.uint16))
+            np.save(f"{self.bag_path[:-4]}-rgbimg.npy", self.rgb_images.astype(np.uint8))
             np.save(f"{self.bag_path[:-4]}-camtime.npy", self.camera_time)
         print("Done")
 
@@ -379,15 +550,16 @@ class ImageLoader:
     # Camera time should have been calibrated
 
     def __init__(self, img_path, *args, **kwargs):
-        _, self.name = os.path.split(img_path)
+       
         self.img_path = img_path
-        self.images = self.load_images()
+        self.name = os.path.basename(self.img_path)
+        self.load_images()
         
         self.raw_images = Raw(self.images)
         
         self.bbx = None
         self.center = None
-        self.depth = None
+        
         self.cimg = None
         self.threshold_map = None
         
@@ -395,10 +567,8 @@ class ImageLoader:
         self.cropper = Crop()
 
     def load_images(self):
-        print(f'{self.name} loading IMG...')
-        images = np.load(self.img_path)
-        print(f" Loaded images of {images.shape} as {images.dtype}")
-        return images
+        self.images = np.load(self.img_path)
+        print(f" Loaded {self.name} of {self.images.shape} as {self.images.dtype}")
     
     def reset_data(self):
         self.images = self.raw_images.value
@@ -431,8 +601,9 @@ class ImageLoader:
         self.images = self.depthmask(self.images, threshold, tmap)
         
     def threshold_depth(self, threshold=3000):
-        print(f'Thresholding IMG by {threshold}...', end='')
-        self.images[self.images > threshold] = threshold
+        print(f'Thresholding IMG within {threshold}...', end='')
+        self.images = np.clip(self.images, 0, threshold)
+        self.images = (self.images * (65535 / threshold)).astype(np.uint16)
         print('Done')
         
     def clear_excessive_depth(self, threshold=3000):
@@ -451,7 +622,7 @@ class ImageLoader:
         print('Done')
         
     def save_cropped(self):
-        print('Saving...', end='')
+        print('Saving cropped...', end='')
         np.save(f"{self.img_path.replace('rimg', 'cimg')}", self.cimg)
         np.save(f"{self.img_path.replace('rimg', 'bbx')}", self.bbx)
         np.save(f"{self.img_path.replace('rimg', 'ctr')}", self.center)
@@ -459,15 +630,23 @@ class ImageLoader:
         print('Done')
         
     def save_images(self):
-        print('Saving...', end='')
+        print('Saving images...', end='')
         np.save(self.img_path, self.images)
         print('Done')
         
-    def browse_images(self):
-        n = len(self.images)
+    def browse_images(self, bound=None):
+        if bound is not None:
+            start, end = bound
+            n = end - start
+        else:
+            n = len(self.images)
+            start, end = 0, n
         def view_image(i):
-            plt.imshow(self.images[i], cmap=plt.get_cmap('Blues'))
-            plt.title(f"Image {i} of {len(self.images)}")
+            # plt.imshow(self.images[start:end][i], cmap=plt.get_cmap('Blues'))
+            plt.imshow(np.hstack((self.raw_images.value[start:end][i], 
+                                 self.images[start:end][i])),
+                       cmap=plt.get_cmap('Blues'))
+            plt.title(f"Image {i} of {n}")
             plt.axis('off')
             plt.show()
         interact(view_image, i=(0, n-1))
@@ -497,6 +676,7 @@ class CSILoader:
     def save(self):
         np.save(f"{self.csi_path.replace('csio', 'csi')}", self.csi.csi)
         np.save(f"{self.csi_path.replace('csio', 'csitime')}", self.csi.timestamps)
+        print(f"Saved {self.csi_path.replace('csio', 'csi')}!")
 
 
 class LabelLoader:
@@ -510,8 +690,9 @@ class LabelLoader:
         self.csi_time: dict = {}
         self.img_time: dict = {}
         
-        self.columns = ['env', 'subject', 'bag', 'csi', 'group', 'segment', 'timestamp', 'img_inds', 'csi_inds']
+        self.columns = ['env', 'subject', 'bag', 'csi', 'group', 'segment', 'timestamp', 'in-seg', 'img_inds', 'csi_inds']
         self.segment_labels = pd.DataFrame(columns=self.columns)
+        self.all_labels = pd.DataFrame(columns=self.columns)
         
         self.alignment = 'tail'
         self.csi_len = 300
@@ -560,7 +741,8 @@ class LabelLoader:
         """
         Match CSI and IMG by timestamps
         """
-        tqdm.write(f"{self.label_path} matching ...\n")
+        tqdm.write(f"{self.label_path} matching...\n")
+        
         def process_row(row):
             i, env, sub, bag, csi, group, segment, start, end, open, shut, *_ = row
 
@@ -587,8 +769,9 @@ class LabelLoader:
                     'group'    : [group] * len(timestamp),
                     'segment'  : [segment] * len(timestamp),
                     'timestamp': timestamp.astype(int),
-                    'img_inds'   : img_id,
-                    'csi_inds'   : csi_id
+                    'in-seg'   : [1] * len(timestamp),
+                    'img_inds' : img_id,
+                    'csi_inds' : csi_id
                 }
                 rec = pd.DataFrame(data, columns=self.columns)
                 self.segment_labels = pd.concat([self.segment_labels, rec], ignore_index=True)
@@ -602,6 +785,64 @@ class LabelLoader:
         self.segment_labels = self.segment_labels.sort_values(by='img_inds')
         tqdm.write('Environment matching done')
         
+    def match_all(self, drop_duplicate=True):
+        
+        tqdm.write(f"{self.label_path} matching all...\n")
+        
+        all_img_ids = {}
+        all_csi_ids = {}
+        
+        def compare(img_id, timestamp, label):
+            for row in label:
+                i, env, sub, bag, csi, group, segment, start, end, open, shut, *_ = row
+                if start <= timestamp and timestamp <= end:
+                    return img_id, timestamp, True
+                
+            return img_id, timestamp, False
+        
+        for subject, label in tqdm(self.labels.items()):
+            env = label['env'].unique().tolist()
+            
+            # Retrieve all bags and img_ids  
+            # Retrieve all csi_ids
+            for csi, bag in label[['csi', 'bag']].drop_duplicatges():
+                print(f"Matching {csi} and {bag}...")
+                if csi not in all_csi_ids.keys():
+                    all_csi_ids[csi] = {}
+                    
+                all_csi_ids[csi][bag] = np.searchsorted(self.csi_time[csi], self.img_time[bag])
+                all_img_ids[bag] = np.full(True, len(self.img_time[bag]))
+                
+                # Flag in-segment and out-of-segment timestamps
+                results = Parallel(n_jobs=n_jobs)(
+                    delayed(compare)(img_id, timestamp, label) for img_id, timestamp in tqdm(enumerate(self.img_time[bag]), total=len(self.img_time[bag]))
+                )
+                
+                for img_id, timestamp, flag in results:
+                    all_img_ids[bag][img_id] = flag
+                
+                data = {
+                    'env'      : [env] * len(timestamp),
+                    'subject'  : [subject] * len(timestamp),
+                    'bag'      : [bag] * len(timestamp),
+                    'csi'      : [csi] * len(timestamp),
+                    'group'    : [group] * len(timestamp),
+                    'segment'  : [segment] * len(timestamp),
+                    'timestamp': self.img_time[bag].astype(int),
+                    'in-seg'   : all_img_ids[bag],
+                    'img_inds' : np.arange(len(self.img_time[bag])),
+                    'csi_inds' : all_csi_ids[csi][bag]
+                }
+                rec = pd.DataFrame(data, columns=self.columns)
+                self.segment_labels = pd.concat([self.segment_labels, rec], ignore_index=True)
+            
+        if drop_duplicate:
+            print(f'Before dropping duplicate timestamps: {len(self.all_labels)}')
+            self.all_labels = self.all_labels.drop_duplicates(subset='timestamp')
+            print(f'After dropping duplicate timestamps: {len(self.all_labels)}')
+            
+        self.all_labels = self.all_labels.sort_values(by='timestamp')
+        tqdm.write('All matching done')
         
 class ImageSlicer:
     def __init__(self, img_path):

@@ -374,7 +374,6 @@ class MyCsi:
         self.timescale = None
         self.timestamps = None
         self.length = None
-        self.actual_sr = None
         self.labels = None
 
         self.spectrum = None
@@ -429,7 +428,6 @@ class MyCsi:
             self.csi = csi
             self.timescale = np.array(t - t[0]) / 1.e3
             self.timestamps = np.array(d)
-            self.actual_sr = self.length / (t[-1] - t[0])
             print(self.name, self.csi.shape, "load complete", time.asctime(time.localtime(time.time())))
 
     def load_label(self, path):
@@ -519,8 +517,6 @@ class MyCsi:
             self.csi = csilist
             self.timescale = timelist
         self.length = len(self.csi)
-        if self.timescale:
-            self.actual_sr = self.length / self.timescale[-1]
 
     def load_spectrum(self, input_path=None):
         """
@@ -1369,7 +1365,7 @@ class MyCsi:
             if self.csi is None:
                 raise DataError("csi data")
 
-            if not isinstance(sampling_rate, int) or sampling_rate >= self.actual_sr:
+            if not isinstance(sampling_rate, int) or sampling_rate >= 1000:
                 raise ArgError("sampling_rate: " + str(sampling_rate))
 
             new_interval = 1. / sampling_rate
@@ -1392,7 +1388,6 @@ class MyCsi:
             self.csi = self.csi[resample_indicies]
             self.timescale = self.timescale[resample_indicies]
             self.length = new_length
-            self.actual_sr = sampling_rate
 
             print("Done")
 

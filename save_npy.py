@@ -57,9 +57,8 @@ def save_npy(inpath, outpath):
     filenames = os.listdir(inpath)
 
     for file in filenames:
-        if file[-3:] == 'txt':
-            continue
-        csi = csi_loader.dat2npy(inpath + file, outpath, autosave=True)
+        if file[-3:] == 'dat':
+            csi = csi_loader.dat2npy(inpath + file, outpath, autosave=True)
 
 
 if __name__ == '__main__':
