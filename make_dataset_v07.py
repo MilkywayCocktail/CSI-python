@@ -1082,7 +1082,7 @@ class FilterCSIPD:
             self.phase: dict = {}
             self.filtered_csi: dict = {}
             for c in set(self.labels[subject].loc[:, 'csi'].values):
-                self.csi[c] = np.load(os.path.join(self.path, f'{c}-csi.npy'))[..., 0]
+                self.csi[c] = np.load(os.path.join(self.path, f'{c}-csim.npy'))[..., 0]
                 self.csitime[c] = np.load(os.path.join(self.path, f'{c}-csitime.npy')) * 1e3
                 self.phase[c] = np.zeros((self.csi[c].shape[0], 62), dtype=float)
                 self.filtered_csi[c] = self.csi[c].copy()
