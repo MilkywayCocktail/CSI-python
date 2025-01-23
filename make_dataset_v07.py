@@ -554,39 +554,37 @@ class ImageLoader:
         self.img_path = img_path
         self.name = os.path.basename(self.img_path)
         self.load_images()
-        
-        self.raw_images = Raw(self.images)
+        self.raw_images = Raw(self.rimg)
         
         self.bbx = None
         self.center = None
-        
         self.cimg = None
-        self.threshold_map = None
         
+        self.threshold_map = None
         self.depthmask = DepthMask()
         self.cropper = Crop()
 
     def load_images(self):
-        self.images = np.load(self.img_path)
-        print(f" Loaded {self.name} of {self.images.shape} as {self.images.dtype}")
+        self.rimg = np.load(self.img_path)
+        print(f" Loaded {self.name} of {self.rimg.shape} as {self.rimg.dtype}")
     
     def reset_data(self):
-        self.images = self.raw_images.value
+        self.rimg = self.raw_images.value
         self.bbx = None
-        self.center = None
-        self.depth = None
+        self.ctr = None
+        self.dpt = None
         self.cimg = None
         self.threshold_map = None
         print('Data reset!')
     
     def playback(self, compare=False):
-        for i, image in enumerate(self.images):
+        for i, image in enumerate(self.rimg):
             plt.clf()
             if compare:
                 image = np.hstack((image, self.raw[i]))
-                plt.title(f"<Masked, Raw> {i} of {len(self.images)}")
+                plt.title(f"<Masked, Raw> {i} of {len(self.rimg)}")
             else:
-                plt.title(f"Image {i} of {len(self.images)}")
+                plt.title(f"Image {i} of {len(self.rimg)}")
             plt.axis('off')
             plt.imshow(image)
             plt.show()
@@ -598,54 +596,79 @@ class ImageLoader:
                 plt.pause(0.1)
 
     def depth_mask(self, threshold=0.5, tmap=None):
-        self.images = self.depthmask(self.images, threshold, tmap)
+        self.rimg = self.depthmask(self.rimg, threshold, tmap)
+        return self.depthmask.threshold
         
     def threshold_depth(self, threshold=3000):
         print(f'Thresholding IMG within {threshold}...', end='')
-        self.images = np.clip(self.images, 0, threshold)
-        self.images = (self.images * (65535 / threshold)).astype(np.uint16)
+        self.rimg = np.clip(self.rimg, 0, threshold)
+        self.rimg = (self.rimg * (65535 / threshold)).astype(np.uint16)
         print('Done')
         
     def clear_excessive_depth(self, threshold=3000):
         print(f'Clearing depth > {threshold}...', end='')
-        self.images[self.images > threshold] = 0
+        self.rimg[self.rimg > threshold] = 0
         print('Done')
         
     def normalize_depth(self, threshold=3000):
         print(f'Normalizing depth by {threshold}...', end='')
-        self.images /= float(threshold)
+        self.rimg /= float(threshold)
         print('Done')
 
     def crop(self, min_area=0, cvt_bbx=True, show=False):
         print('Cropping...', end='')
-        self.bbx, self.center, self.depth, self.cimg = self.cropper(self.images, min_area, cvt_bbx, show)
+        self.bbx, self.ctr, self.dpt, self.cimg = self.cropper(self.rimg, min_area, cvt_bbx, show)
         print('Done')
         
-    def save_cropped(self):
-        print('Saving cropped...', end='')
-        np.save(f"{self.img_path.replace('rimg', 'cimg')}", self.cimg)
-        np.save(f"{self.img_path.replace('rimg', 'bbx')}", self.bbx)
-        np.save(f"{self.img_path.replace('rimg', 'ctr')}", self.center)
-        np.save(f"{self.img_path.replace('rimg', 'dpt')}", self.depth)
-        print('Done')
+    def export_trim(self):
+        ret = {
+            'rimg': self.rimg,
+            'cimg': self.cimg,
+            'bbx' : self.bbx,
+            'ctr' : self.ctr,
+            'dpt' : self.dpt
+        }
+        return ret
+    
+    def concat_trim(self, trimmed):
+        if not isinstance(trimmed, list):
+            trimmed = [trimmed]
+            
+        for trm in trimmed:
+            print(f"Current length = {len(self.rimg)}")
+            for item in ('rimg', 'cimg', 'bbx', 'ctr', 'dpt'):
+                setattr(self, item, np.concatenate((getattr(self, item), trm[item])))
+                
+        print(f"Current length = {len(self.rimg)}")
         
-    def save_images(self):
-        print('Saving images...', end='')
-        np.save(self.img_path, self.images)
-        print('Done')
+        
+    def save_images(self, save_path):
+        
+        for item in ('rimg', 'cimg', 'bbx', 'ctr', 'dpt'):
+            if getattr(self, item) is not None:
+                print(f'Saving {self.name} {item}...', end='')
+                np.save(os.path.join(save_path, self.name.replace('rimg', item)), getattr(self, item))
+                print('Done')
         
     def browse_images(self, bound=None):
+        
         if bound is not None:
             start, end = bound
             n = end - start
         else:
-            n = len(self.images)
+            n = len(self.rimg)
             start, end = 0, n
+            
+        if np.array_equal(self.raw_images.value[start:end], self.rimg[start:end]):
+            im = self.rimg[start:end]
+        else:
+            im = np.hstack((self.raw_images.value[start:end],
+                            self.rimg[start:end]))
+        
         def view_image(i):
-            # plt.imshow(self.images[start:end][i], cmap=plt.get_cmap('Blues'))
-            plt.imshow(np.hstack((self.raw_images.value[start:end][i], 
-                                 self.images[start:end][i])),
-                       cmap=plt.get_cmap('Blues'))
+            # plt.imshow(self.rimg[start:end][i], cmap=plt.get_cmap('Blues'))
+
+            plt.imshow(im[i], cmap=plt.get_cmap('Blues'))
             plt.title(f"Image {i} of {n}")
             plt.axis('off')
             plt.show()
