@@ -3,7 +3,6 @@ import time
 import os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import seaborn as sns
 from scipy import signal
 import csi_loader
 
