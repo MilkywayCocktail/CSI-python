@@ -1120,3 +1120,37 @@ class FilterCSIPD:
                 print(f'DONE {ph} of shape {self.phase[ph].shape}')
                 np.save(os.path.join(self.path, f"{ph}-pd.npy"), self.phase[ph])
                 np.save(os.path.join(self.path, f"{ph}-csi.npy"), self.filtered_csi[ph])
+                
+                
+class CSI2ImageLoader:
+
+    def __init__(self, csi_path,  *args, **kwargs):
+        self.csi_path = csi_path
+        self.configs = pycsi.MyConfigs()
+        self.configs.tx_rate = 0x1c113
+        self.configs.ntx = 3
+        self.csi = self.load_csi()
+        self.processed_csi = np.zeros((len(self.csi.csi), 90), dtype=float)
+        self.filtered_csi = None
+
+    def load_csi(self):
+        csi = pycsi.MyCsi(self.configs, os.path.basename(self.csi_path), self.csi_path)
+        csi.load_data(remove_sm=True)
+        return csi
+    
+    @staticmethod
+    def calc_svd(csi):
+        U, S, Vh = np.linalg.svd(np.squeeze(csi), full_matrices=False)
+        first_columns_of_V = Vh.conj().T[:, 0]  # First column of V
+        # 30 * 3
+
+        first_columns_of_V = first_columns_of_V.reshape(1, -1) # 1 * 90
+        return first_columns_of_V
+    
+    def preprocess(self):
+        for i, csi in tqdm(enumerate(self.csi.csi), total=len(self.csi.csi)):
+            self.processed_csi[i] = self.calc_svd(csi)
+        
+    def save(self):
+        np.save(f"{self.csi_path.replace('csio', 'csi2image')}", self.processed_csi)
+        print(f"Saved {self.csi_path.replace('csio', 'csi2image')} of {self.processed_csi.shape}!")
