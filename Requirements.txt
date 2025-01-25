@@ -1,0 +1,8 @@
+# Requirements
+ipykernel
+ipywidget
+joblib
+pyrealsense2
+bagpy
+tqdm
+pyyaml
